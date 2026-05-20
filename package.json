@@ -1,6 +1,8 @@
 {
   "name": "supramobile",
   "private": true,
+  "packageManager": "npm@11.9.0",
+  "workspaces": ["api", "mobile"],
   "scripts": {
     "dev": "turbo dev",
     "dev:api": "turbo dev --filter=@supramobile/api",
