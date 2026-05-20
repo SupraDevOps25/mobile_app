@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Turborepo
+.turbo/
+
+# Environment — never commit secrets
+.env
+.env.local
+.env.production
+
+# Build outputs
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

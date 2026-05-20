@@ -1,0 +1,14 @@
+{
+  "name": "supramobile",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "turbo dev --filter=@supramobile/api",
+    "dev:mobile": "turbo dev --filter=@supramobile/mobile",
+    "build:api": "turbo build --filter=@supramobile/api",
+    "install:all": "npm install --prefix api && npm install --prefix mobile"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  }
+}
