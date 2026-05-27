@@ -6,21 +6,238 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  FAMILY
+  CAREGIVER
+  ADMIN
+}
+
+enum CareType {
+  ELDERLY_CARE
+  CHILD_CARE
+  DISABILITY_CARE
+  POSTPARTUM_CARE
+  PALLIATIVE_CARE
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum ShiftStatus {
+  PENDING    // family requested, awaiting caregiver response
+  CONFIRMED  // caregiver accepted
+  DECLINED   // caregiver declined
+  CANCELLED  // cancelled after confirmation
+  COMPLETED  // shift finished
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  ABANDONED
+}
+
+enum CancellationReason {
+  CAREGIVER_UNAVAILABLE
+  FAMILY_EMERGENCY
+  SCHEDULE_CHANGE
+  HEALTH_ISSUE
+  OTHER
+}
+
+enum NotificationType {
+  SHIFT_REQUEST
+  SHIFT_CONFIRMED
+  SHIFT_DECLINED
+  SHIFT_CANCELLED
+  BACKUP_SUGGESTION
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  GENERAL
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
+  phone     String   @unique
   password  String
   firstName String
   lastName  String
-  role      Role     @default(PATIENT)
+  role      Role
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  caregiverProfile CaregiverProfile?
+  familyProfile    FamilyProfile?
+  notifications    Notification[]
+  cancellations    Cancellation[]
 
   @@map("users")
 }
 
-enum Role {
-  PATIENT
-  PROVIDER
-  ADMIN
+// ─── Caregiver Profile ────────────────────────────────────────────────────────
+
+model CaregiverProfile {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  bio                String?
+  careTypes          CareType[]
+  hourlyRate         Decimal?           @db.Decimal(10, 2)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  rating             Decimal            @default(0) @db.Decimal(3, 2)
+  totalReviews       Int                @default(0)
+  lat                Float?
+  lng                Float?
+  fcmToken           String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilitySlots AvailabilitySlot[]
+  shifts            Shift[]            @relation("CaregiverShifts")
+  backupSuggestions BackupSuggestion[]
+
+  @@map("caregiver_profiles")
+}
+
+// ─── Family Profile ───────────────────────────────────────────────────────────
+
+model FamilyProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  address   String?
+  lat       Float?
+  lng       Float?
+  fcmToken  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shifts   Shift[]   @relation("FamilyShifts")
+  payments Payment[]
+
+  @@map("family_profiles")
+}
+
+// ─── Availability ─────────────────────────────────────────────────────────────
+
+model AvailabilitySlot {
+  id          String   @id @default(uuid())
+  caregiverId String
+  startTime   DateTime
+  endTime     DateTime
+  isBooked    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  caregiver CaregiverProfile @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+  shift     Shift?
+
+  @@map("availability_slots")
+}
+
+// ─── Shifts ───────────────────────────────────────────────────────────────────
+
+model Shift {
+  id                 String      @id @default(uuid())
+  familyId           String
+  caregiverId        String
+  availabilitySlotId String?     @unique
+  careType           CareType
+  startTime          DateTime
+  endTime            DateTime
+  status             ShiftStatus @default(PENDING)
+  responseDeadline   DateTime
+  notes              String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  family            FamilyProfile     @relation("FamilyShifts", fields: [familyId], references: [id])
+  caregiver         CaregiverProfile  @relation("CaregiverShifts", fields: [caregiverId], references: [id])
+  availabilitySlot  AvailabilitySlot? @relation(fields: [availabilitySlotId], references: [id])
+  cancellation      Cancellation?
+  payment           Payment?
+  backupSuggestions BackupSuggestion[]
+
+  @@map("shifts")
+}
+
+// ─── Cancellation ─────────────────────────────────────────────────────────────
+
+model Cancellation {
+  id            String             @id @default(uuid())
+  shiftId       String             @unique
+  cancelledById String
+  reason        CancellationReason
+  notes         String?
+  createdAt     DateTime           @default(now())
+
+  shift       Shift @relation(fields: [shiftId], references: [id])
+  cancelledBy User  @relation(fields: [cancelledById], references: [id])
+
+  @@map("cancellations")
+}
+
+// ─── Backup Pool ──────────────────────────────────────────────────────────────
+
+model BackupSuggestion {
+  id          String   @id @default(uuid())
+  shiftId     String
+  caregiverId String
+  rank        Int
+  score       Float
+  createdAt   DateTime @default(now())
+
+  shift     Shift            @relation(fields: [shiftId], references: [id])
+  caregiver CaregiverProfile @relation(fields: [caregiverId], references: [id])
+
+  @@unique([shiftId, caregiverId])
+  @@map("backup_suggestions")
+}
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+
+model Payment {
+  id                 String        @id @default(uuid())
+  shiftId            String        @unique
+  familyId           String
+  amount             Decimal       @db.Decimal(10, 2)
+  currency           String        @default("GHS")
+  status             PaymentStatus @default(PENDING)
+  paystackReference  String?       @unique
+  paystackAccessCode String?
+  paystackAuthUrl    String?
+  paidAt             DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  shift  Shift         @relation(fields: [shiftId], references: [id])
+  family FamilyProfile @relation(fields: [familyId], references: [id])
+
+  @@map("payments")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id     String           @id @default(uuid())
+  userId String
+  type   NotificationType
+  title  String
+  body   String
+  isRead Boolean          @default(false)
+  sentAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }
