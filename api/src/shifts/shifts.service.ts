@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ShiftStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CancelShiftDto } from './dto/cancel-shift.dto';
 import { CreateShiftDto } from './dto/create-shift.dto';
@@ -13,7 +15,12 @@ const RESPONSE_DEADLINE_HOURS = 2;
 
 @Injectable()
 export class ShiftsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ShiftsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async requestShift(userId: string, dto: CreateShiftDto) {
     const family = await this.prisma.familyProfile.findUnique({
@@ -34,8 +41,8 @@ export class ShiftsService {
     );
 
     // Create shift and mark slot as booked atomically
-    return this.prisma.$transaction(async (tx) => {
-      const shift = await tx.shift.create({
+    const shift = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.shift.create({
         data: {
           familyId: family.id,
           caregiverId: slot.caregiverId,
@@ -55,8 +62,16 @@ export class ShiftsService {
         data: { isBooked: true },
       });
 
-      return shift;
+      return created;
     });
+
+    void this.notifications
+      .notifyShiftRequested(shift.id)
+      .catch((err: unknown) =>
+        this.logger.error('notifyShiftRequested failed', err),
+      );
+
+    return shift;
   }
 
   async findAll(userId: string, role: string) {
@@ -96,11 +111,19 @@ export class ShiftsService {
       );
     }
 
-    return this.prisma.shift.update({
+    const updated = await this.prisma.shift.update({
       where: { id: shiftId },
       data: { status: ShiftStatus.CONFIRMED },
       include: shiftIncludes,
     });
+
+    void this.notifications
+      .notifyShiftAccepted(shiftId)
+      .catch((err: unknown) =>
+        this.logger.error('notifyShiftAccepted failed', err),
+      );
+
+    return updated;
   }
 
   async decline(shiftId: string, userId: string) {
@@ -113,8 +136,8 @@ export class ShiftsService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.shift.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.shift.update({
         where: { id: shiftId },
         data: { status: ShiftStatus.DECLINED },
         include: shiftIncludes,
@@ -128,8 +151,16 @@ export class ShiftsService {
         });
       }
 
-      return updated;
+      return result;
     });
+
+    void this.notifications
+      .notifyShiftDeclined(shiftId)
+      .catch((err: unknown) =>
+        this.logger.error('notifyShiftDeclined failed', err),
+      );
+
+    return updated;
   }
 
   async cancel(shiftId: string, userId: string, dto: CancelShiftDto) {
@@ -147,8 +178,8 @@ export class ShiftsService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.shift.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.shift.update({
         where: { id: shiftId },
         data: { status: ShiftStatus.CANCELLED },
         include: shiftIncludes,
@@ -171,8 +202,16 @@ export class ShiftsService {
         });
       }
 
-      return updated;
+      return result;
     });
+
+    void this.notifications
+      .notifyShiftCancelled(shiftId, userId)
+      .catch((err: unknown) =>
+        this.logger.error('notifyShiftCancelled failed', err),
+      );
+
+    return updated;
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
