@@ -27,15 +27,17 @@ export class PaystackService {
     email: string;
     amount: number; // in pesewas (GHS smallest unit)
     reference: string;
+    callbackUrl: string;
     metadata: Record<string, string>;
   }): Promise<PaystackInitResponse> {
+    const { callbackUrl, ...rest } = params;
     const res = await fetch(`${this.baseUrl}/transaction/initialize`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.secretKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ ...params, currency: 'GHS' }),
+      body: JSON.stringify({ ...rest, currency: 'GHS', callback_url: callbackUrl }),
     });
 
     const body = (await res.json()) as {

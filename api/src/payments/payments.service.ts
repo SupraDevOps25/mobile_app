@@ -17,6 +17,7 @@ import { PaystackService } from './paystack.service';
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly webhookSecret: string;
+  private readonly callbackUrl: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -24,6 +25,7 @@ export class PaymentsService {
     config: ConfigService,
   ) {
     this.webhookSecret = config.getOrThrow<string>('PAYSTACK_WEBHOOK_SECRET');
+    this.callbackUrl = config.getOrThrow<string>('PAYSTACK_CALLBACK_URL');
   }
 
   async initialize(userId: string, dto: InitializePaymentDto) {
@@ -90,6 +92,7 @@ export class PaymentsService {
       email: family.user.email,
       amount: amountInPesewas,
       reference: payment.id,
+      callbackUrl: this.callbackUrl,
       metadata: {
         shiftId: shift.id,
         familyId: family.id,

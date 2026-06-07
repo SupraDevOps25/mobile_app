@@ -10,12 +10,12 @@ import type { Role, User } from "@/types/auth";
 
 // Decode JWT payload without an external library.
 // React Native (Hermes, RN 0.70+) provides atob globally.
-function decodeToken(token: string): { sub: string; email: string; role: string } {
+function decodeToken(token: string): { sub: string; email: string; role: string; firstName: string } {
   const payload = token.split(".")[1];
   const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
   const paddingNeeded = (4 - (base64.length % 4)) % 4;
   const padded = base64 + "==".slice(0, paddingNeeded);
-  return JSON.parse(atob(padded)) as { sub: string; email: string; role: string };
+  return JSON.parse(atob(padded)) as { sub: string; email: string; role: string; firstName: string };
 }
 
 export interface AuthContextValue {
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (stored) {
           const decoded = decodeToken(stored);
           setToken(stored);
-          setUser({ id: decoded.sub, email: decoded.email, role: decoded.role as Role });
+          setUser({ id: decoded.sub, email: decoded.email, role: decoded.role as Role, firstName: decoded.firstName ?? "" });
         }
       } finally {
         setIsLoading(false);
@@ -56,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       id: decoded.sub,
       email: decoded.email,
       role: decoded.role as Role,
+      firstName: decoded.firstName ?? "",
     };
     await SecureStore.setItemAsync("auth_token", accessToken);
     setToken(accessToken);

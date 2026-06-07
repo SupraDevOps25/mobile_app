@@ -14,7 +14,7 @@ export default function SplashScreen() {
 
     async function proceed() {
       if (token) {
-        router.replace("/home" as any);
+        router.replace("/(tabs)" as any);
         return;
       }
       try {

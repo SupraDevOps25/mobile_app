@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { CaregiversModule } from './caregivers/caregivers.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { BackupPoolModule } from './backup-pool/backup-pool.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -17,6 +18,7 @@ import { ShiftsModule } from './shifts/shifts.module';
     AuthModule,
     AvailabilityModule,
     ShiftsModule,
+    CaregiversModule,
     PaymentsModule,
     BackupPoolModule,
     NotificationsModule,

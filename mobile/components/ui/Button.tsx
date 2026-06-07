@@ -3,23 +3,24 @@ import {
   Pressable,
   type PressableProps,
   Text,
+  type ViewStyle,
 } from "react-native";
 
-export type ButtonVariant = "primary" | "navy" | "dark";
+export type ButtonVariant = "primary" | "navy" | "dark" | "destructive";
 
-interface ButtonProps extends Omit<PressableProps, "children"> {
+interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
   title: string;
   variant?: ButtonVariant;
   loading?: boolean;
   className?: string;
+  style?: ViewStyle;
 }
 
-// Hex values instead of NativeWind classes so `className` stays static
-// and never triggers NativeWind's variable-change warning.
 const BG_COLOR: Record<ButtonVariant, string> = {
-  primary: "#2563eb", // brand-btn
-  navy: "#1e3a8a",    // brand
+  primary: "#2563eb",
+  navy: "#1e3a8a",
   dark: "#000000",
+  destructive: "#dc2626",
 };
 
 export function Button({
@@ -36,7 +37,6 @@ export function Button({
   return (
     <Pressable
       disabled={isDisabled}
-      // className is always a static string — no dynamic parts
       className={`rounded-full py-4 items-center justify-center ${className}`}
       style={[
         { backgroundColor: BG_COLOR[variant], opacity: isDisabled ? 0.6 : 1 },

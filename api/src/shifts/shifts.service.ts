@@ -22,6 +22,40 @@ export class ShiftsService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  /**
+   * Instant booking — creates a CONFIRMED shift directly, bypassing the
+   * availability-slot / caregiver-accept flow. Used for immediate payment.
+   * availabilitySlotId is left null since no slot is consumed.
+   */
+  async instantBook(userId: string, dto: import('./dto/instant-book.dto').InstantBookDto) {
+    const family = await this.prisma.familyProfile.findUnique({ where: { userId } });
+    if (!family) throw new NotFoundException('Family profile not found');
+
+    const caregiver = await this.prisma.caregiverProfile.findUnique({
+      where: { id: dto.caregiverProfileId },
+    });
+    if (!caregiver) throw new NotFoundException('Caregiver not found');
+
+    const start = new Date(dto.startTime);
+    const end = new Date(dto.endTime);
+
+    const shift = await this.prisma.shift.create({
+      data: {
+        familyId: family.id,
+        caregiverId: caregiver.id,
+        careType: dto.careType,
+        startTime: start,
+        endTime: end,
+        status: ShiftStatus.CONFIRMED,
+        responseDeadline: start, // already confirmed — deadline is moot
+        notes: dto.notes,
+      },
+      include: shiftIncludes,
+    });
+
+    return shift;
+  }
+
   async requestShift(userId: string, dto: CreateShiftDto) {
     const family = await this.prisma.familyProfile.findUnique({
       where: { userId },

@@ -14,6 +14,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CancelShiftDto } from './dto/cancel-shift.dto';
 import { CreateShiftDto } from './dto/create-shift.dto';
+import { InstantBookDto } from './dto/instant-book.dto';
 import { ShiftsService } from './shifts.service';
 
 type AuthRequest = { user: { id: string; role: string } };
@@ -24,6 +25,15 @@ type AuthRequest = { user: { id: string; role: string } };
 @Controller('shifts')
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
+
+  @ApiOperation({
+    summary: 'Family instantly books a confirmed shift (bypasses availability-slot flow)',
+  })
+  @Roles('FAMILY')
+  @Post('instant-book')
+  instantBook(@Request() req: AuthRequest, @Body() dto: InstantBookDto) {
+    return this.shiftsService.instantBook(req.user.id, dto);
+  }
 
   @ApiOperation({
     summary: 'Family requests a shift from an availability slot',

@@ -57,7 +57,7 @@ export default function SignInScreen() {
       await saveSession(accessToken);
       // Reset the entire navigation stack — user cannot swipe back to auth screens
       navigation.dispatch(
-        CommonActions.reset({ index: 0, routes: [{ name: "home" }] }),
+        CommonActions.reset({ index: 0, routes: [{ name: "(tabs)" }] }),
       );
     },
     onError: (err: Error) => {

@@ -156,7 +156,7 @@ export class AuthService {
       throw new ForbiddenException('Please verify your email address before signing in');
     }
 
-    return this.signToken(user.id, user.email, user.role);
+    return this.signToken(user.id, user.email, user.role, user.firstName);
   }
 
   async getProfile(userId: string) {
@@ -179,8 +179,8 @@ export class AuthService {
     return user;
   }
 
-  private signToken(userId: string, email: string, role: string) {
-    const payload: JwtPayload = { sub: userId, email, role };
+  private signToken(userId: string, email: string, role: string, firstName: string) {
+    const payload: JwtPayload = { sub: userId, email, role, firstName };
     return { accessToken: this.jwt.sign(payload) };
   }
 
