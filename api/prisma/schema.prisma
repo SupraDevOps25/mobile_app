@@ -66,22 +66,36 @@ enum NotificationType {
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  phone     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  phone         String   @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          Role
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  caregiverProfile CaregiverProfile?
-  familyProfile    FamilyProfile?
-  notifications    Notification[]
-  cancellations    Cancellation[]
+  caregiverProfile   CaregiverProfile?
+  familyProfile      FamilyProfile?
+  notifications      Notification[]
+  cancellations      Cancellation[]
+  emailVerifications EmailVerification[]
 
   @@map("users")
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  token     String   @unique @default(uuid())
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verifications")
 }
 
 // ─── Caregiver Profile ────────────────────────────────────────────────────────
