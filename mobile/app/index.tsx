@@ -7,14 +7,16 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function SplashScreen() {
   const router = useRouter();
-  const { token, isLoading } = useAuth();
+  const { token, user, isLoading } = useAuth();
 
   useEffect(() => {
     if (isLoading) return; // wait for SecureStore to rehydrate
 
     async function proceed() {
       if (token) {
-        router.replace("/(tabs)" as any);
+        // Caregivers and families land on different tab groups
+        const home = user?.role === "CAREGIVER" ? "/(caregiver-tabs)" : "/(tabs)";
+        router.replace(home as any);
         return;
       }
       try {
@@ -25,7 +27,7 @@ export default function SplashScreen() {
       }
     }
     void proceed();
-  }, [isLoading, token, router]);
+  }, [isLoading, token, user?.role, router]);
 
   return (
     <View className="flex-1 bg-brand items-center justify-center">

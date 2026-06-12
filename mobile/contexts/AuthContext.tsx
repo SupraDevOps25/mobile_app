@@ -22,7 +22,7 @@ export interface AuthContextValue {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  saveSession: (accessToken: string) => Promise<void>;
+  saveSession: (accessToken: string) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -61,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.setItemAsync("auth_token", accessToken);
     setToken(accessToken);
     setUser(newUser);
+    return newUser;
   }, []);
 
   const logout = useCallback(async () => {

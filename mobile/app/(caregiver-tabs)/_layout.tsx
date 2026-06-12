@@ -11,12 +11,12 @@ function icon(active: keyof typeof Ionicons.glyphMap, inactive: keyof typeof Ion
   return TabBarIcon;
 }
 
-export default function TabLayout() {
+export default function CaregiverTabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#1e3a8a",
+        tabBarActiveTintColor: "#16a34a",
         tabBarInactiveTintColor: "#9ca3af",
         tabBarStyle: {
           backgroundColor: "#ffffff",
@@ -40,24 +40,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="schedule"
         options={{
-          title: "Search",
-          tabBarIcon: icon("search", "search-outline"),
-        }}
-      />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          title: "Bookings",
+          title: "Schedule",
           tabBarIcon: icon("calendar", "calendar-outline"),
         }}
       />
       <Tabs.Screen
-        name="messages"
+        name="visits"
         options={{
-          title: "Messages",
-          tabBarIcon: icon("chatbubble", "chatbubble-outline"),
+          title: "Visits",
+          tabBarIcon: icon("medkit", "medkit-outline"),
+        }}
+      />
+      <Tabs.Screen
+        name="earnings"
+        options={{
+          title: "Earnings",
+          tabBarIcon: icon("cash", "cash-outline"),
         }}
       />
       <Tabs.Screen
@@ -67,6 +67,8 @@ export default function TabLayout() {
           tabBarIcon: icon("person", "person-outline"),
         }}
       />
+      {/* Hidden from the tab bar — opened via navigation with ?id=… */}
+      <Tabs.Screen name="active-visit" options={{ href: null }} />
     </Tabs>
   );
 }

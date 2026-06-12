@@ -57,6 +57,8 @@ export default function BookingScreen() {
     .filter((d) => d.available)
     .map((d) => DAY_MAP[d.short]);
 
+  const hasNoAvailability = availableDays.length === 0;
+
   return (
     <View className="flex-1 bg-white">
       {/* Header */}
@@ -87,50 +89,69 @@ export default function BookingScreen() {
           onChangeCaregiver={() => router.back()}
         />
 
-        {/* Calendar section */}
-        <View className="px-5 mt-6">
-          <Text className="text-foreground font-semibold mb-4" style={{ fontSize: 15 }}>
-            Select a date
-          </Text>
-          <MonthCalendar
-            selectedDate={selectedDate}
-            onSelectDate={(d) => {
-              setSelectedDate(d);
-              setSelectedTime(null); // reset time when date changes
-            }}
-            availableDays={availableDays}
-          />
-        </View>
-
-        {/* Time slots */}
-        <View className="px-5 mt-6">
-          <Text className="text-foreground font-semibold mb-3" style={{ fontSize: 15 }}>
-            Available time slots
-          </Text>
-          {selectedDate === null ? (
-            <Text className="text-muted" style={{ fontSize: 13 }}>
-              Select a date first to see available times.
+        {/* No availability notice */}
+        {hasNoAvailability && (
+          <View
+            className="mx-5 mt-6 rounded-2xl px-5 py-5 items-center"
+            style={{ backgroundColor: "#fef9c3", borderWidth: 1, borderColor: "#fde047" }}
+          >
+            <Ionicons name="calendar-outline" size={32} color="#ca8a04" style={{ marginBottom: 12 }} />
+            <Text className="font-semibold text-center mb-1" style={{ fontSize: 15, color: "#854d0e" }}>
+              No availability set
             </Text>
-          ) : (
-            <TimeSlotPicker
-              slots={TIME_SLOTS}
-              selectedTime={selectedTime}
-              onSelectTime={setSelectedTime}
-            />
-          )}
-        </View>
+            <Text className="text-center" style={{ fontSize: 13, color: "#92400e", lineHeight: 20 }}>
+              {caregiver.name} hasn&apos;t configured their schedule yet.
+              Please check back later or choose another caregiver.
+            </Text>
+          </View>
+        )}
 
-        {/* Duration */}
-        <View className="px-5 mt-6">
-          <Text className="text-foreground font-semibold mb-3" style={{ fontSize: 15 }}>
-            Duration
-          </Text>
-          <DurationPicker
-            durations={DURATIONS}
-            selected={selectedDuration}
-            onSelect={setSelectedDuration}
-          />
-        </View>
+        {/* Calendar + time + duration — only shown when caregiver has availability */}
+        {!hasNoAvailability && (
+          <>
+            <View className="px-5 mt-6">
+              <Text className="text-foreground font-semibold mb-4" style={{ fontSize: 15 }}>
+                Select a date
+              </Text>
+              <MonthCalendar
+                selectedDate={selectedDate}
+                onSelectDate={(d) => {
+                  setSelectedDate(d);
+                  setSelectedTime(null);
+                }}
+                availableDays={availableDays}
+              />
+            </View>
+
+            <View className="px-5 mt-6">
+              <Text className="text-foreground font-semibold mb-3" style={{ fontSize: 15 }}>
+                Available time slots
+              </Text>
+              {selectedDate === null ? (
+                <Text className="text-muted" style={{ fontSize: 13 }}>
+                  Select a date first to see available times.
+                </Text>
+              ) : (
+                <TimeSlotPicker
+                  slots={TIME_SLOTS}
+                  selectedTime={selectedTime}
+                  onSelectTime={setSelectedTime}
+                />
+              )}
+            </View>
+
+            <View className="px-5 mt-6">
+              <Text className="text-foreground font-semibold mb-3" style={{ fontSize: 15 }}>
+                Duration
+              </Text>
+              <DurationPicker
+                durations={DURATIONS}
+                selected={selectedDuration}
+                onSelect={setSelectedDuration}
+              />
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Sticky footer */}

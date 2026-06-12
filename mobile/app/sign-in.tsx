@@ -54,10 +54,12 @@ export default function SignInScreen() {
       return authService.login({ emailOrPhone, password: values.password });
     },
     onSuccess: async ({ accessToken }) => {
-      await saveSession(accessToken);
+      const user = await saveSession(accessToken);
+      // Caregivers and families land on different tab groups
+      const home = user.role === "CAREGIVER" ? "(caregiver-tabs)" : "(tabs)";
       // Reset the entire navigation stack — user cannot swipe back to auth screens
       navigation.dispatch(
-        CommonActions.reset({ index: 0, routes: [{ name: "(tabs)" }] }),
+        CommonActions.reset({ index: 0, routes: [{ name: home }] }),
       );
     },
     onError: (err: Error) => {
