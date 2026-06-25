@@ -40,17 +40,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
-        options={{
-          title: "Search",
-          tabBarIcon: icon("search", "search-outline"),
-        }}
-      />
-      <Tabs.Screen
         name="bookings"
         options={{
-          title: "Bookings",
-          tabBarIcon: icon("calendar", "calendar-outline"),
+          title: "Care",
+          tabBarIcon: icon("heart", "heart-outline"),
         }}
       />
       <Tabs.Screen
@@ -58,6 +51,13 @@ export default function TabLayout() {
         options={{
           title: "Messages",
           tabBarIcon: icon("chatbubble", "chatbubble-outline"),
+        }}
+      />
+      <Tabs.Screen
+        name="help"
+        options={{
+          title: "Help",
+          tabBarIcon: icon("help-circle", "help-circle-outline"),
         }}
       />
       <Tabs.Screen

@@ -19,99 +19,14 @@ export class NotificationsService {
     this.twilioFrom = config.get<string>('TWILIO_WHATSAPP_FROM');
   }
 
-  // ─── Shift event triggers ─────────────────────────────────────────────────
+  // ─── Public API ───────────────────────────────────────────────────────────
 
-  async notifyShiftRequested(shiftId: string): Promise<void> {
-    const shift = await this.loadShift(shiftId);
-    if (!shift) return;
-
-    const { startTime } = shift;
-    const familyName = `${shift.family.user.firstName} ${shift.family.user.lastName}`;
-    const title = 'New Shift Request';
-    const body = `${familyName} has requested your care services on ${this.formatDate(startTime)}.`;
-
-    await this.sendToUser({
-      userId: shift.caregiver.userId,
-      pushToken: shift.caregiver.fcmToken,
-      phone: shift.caregiver.user.phone,
-      type: NotificationType.SHIFT_REQUEST,
-      title,
-      body,
-    });
-  }
-
-  async notifyShiftAccepted(shiftId: string): Promise<void> {
-    const shift = await this.loadShift(shiftId);
-    if (!shift) return;
-
-    const caregiverName = `${shift.caregiver.user.firstName} ${shift.caregiver.user.lastName}`;
-    const title = 'Shift Confirmed!';
-    const body = `${caregiverName} has accepted your shift request for ${this.formatDate(shift.startTime)}.`;
-
-    await this.sendToUser({
-      userId: shift.family.userId,
-      pushToken: shift.family.fcmToken,
-      phone: shift.family.user.phone,
-      type: NotificationType.SHIFT_CONFIRMED,
-      title,
-      body,
-    });
-  }
-
-  async notifyShiftDeclined(shiftId: string): Promise<void> {
-    const shift = await this.loadShift(shiftId);
-    if (!shift) return;
-
-    const title = 'Shift Request Declined';
-    const body = `Your shift request for ${this.formatDate(shift.startTime)} was declined. Check backup caregivers.`;
-
-    await this.sendToUser({
-      userId: shift.family.userId,
-      pushToken: shift.family.fcmToken,
-      phone: shift.family.user.phone,
-      type: NotificationType.SHIFT_DECLINED,
-      title,
-      body,
-    });
-  }
-
-  async notifyShiftCancelled(
-    shiftId: string,
-    cancelledByUserId: string,
-  ): Promise<void> {
-    const shift = await this.loadShift(shiftId);
-    if (!shift) return;
-
-    const cancelledByCaregiver = shift.caregiver.userId === cancelledByUserId;
-
-    if (cancelledByCaregiver) {
-      // Notify the family
-      const body = `Your shift for ${this.formatDate(shift.startTime)} was cancelled by the caregiver. Check backup caregivers.`;
-      await this.sendToUser({
-        userId: shift.family.userId,
-        pushToken: shift.family.fcmToken,
-        phone: shift.family.user.phone,
-        type: NotificationType.SHIFT_CANCELLED,
-        title: 'Shift Cancelled',
-        body,
-      });
-    } else {
-      // Notify the caregiver
-      const body = `The shift for ${this.formatDate(shift.startTime)} was cancelled by the family.`;
-      await this.sendToUser({
-        userId: shift.caregiver.userId,
-        pushToken: shift.caregiver.fcmToken,
-        phone: shift.caregiver.user.phone,
-        type: NotificationType.SHIFT_CANCELLED,
-        title: 'Shift Cancelled',
-        body,
-      });
-    }
-  }
-
-  // ─── Manual send (admin use) ──────────────────────────────────────────────
-
-  async sendManual(params: {
+  /**
+   * Send a notification to a user by id. Resolves their push token, attempts
+   * Expo push, falls back to WhatsApp, and records the notification. Feature
+   * modules call this for domain events (assignment offers, activation, etc.).
+   */
+  async notify(params: {
     userId: string;
     type: NotificationType;
     title: string;
@@ -137,6 +52,16 @@ export class NotificationsService {
       title: params.title,
       body: params.body,
     });
+  }
+
+  /** Admin manual send (same pipeline as notify). */
+  async sendManual(params: {
+    userId: string;
+    type: NotificationType;
+    title: string;
+    body: string;
+  }): Promise<void> {
+    await this.notify(params);
   }
 
   // ─── Core delivery pipeline ───────────────────────────────────────────────
@@ -260,25 +185,5 @@ export class NotificationsService {
       .catch((err: unknown) =>
         this.logger.error('Failed to log notification', err),
       );
-  }
-
-  private async loadShift(shiftId: string) {
-    return this.prisma.shift.findUnique({
-      where: { id: shiftId },
-      include: {
-        caregiver: { include: { user: true } },
-        family: { include: { user: true } },
-      },
-    });
-  }
-
-  private formatDate(date: Date): string {
-    return date.toLocaleString('en-GH', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   }
 }

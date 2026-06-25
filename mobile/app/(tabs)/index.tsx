@@ -1,30 +1,15 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CaregiverCard } from "@/components/home/CaregiverCard";
+import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
 import { CTABanner } from "@/components/home/CTABanner";
-import { SearchBar } from "@/components/home/SearchBar";
 import { SectionHeader } from "@/components/home/SectionHeader";
-import { ServiceCard } from "@/components/home/ServiceCard";
-import { NEARBY_CAREGIVERS, SERVICES, type Caregiver } from "@/constants/mock-data";
+import { PackageCard } from "@/components/packages/PackageCard";
+import { getActiveSubscription } from "@/constants/care";
+import { SERVICE_PACKAGES } from "@/constants/packages";
 import { useAuth } from "@/hooks/useAuth";
-import { caregiverService, type CaregiverSummary } from "@/services/caregiver.service";
-
-function summaryToCaregiver(s: CaregiverSummary): Caregiver {
-  return {
-    id: s.profileId, // profileId becomes the route id for real caregivers
-    name: s.name,
-    role: s.role,
-    yearsExp: s.yearsExp,
-    rating: s.rating,
-    availability: s.availability,
-    initials: s.initials,
-    avatarColor: s.avatarColor,
-  };
-}
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -36,20 +21,9 @@ function getGreeting() {
 export default function HomeScreen() {
   const { top } = useSafeAreaInsets();
   const { user } = useAuth();
-  const [search, setSearch] = useState("");
+  const router = useRouter();
 
-  const { data: apiCaregivers } = useQuery({
-    queryKey: ["caregivers"],
-    queryFn: caregiverService.listAll,
-    retry: false, // fall back to mock on any error
-  });
-
-  // Use real caregivers when available; fall back to mock while loading or if empty
-  const caregivers: Caregiver[] =
-    apiCaregivers && apiCaregivers.length > 0
-      ? apiCaregivers.map(summaryToCaregiver)
-      : NEARBY_CAREGIVERS;
-
+  const subscription = getActiveSubscription();
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
 
@@ -92,47 +66,50 @@ export default function HomeScreen() {
           {getGreeting()}, {firstName}
         </Text>
         <Text className="text-muted" style={{ fontSize: 14, marginTop: 4 }}>
-          What care do you need today?
+          {subscription
+            ? "Here's your care at a glance."
+            : "Personalized homecare for your loved ones."}
         </Text>
       </View>
 
-      {/* Search */}
+      {/* Active plan summary, or the get-started CTA */}
       <View className="px-5 mb-6">
-        <SearchBar value={search} onChangeText={setSearch} />
+        {subscription ? (
+          <ActiveCarePlanCard subscription={subscription} />
+        ) : (
+          <CTABanner />
+        )}
       </View>
 
-      {/* Services */}
-      <View className="px-5 mb-6">
-        <SectionHeader
-          title="Our services"
-          onSeeAll={() => Alert.alert("Coming soon")}
-        />
-        <View style={{ gap: 12 }}>
-          <View className="flex-row" style={{ gap: 12 }}>
-            <ServiceCard service={SERVICES[0]} />
-            <ServiceCard service={SERVICES[1]} />
-          </View>
-          <View className="flex-row" style={{ gap: 12 }}>
-            <ServiceCard service={SERVICES[2]} />
-            <ServiceCard service={SERVICES[3]} />
-          </View>
-        </View>
-      </View>
-
-      {/* CTA Banner */}
-      <View className="px-5 mb-6">
-        <CTABanner />
-      </View>
-
-      {/* Available Near You */}
+      {/* Packages */}
       <View className="px-5">
         <SectionHeader
-          title="Available near you"
-          onSeeAll={() => Alert.alert("Coming soon")}
+          title="Our care packages"
+          onSeeAll={() => router.push("/packages" as any)}
         />
-        {caregivers.map((caregiver) => (
-          <CaregiverCard key={caregiver.id} caregiver={caregiver} />
+        {SERVICE_PACKAGES.map((pkg) => (
+          <PackageCard
+            key={pkg.id}
+            pkg={pkg}
+            onPress={(p) => router.push(`/packages/${p.id}` as any)}
+          />
         ))}
+      </View>
+
+      {/* How it works */}
+      <View className="px-5 mt-2">
+        <View
+          className="flex-row rounded-2xl p-4"
+          style={{ backgroundColor: "#eff6ff" }}
+        >
+          <Ionicons name="shield-checkmark-outline" size={18} color="#2563eb" />
+          <Text
+            style={{ color: "#1d4ed8", fontSize: 12, lineHeight: 18, marginLeft: 8, flex: 1 }}
+          >
+            You choose a package — Supracarer assigns and coordinates a dedicated
+            care team, including a Care Coordinator and backup nurses.
+          </Text>
+        </View>
       </View>
     </ScrollView>
   );

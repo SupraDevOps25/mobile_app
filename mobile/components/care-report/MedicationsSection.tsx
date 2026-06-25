@@ -1,9 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Alert, Pressable, Text, View } from "react-native";
-import type { MedicationItem } from "@/constants/visit-details";
+import type { Medication } from "@/constants/nurse-cases";
 
 type Props = {
-  medications: MedicationItem[];
+  medications: Medication[];
   given: string[]; // ids of medications marked as administered
   onToggle: (id: string) => void;
 };

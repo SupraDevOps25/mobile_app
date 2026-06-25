@@ -3,16 +3,19 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AssignmentOfferCard } from "@/components/caregiver-home/AssignmentOfferCard";
 import { GreetingCard } from "@/components/caregiver-home/GreetingCard";
 import { StatCard } from "@/components/caregiver-home/StatCard";
 import { UpcomingVisitRow } from "@/components/caregiver-home/UpcomingVisitRow";
-import { VisitRequestCard } from "@/components/caregiver-home/VisitRequestCard";
-import {
-  CAREGIVER_STATS,
-  NEW_VISIT_REQUESTS,
-  UPCOMING_VISITS,
-} from "@/constants/caregiver-dashboard";
+import { ASSIGNMENT_OFFERS } from "@/constants/assignments";
+import { CAREGIVER_STATS, type UpcomingVisit } from "@/constants/caregiver-dashboard";
+import { getUpcomingVisits } from "@/constants/nurse-cases";
 import { useAuth } from "@/hooks/useAuth";
+
+const MONTHS = [
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+];
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -38,6 +41,7 @@ export default function CaregiverHomeScreen() {
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
   const stats = CAREGIVER_STATS;
+  const upcoming = getUpcomingVisits();
 
   return (
     <ScrollView
@@ -65,7 +69,7 @@ export default function CaregiverHomeScreen() {
             hitSlop={8}
           >
             <Ionicons name="notifications-outline" size={24} color="#374151" />
-            {NEW_VISIT_REQUESTS.length > 0 && (
+            {ASSIGNMENT_OFFERS.length > 0 && (
               <View
                 className="absolute rounded-full"
                 style={{
@@ -96,7 +100,7 @@ export default function CaregiverHomeScreen() {
           firstName={firstName}
           initials={initials}
           dateLabel={getDateLabel()}
-          newRequestCount={NEW_VISIT_REQUESTS.length}
+          offerCount={ASSIGNMENT_OFFERS.length}
         />
       </View>
 
@@ -120,31 +124,21 @@ export default function CaregiverHomeScreen() {
         />
       </View>
 
-      {/* New requests */}
+      {/* Assignment offers */}
       <View className="px-5 mb-3">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-foreground text-lg font-bold">New requests</Text>
+          <Text className="text-foreground text-lg font-bold">Assignment offers</Text>
           <Pressable onPress={() => Alert.alert("Coming soon")} hitSlop={8}>
             <Text style={{ color: "#16a34a", fontSize: 13, fontWeight: "600" }}>
               See all
             </Text>
           </Pressable>
         </View>
-        {NEW_VISIT_REQUESTS.map((request) => (
-          <VisitRequestCard
-            key={request.id}
-            request={request}
-            onPress={(r) => router.push(`/visit-request/${r.id}` as any)}
-            onDecline={(r) =>
-              Alert.alert(
-                "Decline visit",
-                `Decline the visit for ${r.familyName}? It will be offered to another caregiver.`,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Decline", style: "destructive" },
-                ],
-              )
-            }
+        {ASSIGNMENT_OFFERS.map((assignment) => (
+          <AssignmentOfferCard
+            key={assignment.id}
+            assignment={assignment}
+            onPress={(a) => router.push(`/assignment/${a.id}` as any)}
           />
         ))}
       </View>
@@ -161,29 +155,42 @@ export default function CaregiverHomeScreen() {
             </Text>
           </Pressable>
         </View>
-        {UPCOMING_VISITS.map((visit) => (
-          <UpcomingVisitRow
-            key={visit.id}
-            visit={visit}
-            onPress={(v) =>
-              Alert.alert(
-                "Start visit",
-                `Start your visit with ${v.familyName} now?`,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Start visit",
-                    onPress: () =>
-                      router.push({
-                        pathname: "/(caregiver-tabs)/active-visit" as any,
-                        params: { id: v.id },
-                      }),
-                  },
-                ],
-              )
-            }
-          />
-        ))}
+        {upcoming.map(({ visit, nurseCase }) => {
+          const d = new Date(visit.date);
+          const vm: UpcomingVisit = {
+            id: visit.id,
+            dayOfMonth: d.getDate(),
+            month: MONTHS[d.getMonth()],
+            familyName: nurseCase.client.name,
+            careType: nurseCase.careType,
+            time: visit.time,
+            durationHrs: visit.durationHrs,
+            tag: visit.tag,
+          };
+          return (
+            <UpcomingVisitRow
+              key={visit.id}
+              visit={vm}
+              onPress={(v) =>
+                Alert.alert(
+                  "Start visit",
+                  `Start your visit with ${v.familyName} now?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Start visit",
+                      onPress: () =>
+                        router.push({
+                          pathname: "/(caregiver-tabs)/active-visit" as any,
+                          params: { id: v.id },
+                        }),
+                    },
+                  ],
+                )
+              }
+            />
+          );
+        })}
       </View>
     </ScrollView>
   );

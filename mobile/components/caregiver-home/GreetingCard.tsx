@@ -5,7 +5,7 @@ type Props = {
   firstName: string;
   initials: string;
   dateLabel: string;
-  newRequestCount: number;
+  offerCount: number;
 };
 
 export function GreetingCard({
@@ -13,7 +13,7 @@ export function GreetingCard({
   firstName,
   initials,
   dateLabel,
-  newRequestCount,
+  offerCount,
 }: Props) {
   return (
     <View
@@ -39,7 +39,7 @@ export function GreetingCard({
         </View>
       </View>
 
-      {newRequestCount > 0 && (
+      {offerCount > 0 && (
         <View
           className="flex-row items-center self-start rounded-full px-3 py-1.5 mt-4"
           style={{ backgroundColor: "rgba(22, 163, 74, 0.25)" }}
@@ -49,7 +49,7 @@ export function GreetingCard({
             style={{ width: 6, height: 6, backgroundColor: "#4ade80" }}
           />
           <Text style={{ color: "#4ade80", fontSize: 12, fontWeight: "600" }}>
-            {newRequestCount} new visit request{newRequestCount > 1 ? "s" : ""}
+            {offerCount} new assignment offer{offerCount > 1 ? "s" : ""}
           </Text>
         </View>
       )}

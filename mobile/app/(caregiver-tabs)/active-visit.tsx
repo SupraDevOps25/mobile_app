@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { QuickLogGrid } from "@/components/active-visit/QuickLogGrid";
 import { TimerCard } from "@/components/active-visit/TimerCard";
-import { getVisitDetail } from "@/constants/visit-details";
+import { getNurseVisit } from "@/constants/nurse-cases";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -31,17 +31,20 @@ export default function ActiveVisitScreen() {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
 
-  const visit = getVisitDetail(id);
+  const data = getNurseVisit(id);
   const [logged, setLogged] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
 
-  if (!visit) {
+  if (!data) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <Text className="text-muted">No active visit.</Text>
       </View>
     );
   }
+
+  const { visit, nurseCase } = data;
+  const client = nurseCase.client;
 
   function toggleLog(itemId: string) {
     setLogged((prev) =>
@@ -59,7 +62,7 @@ export default function ActiveVisitScreen() {
           text: "End visit",
           onPress: () =>
             router.push({
-              pathname: `/care-report/${visit!.id}` as any,
+              pathname: `/care-report/${visit.id}` as any,
               params: { notes },
             }),
         },
@@ -109,18 +112,18 @@ export default function ActiveVisitScreen() {
           <View className="flex-row items-center">
             <View
               className="w-11 h-11 rounded-full items-center justify-center"
-              style={{ backgroundColor: visit.avatarColor }}
+              style={{ backgroundColor: client.avatarColor }}
             >
               <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-                {visit.initials}
+                {client.initials}
               </Text>
             </View>
             <View className="flex-1 ml-3">
               <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
-                {visit.patientName}
+                {client.name}
               </Text>
               <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
-                {visit.age} yrs · {visit.service}
+                {client.age} yrs · {nurseCase.careType}
               </Text>
             </View>
             <Pressable
@@ -141,14 +144,14 @@ export default function ActiveVisitScreen() {
             </Pressable>
           </View>
           <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
-            {visit.conditions.map((c) => (
+            {client.conditions.map((c) => (
               <View
-                key={c.label}
+                key={c}
                 className="rounded-full px-3 py-1"
-                style={{ backgroundColor: c.bg }}
+                style={{ backgroundColor: "#f3f4f6" }}
               >
-                <Text style={{ color: c.color, fontSize: 11, fontWeight: "600" }}>
-                  {c.label}
+                <Text style={{ color: "#374151", fontSize: 11, fontWeight: "600" }}>
+                  {c}
                 </Text>
               </View>
             ))}

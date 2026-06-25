@@ -16,7 +16,7 @@ import { MedicationsSection } from "@/components/care-report/MedicationsSection"
 import { MoodSelector, type Mood } from "@/components/care-report/MoodSelector";
 import { ToggleRow } from "@/components/care-report/ToggleRow";
 import { VitalsGrid, type Vitals } from "@/components/care-report/VitalsGrid";
-import { getVisitDetail } from "@/constants/visit-details";
+import { getNurseVisit } from "@/constants/nurse-cases";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -59,7 +59,7 @@ export default function CareReportScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const visit = getVisitDetail(id);
+  const data = getNurseVisit(id);
 
   // Care notes typed during the active visit prefill the summary
   const [summary, setSummary] = useState(notes ?? "");
@@ -71,19 +71,22 @@ export default function CareReportScreen() {
     temperature: "",
   });
   const [givenMeds, setGivenMeds] = useState<string[]>(
-    visit ? visit.medications.map((m) => m.id) : [],
+    data ? data.nurseCase.client.medications.map((m) => m.id) : [],
   );
   const [mood, setMood] = useState<Mood | null>(null);
   const [followUp, setFollowUp] = useState(true);
   const [escalation, setEscalation] = useState(false);
 
-  if (!visit) {
+  if (!data) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <Text className="text-muted">Visit not found.</Text>
       </View>
     );
   }
+
+  const { visit, nurseCase } = data;
+  const client = nurseCase.client;
 
   function toggleMed(medId: string) {
     setGivenMeds((prev) =>
@@ -163,18 +166,18 @@ export default function CareReportScreen() {
           >
             <View
               className="w-11 h-11 rounded-full items-center justify-center"
-              style={{ backgroundColor: visit.avatarColor }}
+              style={{ backgroundColor: client.avatarColor }}
             >
               <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-                {visit.initials}
+                {client.initials}
               </Text>
             </View>
             <View className="flex-1 ml-3">
               <Text className="text-white font-bold" style={{ fontSize: 15 }}>
-                {visit.patientName}
+                {client.name}
               </Text>
               <Text style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>
-                {visit.service} · {visit.time} · {visit.durationHrs} hrs
+                {nurseCase.careType} · {visit.time} · {visit.durationHrs} hrs
               </Text>
             </View>
             <View
@@ -226,7 +229,7 @@ export default function CareReportScreen() {
           <View className="mt-5">
             <SectionLabel title="Medications administered" />
             <MedicationsSection
-              medications={visit.medications}
+              medications={client.medications}
               given={givenMeds}
               onToggle={toggleMed}
             />

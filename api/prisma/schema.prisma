@@ -10,16 +10,14 @@ datasource db {
 
 enum Role {
   FAMILY
-  CAREGIVER
+  CAREGIVER // the nurse
+  CARE_COORDINATOR
   ADMIN
 }
 
-enum CareType {
-  ELDERLY_CARE
-  CHILD_CARE
-  DISABILITY_CARE
-  POSTPARTUM_CARE
-  PALLIATIVE_CARE
+enum Gender {
+  MALE
+  FEMALE
 }
 
 enum VerificationStatus {
@@ -29,12 +27,79 @@ enum VerificationStatus {
   REJECTED
 }
 
-enum ShiftStatus {
-  PENDING    // family requested, awaiting caregiver response
-  CONFIRMED  // caregiver accepted
-  DECLINED   // caregiver declined
-  CANCELLED  // cancelled after confirmation
-  COMPLETED  // shift finished
+// Clinical competencies used for nurse matching. Mirrors the mobile
+// CompetencyId catalog (constants/competencies.ts).
+enum Competency {
+  PERSONAL_CARE
+  HYGIENE
+  FEEDING
+  MOBILITY
+  MEDICATION
+  VITALS
+  WOUND_CARE
+  CATHETER_CARE
+  CHRONIC_DISEASE
+  HYPERTENSION
+  DIABETES
+  STROKE_REHAB
+  DEMENTIA
+  GERIATRIC
+  REHAB
+  PALLIATIVE
+}
+
+enum PackageType {
+  WELLNESS
+  DAILY_ASSIST
+  EXTENDED_ASSIST
+  LIVE_IN
+}
+
+// Care journey states. AWAITING_ACTIVATION is the coordinator-controlled gate:
+// after the initial assessment and the nurse starting, the Care Coordinator
+// activates the care (it does not auto-start). See care-journey-workflow.
+enum SubscriptionStatus {
+  MATCHING // subscribed; system + coordinator assembling the care team
+  TEAM_ASSIGNED // team set; initial home visit pending
+  AWAITING_ACTIVATION // assessment done; awaiting coordinator activation
+  ACTIVE // care delivery underway
+  RENEWING // month-end review & renewal
+  PAUSED
+  CANCELLED
+}
+
+enum AssignmentRole {
+  PRIMARY
+  BACKUP_1
+  BACKUP_2
+}
+
+enum AssignmentStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  ACTIVE
+  REPLACED
+}
+
+enum VisitKind {
+  INITIAL_ASSESSMENT // joint coordinator + nurse home visit
+  CARE_VISIT
+}
+
+enum VisitStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+}
+
+enum PatientMood {
+  POOR
+  LOW
+  GOOD
+  GREAT
+  EXCELLENT
 }
 
 enum PaymentStatus {
@@ -44,20 +109,15 @@ enum PaymentStatus {
   ABANDONED
 }
 
-enum CancellationReason {
-  CAREGIVER_UNAVAILABLE
-  FAMILY_EMERGENCY
-  SCHEDULE_CHANGE
-  HEALTH_ISSUE
-  OTHER
-}
-
 enum NotificationType {
-  SHIFT_REQUEST
-  SHIFT_CONFIRMED
-  SHIFT_DECLINED
-  SHIFT_CANCELLED
-  BACKUP_SUGGESTION
+  SUBSCRIPTION_CREATED
+  TEAM_ASSIGNED
+  ASSIGNMENT_OFFER
+  ASSIGNMENT_ACCEPTED
+  ASSIGNMENT_DECLINED
+  CARE_ACTIVATED
+  VISIT_REMINDER
+  DAILY_LOG_SUBMITTED
   PAYMENT_SUCCESS
   PAYMENT_FAILED
   GENERAL
@@ -80,8 +140,11 @@ model User {
   caregiverProfile   CaregiverProfile?
   familyProfile      FamilyProfile?
   notifications      Notification[]
-  cancellations      Cancellation[]
   emailVerifications EmailVerification[]
+
+  // Coordinator-side relations (role = CARE_COORDINATOR)
+  coordinatedSubscriptions Subscription[] @relation("CoordinatorSubscriptions")
+  reviewedLogs             VisitLog[]     @relation("LogReviewer")
 
   @@map("users")
 }
@@ -98,16 +161,20 @@ model EmailVerification {
   @@map("email_verifications")
 }
 
-// ─── Caregiver Profile ────────────────────────────────────────────────────────
+// ─── Nurse (Caregiver) Profile ────────────────────────────────────────────────
 
 model CaregiverProfile {
   id                 String             @id @default(uuid())
   userId             String             @unique
+  qualification      String?
   bio                String?
-  careTypes          CareType[]
-  hourlyRate         Decimal?           @db.Decimal(10, 2)
+  yearsExperience    Int                @default(0)
+  competencies       Competency[]
+  serviceAreas       String[]
+  licenseVerified    Boolean            @default(false)
   verificationStatus VerificationStatus @default(UNVERIFIED)
   rating             Decimal            @default(0) @db.Decimal(3, 2)
+  reliabilityScore   Int                @default(0) // 0–100
   totalReviews       Int                @default(0)
   lat                Float?
   lng                Float?
@@ -115,10 +182,9 @@ model CaregiverProfile {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  availabilitySlots AvailabilitySlot[]
-  shifts            Shift[]            @relation("CaregiverShifts")
-  backupSuggestions BackupSuggestion[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
+  visits      Visit[]
 
   @@map("caregiver_profiles")
 }
@@ -135,98 +201,164 @@ model FamilyProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shifts   Shift[]   @relation("FamilyShifts")
-  payments Payment[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  careRecipients CareRecipient[]
+  subscriptions  Subscription[]
+  payments       Payment[]
 
   @@map("family_profiles")
 }
 
-// ─── Availability ─────────────────────────────────────────────────────────────
+// ─── Care Recipient (the client receiving care) ───────────────────────────────
 
-model AvailabilitySlot {
-  id          String   @id @default(uuid())
-  caregiverId String
-  startTime   DateTime
-  endTime     DateTime
-  isBooked    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model CareRecipient {
+  id                String   @id @default(uuid())
+  familyId          String
+  name              String
+  age               Int
+  gender            Gender
+  relationToAccount String // e.g. "Father"
+  area              String
+  city              String
+  address           String
+  conditions        String[]
+  basicCareNeeds    String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  caregiver CaregiverProfile @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
-  shift     Shift?
+  family        FamilyProfile  @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
 
-  @@map("availability_slots")
+  @@map("care_recipients")
 }
 
-// ─── Shifts ───────────────────────────────────────────────────────────────────
+// ─── Package catalog ──────────────────────────────────────────────────────────
 
-model Shift {
-  id                 String      @id @default(uuid())
-  familyId           String
-  caregiverId        String
-  availabilitySlotId String?     @unique
-  careType           CareType
-  startTime          DateTime
-  endTime            DateTime
-  status             ShiftStatus @default(PENDING)
-  responseDeadline   DateTime
-  notes              String?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+model Package {
+  id         String      @id @default(uuid())
+  type       PackageType @unique
+  name       String
+  tagline    String
+  priceGhs   Decimal     @db.Decimal(10, 2)
+  inclusions String[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
-  family            FamilyProfile     @relation("FamilyShifts", fields: [familyId], references: [id])
-  caregiver         CaregiverProfile  @relation("CaregiverShifts", fields: [caregiverId], references: [id])
-  availabilitySlot  AvailabilitySlot? @relation(fields: [availabilitySlotId], references: [id])
-  cancellation      Cancellation?
-  payment           Payment?
-  backupSuggestions BackupSuggestion[]
-
-  @@map("shifts")
+  @@map("packages")
 }
 
-// ─── Cancellation ─────────────────────────────────────────────────────────────
+// ─── Subscription (the "case" container) ──────────────────────────────────────
 
-model Cancellation {
-  id            String             @id @default(uuid())
-  shiftId       String             @unique
-  cancelledById String
-  reason        CancellationReason
-  notes         String?
-  createdAt     DateTime           @default(now())
+model Subscription {
+  id              String             @id @default(uuid())
+  familyId        String
+  careRecipientId String
+  packageType     PackageType
+  priceGhs        Decimal            @db.Decimal(10, 2) // snapshot at subscribe time
+  status          SubscriptionStatus @default(MATCHING)
+  coordinatorId   String? // User with role CARE_COORDINATOR
+  careStartAt     DateTime? // day/time care begins, captured at assessment
+  activatedAt     DateTime? // when the coordinator activated care
+  startedAt       DateTime           @default(now())
+  renewsAt        DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  shift       Shift @relation(fields: [shiftId], references: [id])
-  cancelledBy User  @relation(fields: [cancelledById], references: [id])
+  family        FamilyProfile @relation(fields: [familyId], references: [id])
+  careRecipient CareRecipient @relation(fields: [careRecipientId], references: [id])
+  coordinator   User?         @relation("CoordinatorSubscriptions", fields: [coordinatorId], references: [id])
+  assignments   Assignment[]
+  visits        Visit[]
+  payments      Payment[]
 
-  @@map("cancellations")
+  @@map("subscriptions")
 }
 
-// ─── Backup Pool ──────────────────────────────────────────────────────────────
+// ─── Assignment (a nurse on a case, as primary or backup) ─────────────────────
 
-model BackupSuggestion {
-  id          String   @id @default(uuid())
-  shiftId     String
-  caregiverId String
-  rank        Int
-  score       Float
-  createdAt   DateTime @default(now())
+model Assignment {
+  id             String           @id @default(uuid())
+  subscriptionId String
+  caregiverId    String
+  role           AssignmentRole
+  status         AssignmentStatus @default(OFFERED)
+  payoutGhs      Decimal?         @db.Decimal(10, 2)
+  offeredAt      DateTime         @default(now())
+  respondedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
-  shift     Shift            @relation(fields: [shiftId], references: [id])
-  caregiver CaregiverProfile @relation(fields: [caregiverId], references: [id])
+  subscription Subscription     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  caregiver    CaregiverProfile @relation(fields: [caregiverId], references: [id])
+  visits       Visit[]
 
-  @@unique([shiftId, caregiverId])
-  @@map("backup_suggestions")
+  @@unique([subscriptionId, role])
+  @@map("assignments")
 }
 
-// ─── Payments ─────────────────────────────────────────────────────────────────
+// ─── Visit (a delivery; first one is the initial assessment) ──────────────────
+
+model Visit {
+  id             String      @id @default(uuid())
+  subscriptionId String
+  caregiverId    String
+  assignmentId   String?
+  kind           VisitKind   @default(CARE_VISIT)
+  status         VisitStatus @default(SCHEDULED)
+  scheduledFor   DateTime
+  durationHrs    Float
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  subscription Subscription     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  caregiver    CaregiverProfile @relation(fields: [caregiverId], references: [id])
+  assignment   Assignment?      @relation(fields: [assignmentId], references: [id])
+  log          VisitLog?
+
+  @@map("visits")
+}
+
+// ─── Visit log (daily care report; reviewed by the coordinator) ───────────────
+
+model VisitLog {
+  id                  String       @id @default(uuid())
+  visitId             String       @unique
+  summary             String
+  observations        String?
+  bloodPressure       String?
+  bloodGlucose        String?
+  heartRate           String?
+  temperature         String?
+  medicationsGiven    String[]
+  quickLog            String[]
+  mood                PatientMood?
+  followUpRecommended Boolean      @default(false)
+  escalationNeeded    Boolean      @default(false)
+  submittedAt         DateTime     @default(now())
+  reviewedById        String? // coordinator who reviewed
+  reviewedAt          DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  visit      Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("LogReviewer", fields: [reviewedById], references: [id])
+
+  @@map("visit_logs")
+}
+
+// ─── Payments (monthly subscription billing via Paystack) ─────────────────────
 
 model Payment {
   id                 String        @id @default(uuid())
-  shiftId            String        @unique
+  subscriptionId     String
   familyId           String
   amount             Decimal       @db.Decimal(10, 2)
   currency           String        @default("GHS")
   status             PaymentStatus @default(PENDING)
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
   paystackReference  String?       @unique
   paystackAccessCode String?
   paystackAuthUrl    String?
@@ -234,8 +366,8 @@ model Payment {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  shift  Shift         @relation(fields: [shiftId], references: [id])
-  family FamilyProfile @relation(fields: [familyId], references: [id])
+  subscription Subscription  @relation(fields: [subscriptionId], references: [id])
+  family       FamilyProfile @relation(fields: [familyId], references: [id])
 
   @@map("payments")
 }

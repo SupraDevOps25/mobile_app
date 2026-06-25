@@ -32,7 +32,8 @@ export class AuthService {
     ]);
 
     if (emailUser) throw new ConflictException('Email already registered');
-    if (phoneUser) throw new ConflictException('Phone number already registered');
+    if (phoneUser)
+      throw new ConflictException('Phone number already registered');
 
     return { available: true };
   }
@@ -65,9 +66,9 @@ export class AuthService {
 
         if (dto.role === Role.CAREGIVER) {
           await tx.caregiverProfile.create({
-            data: { userId: created.id, careTypes: [] },
+            data: { userId: created.id },
           });
-        } else {
+        } else if (dto.role === Role.FAMILY) {
           await tx.familyProfile.create({
             data: { userId: created.id },
           });
@@ -120,11 +121,16 @@ export class AuthService {
 
     // Always return success to avoid leaking whether an email is registered
     if (!user || user.emailVerified) {
-      return { message: 'If that email is pending verification, a new link has been sent.' };
+      return {
+        message:
+          'If that email is pending verification, a new link has been sent.',
+      };
     }
 
     // Delete old tokens then create a fresh one
-    await this.prisma.emailVerification.deleteMany({ where: { userId: user.id } });
+    await this.prisma.emailVerification.deleteMany({
+      where: { userId: user.id },
+    });
 
     const verification = await this.prisma.emailVerification.create({
       data: {
@@ -153,7 +159,9 @@ export class AuthService {
     }
 
     if (!user.emailVerified) {
-      throw new ForbiddenException('Please verify your email address before signing in');
+      throw new ForbiddenException(
+        'Please verify your email address before signing in',
+      );
     }
 
     return this.signToken(user.id, user.email, user.role, user.firstName);
@@ -179,7 +187,12 @@ export class AuthService {
     return user;
   }
 
-  private signToken(userId: string, email: string, role: string, firstName: string) {
+  private signToken(
+    userId: string,
+    email: string,
+    role: string,
+    firstName: string,
+  ) {
     const payload: JwtPayload = { sub: userId, email, role, firstName };
     return { accessToken: this.jwt.sign(payload) };
   }
