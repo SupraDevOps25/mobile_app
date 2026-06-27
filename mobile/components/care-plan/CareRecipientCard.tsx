@@ -1,17 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Text, View } from "react-native";
-import type { CareRecipient } from "@/constants/care";
+import { initialsOf } from "@/lib/avatar";
+import type { ApiCareRecipient } from "@/services/subscription.service";
 
-function initialsOf(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-export function CareRecipientCard({ client }: { client: CareRecipient }) {
+export function CareRecipientCard({ client }: { client: ApiCareRecipient }) {
+  const genderLabel = client.gender === "MALE" ? "Male" : "Female";
   return (
     <View
       className="bg-card rounded-2xl p-4"
@@ -31,7 +24,8 @@ export function CareRecipientCard({ client }: { client: CareRecipient }) {
             {client.name}
           </Text>
           <Text className="text-muted" style={{ fontSize: 13, marginTop: 2 }}>
-            {client.age} yrs · {client.gender} · Your {client.relationToAccount.toLowerCase()}
+            {client.age} yrs · {genderLabel} · Your{" "}
+            {client.relationToAccount.toLowerCase()}
           </Text>
         </View>
       </View>

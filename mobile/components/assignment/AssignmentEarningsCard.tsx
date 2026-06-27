@@ -1,8 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Text, View } from "react-native";
-import type { Assignment } from "@/constants/assignments";
+import type { ApiAssignment } from "@/services/assignment.service";
 
-export function AssignmentEarningsCard({ assignment }: { assignment: Assignment }) {
+export function AssignmentEarningsCard({
+  assignment,
+}: {
+  assignment: ApiAssignment;
+}) {
   return (
     <View
       className="flex-row items-center rounded-2xl p-4"
@@ -20,11 +24,15 @@ export function AssignmentEarningsCard({ assignment }: { assignment: Assignment 
         </Text>
         <View className="flex-row items-baseline">
           <Text className="text-foreground font-bold" style={{ fontSize: 22 }}>
-            GHS {assignment.monthlyPayoutGhs.toLocaleString()}
+            {assignment.payoutGhs != null
+              ? `GHS ${assignment.payoutGhs.toLocaleString()}`
+              : "To be confirmed"}
           </Text>
-          <Text className="text-muted" style={{ fontSize: 13, marginLeft: 4 }}>
-            /month
-          </Text>
+          {assignment.payoutGhs != null && (
+            <Text className="text-muted" style={{ fontSize: 13, marginLeft: 4 }}>
+              /month
+            </Text>
+          )}
         </View>
       </View>
       <Text style={{ color: "#16a34a", fontSize: 12, fontWeight: "600" }}>

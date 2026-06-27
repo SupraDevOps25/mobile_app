@@ -4,14 +4,17 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NextStepsCard } from "@/components/packages/NextStepsCard";
 import { PackageSummaryCard } from "@/components/packages/PackageSummaryCard";
-import { getPackage, type PackageId } from "@/constants/packages";
+import { toPackageView } from "@/constants/package-presentation";
+import { usePackage } from "@/hooks/usePackages";
+import type { ApiPackageType } from "@/services/package.service";
 
 export default function SubscriptionConfirmedScreen() {
-  const { packageId } = useLocalSearchParams<{ packageId: string }>();
+  const { packageType } = useLocalSearchParams<{ packageType: string }>();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const pkg = getPackage(packageId as PackageId);
+  const { data } = usePackage(packageType as ApiPackageType);
+  const pkg = data ? toPackageView(data) : undefined;
 
   return (
     <View className="flex-1 bg-background">
@@ -35,7 +38,7 @@ export default function SubscriptionConfirmedScreen() {
             className="text-foreground font-bold text-center"
             style={{ fontSize: 22, marginTop: 16 }}
           >
-            Subscription activated
+            You&apos;re subscribed
           </Text>
           <Text
             className="text-muted text-center"

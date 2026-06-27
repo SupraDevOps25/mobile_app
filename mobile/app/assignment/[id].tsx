@@ -1,12 +1,22 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AssignmentClientCard } from "@/components/assignment/AssignmentClientCard";
 import { AssignmentEarningsCard } from "@/components/assignment/AssignmentEarningsCard";
-import { ASSIGNMENT_ROLE_LABELS, getAssignment } from "@/constants/assignments";
-import { getCompetencyLabel } from "@/constants/competencies";
-import { getPackage } from "@/constants/packages";
+import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
+import {
+  useAcceptOffer,
+  useAssignment,
+  useDeclineOffer,
+} from "@/hooks/useAssignments";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -56,12 +66,33 @@ function DetailRow({
   );
 }
 
+function formatDate(iso: string | null): string {
+  if (!iso) return "To be confirmed";
+  return new Date(iso).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function AssignmentOfferScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const assignment = getAssignment(id);
+  const { data: assignment, isLoading } = useAssignment(id);
+  const accept = useAcceptOffer();
+  const decline = useDeclineOffer();
+  const busy = accept.isPending || decline.isPending;
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator color="#16a34a" />
+      </View>
+    );
+  }
 
   if (!assignment) {
     return (
@@ -71,8 +102,7 @@ export default function AssignmentOfferScreen() {
     );
   }
 
-  const pkg = getPackage(assignment.package);
-  const isPrimary = assignment.role === "primary";
+  const isPrimary = assignment.role === "PRIMARY";
   const roleLabel = ASSIGNMENT_ROLE_LABELS[assignment.role];
 
   const banner = isPrimary
@@ -80,22 +110,15 @@ export default function AssignmentOfferScreen() {
     : { bg: "#eff6ff", border: "#bfdbfe", icon: "#2563eb", title: "#1d4ed8" };
 
   function handleAccept() {
-    Alert.alert(
-      "Accept assignment",
-      `Accept the ${roleLabel.toLowerCase()} role for ${assignment!.clientName}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Accept",
-          onPress: () =>
-            Alert.alert(
-              "Assignment accepted",
-              `You're now the ${roleLabel.toLowerCase()} for ${assignment!.clientName}. Your Care Coordinator and the family have been notified.`,
-              [{ text: "OK", onPress: () => router.back() }],
-            ),
-        },
-      ],
-    );
+    accept.mutate(assignment!.id, {
+      onSuccess: () =>
+        Alert.alert(
+          "Assignment accepted",
+          `You're now the ${roleLabel.toLowerCase()} for ${assignment!.client.name}. Your Care Coordinator and the family have been notified.`,
+          [{ text: "OK", onPress: () => router.back() }],
+        ),
+      onError: (err: Error) => Alert.alert("Couldn't accept", err.message),
+    });
   }
 
   function handleDecline() {
@@ -104,7 +127,16 @@ export default function AssignmentOfferScreen() {
       "Are you sure? This case will be offered to another nurse.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Decline", style: "destructive", onPress: () => router.back() },
+        {
+          text: "Decline",
+          style: "destructive",
+          onPress: () =>
+            decline.mutate(assignment!.id, {
+              onSuccess: () => router.back(),
+              onError: (err: Error) =>
+                Alert.alert("Couldn't decline", err.message),
+            }),
+        },
       ],
     );
   }
@@ -152,7 +184,8 @@ export default function AssignmentOfferScreen() {
             </Text>
           </View>
           <Text className="text-muted" style={{ fontSize: 13, marginTop: 6, lineHeight: 19 }}>
-            {pkg?.name} · {assignment.schedule}
+            {assignment.packageName ?? "Care package"}
+            {assignment.schedule ? ` · ${assignment.schedule}` : ""}
           </Text>
         </View>
 
@@ -166,30 +199,22 @@ export default function AssignmentOfferScreen() {
           className="bg-card rounded-2xl px-4"
           style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
         >
-          <DetailRow icon="briefcase-outline" label="Package" value={pkg?.name ?? "—"} />
-          <DetailRow icon="time-outline" label="Schedule" value={assignment.schedule} />
+          <DetailRow
+            icon="briefcase-outline"
+            label="Package"
+            value={assignment.packageName ?? "—"}
+          />
+          <DetailRow
+            icon="time-outline"
+            label="Schedule"
+            value={assignment.schedule ?? "—"}
+          />
           <DetailRow
             icon="calendar-outline"
             label="Start date"
-            value={assignment.startDate}
+            value={formatDate(assignment.startDate)}
             isLast
           />
-        </View>
-
-        {/* Matched competencies */}
-        <SectionLabel title="Matched on your competencies" />
-        <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-          {assignment.requiredCompetencies.map((c) => (
-            <View
-              key={c}
-              className="rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "#eff6ff" }}
-            >
-              <Text style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "500" }}>
-                {getCompetencyLabel(c)}
-              </Text>
-            </View>
-          ))}
         </View>
 
         {/* Care needs */}
@@ -199,7 +224,7 @@ export default function AssignmentOfferScreen() {
           style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
         >
           <Text className="text-foreground" style={{ fontSize: 14, lineHeight: 21 }}>
-            {assignment.basicCareNeeds}
+            {assignment.client.basicCareNeeds}
           </Text>
         </View>
 
@@ -212,12 +237,12 @@ export default function AssignmentOfferScreen() {
           <DetailRow
             icon="location-outline"
             label="Location"
-            value={`${assignment.area}, ${assignment.city} · ${assignment.distanceKm} km away`}
+            value={`${assignment.client.area}, ${assignment.client.city}`}
           />
           <DetailRow
             icon="person-outline"
             label="Care Coordinator"
-            value={assignment.coordinatorName}
+            value={assignment.coordinatorName ?? "To be assigned"}
             isLast
           />
         </View>
@@ -239,6 +264,7 @@ export default function AssignmentOfferScreen() {
       >
         <Pressable
           onPress={handleDecline}
+          disabled={busy}
           className="rounded-full items-center justify-center px-6 py-4"
           style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#ffffff" }}
         >
@@ -248,9 +274,11 @@ export default function AssignmentOfferScreen() {
         </Pressable>
         <Pressable
           onPress={handleAccept}
-          className="flex-1 rounded-full items-center justify-center py-4"
-          style={{ backgroundColor: "#16a34a" }}
+          disabled={busy}
+          className="flex-1 rounded-full items-center justify-center py-4 flex-row"
+          style={{ backgroundColor: busy ? "#86efac" : "#16a34a", gap: 8 }}
         >
+          {accept.isPending && <ActivityIndicator color="#ffffff" size="small" />}
           <Text className="text-white font-semibold" style={{ fontSize: 15 }}>
             Accept assignment
           </Text>

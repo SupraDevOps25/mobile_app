@@ -1,7 +1,35 @@
 import { api } from "@/lib/api";
 import type { ApiPackageType } from "@/services/package.service";
+import type {
+  ApiAssignmentRole,
+  ApiAssignmentStatus,
+} from "@/services/assignment.service";
 
 export type ApiGender = "MALE" | "FEMALE";
+
+export interface ApiCoordinator {
+  name: string;
+  phone: string;
+}
+
+export interface ApiTeamNurse {
+  assignmentId: string;
+  role: ApiAssignmentRole;
+  status: ApiAssignmentStatus;
+  name: string;
+  initials: string;
+  phone: string;
+  qualification: string | null;
+  yearsExperience: number;
+  rating: number;
+  reliabilityScore: number;
+  serviceAreas: string[];
+}
+
+export interface ApiCareTeam {
+  coordinator: ApiCoordinator | null;
+  nurses: ApiTeamNurse[];
+}
 
 export type ApiSubscriptionStatus =
   | "MATCHING"
@@ -34,6 +62,7 @@ export interface ApiSubscription {
   renewsAt: string | null;
   careStartAt: string | null;
   activatedAt: string | null;
+  careTeam: ApiCareTeam;
   careRecipient: ApiCareRecipient;
 }
 

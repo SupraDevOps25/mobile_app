@@ -1,13 +1,21 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PackageCard } from "@/components/packages/PackageCard";
-import { SERVICE_PACKAGES } from "@/constants/packages";
+import { toPackageView } from "@/constants/package-presentation";
+import { usePackages } from "@/hooks/usePackages";
 
 export default function PackagesScreen() {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
+  const { data: packages, isLoading, isError } = usePackages();
 
   return (
     <View className="flex-1 bg-background">
@@ -44,13 +52,24 @@ export default function PackagesScreen() {
           team for your loved one.
         </Text>
 
-        {SERVICE_PACKAGES.map((pkg) => (
-          <PackageCard
-            key={pkg.id}
-            pkg={pkg}
-            onPress={(p) => router.push(`/packages/${p.id}` as any)}
-          />
-        ))}
+        {isLoading ? (
+          <ActivityIndicator color="#1e3a8a" style={{ marginVertical: 32 }} />
+        ) : isError ? (
+          <Text className="text-muted" style={{ marginVertical: 24 }}>
+            Couldn&apos;t load packages. Pull down to retry.
+          </Text>
+        ) : (
+          (packages ?? []).map((pkg) => {
+            const view = toPackageView(pkg);
+            return (
+              <PackageCard
+                key={view.type}
+                pkg={view}
+                onPress={(p) => router.push(`/packages/${p.type}` as any)}
+              />
+            );
+          })
+        )}
 
         {/* How it works note */}
         <View

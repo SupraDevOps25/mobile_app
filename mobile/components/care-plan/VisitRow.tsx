@@ -1,25 +1,39 @@
 import { Text, View } from "react-native";
-import type { Visit, VisitKind, VisitStatus } from "@/constants/care";
+import type {
+  ApiCarePlanVisit,
+  ApiVisitKind,
+  ApiVisitStatus,
+} from "@/services/visit.service";
 
 const MONTHS = [
   "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ];
 
-const KIND_LABELS: Record<VisitKind, string> = {
-  "initial-assessment": "Initial home visit",
-  "care-visit": "Care visit",
+const KIND_LABELS: Record<ApiVisitKind, string> = {
+  INITIAL_ASSESSMENT: "Initial home visit",
+  CARE_VISIT: "Care visit",
 };
 
-const STATUS_STYLES: Record<VisitStatus, { bg: string; color: string; label: string }> = {
-  scheduled: { bg: "#eef2ff", color: "#4338ca", label: "Scheduled" },
-  "in-progress": { bg: "#dcfce7", color: "#16a34a", label: "In progress" },
-  completed: { bg: "#f3f4f6", color: "#16a34a", label: "Completed" },
-  missed: { bg: "#fee2e2", color: "#dc2626", label: "Missed" },
+const STATUS_STYLES: Record<
+  ApiVisitStatus,
+  { bg: string; color: string; label: string }
+> = {
+  SCHEDULED: { bg: "#eef2ff", color: "#4338ca", label: "Scheduled" },
+  IN_PROGRESS: { bg: "#dcfce7", color: "#16a34a", label: "In progress" },
+  COMPLETED: { bg: "#f3f4f6", color: "#16a34a", label: "Completed" },
+  MISSED: { bg: "#fee2e2", color: "#dc2626", label: "Missed" },
 };
 
-export function VisitRow({ visit }: { visit: Visit }) {
-  const date = new Date(visit.date);
+function timeLabel(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function VisitRow({ visit }: { visit: ApiCarePlanVisit }) {
+  const date = new Date(visit.scheduledFor);
   const status = STATUS_STYLES[visit.status];
 
   return (
@@ -44,7 +58,8 @@ export function VisitRow({ visit }: { visit: Visit }) {
           {KIND_LABELS[visit.kind]}
         </Text>
         <Text className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>
-          {visit.time} · {visit.durationHrs}hrs · {visit.nurseName}
+          {timeLabel(visit.scheduledFor)} · {visit.durationHrs}hrs ·{" "}
+          {visit.nurseName}
         </Text>
       </View>
 

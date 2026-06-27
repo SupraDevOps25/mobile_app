@@ -1,7 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -11,9 +12,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { QuickLogGrid } from "@/components/active-visit/QuickLogGrid";
+import { QuickLogGrid, QUICK_LOG_ITEMS } from "@/components/active-visit/QuickLogGrid";
 import { TimerCard } from "@/components/active-visit/TimerCard";
-import { getNurseVisit } from "@/constants/nurse-cases";
+import { avatarColor } from "@/lib/avatar";
+import { useStartVisit, useVisit } from "@/hooks/useVisits";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -31,11 +33,32 @@ export default function ActiveVisitScreen() {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
 
-  const data = getNurseVisit(id);
+  const { data: visit, isLoading } = useVisit(id);
+  const startVisit = useStartVisit(id ?? "");
+  const startedRef = useRef(false);
+
   const [logged, setLogged] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
 
-  if (!data) {
+  // Begin the visit on the backend the first time the screen opens (if it
+  // hasn't already started). The timer is presentational.
+  useEffect(() => {
+    if (!visit || startedRef.current) return;
+    if (visit.status === "SCHEDULED") {
+      startedRef.current = true;
+      startVisit.mutate();
+    }
+  }, [visit, startVisit]);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator color="#16a34a" />
+      </View>
+    );
+  }
+
+  if (!visit) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <Text className="text-muted">No active visit.</Text>
@@ -43,8 +66,8 @@ export default function ActiveVisitScreen() {
     );
   }
 
-  const { visit, nurseCase } = data;
-  const client = nurseCase.client;
+  const client = visit.client;
+  const visitId = visit.id;
 
   function toggleLog(itemId: string) {
     setLogged((prev) =>
@@ -53,21 +76,21 @@ export default function ActiveVisitScreen() {
   }
 
   function handleEndVisit() {
-    Alert.alert(
-      "End visit",
-      "End this visit and fill in the care report?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "End visit",
-          onPress: () =>
-            router.push({
-              pathname: `/care-report/${visit.id}` as any,
-              params: { notes },
-            }),
-        },
-      ],
-    );
+    // Carry the quick-log labels and notes into the care report.
+    const quickLog = QUICK_LOG_ITEMS.filter((i) => logged.includes(i.id))
+      .map((i) => i.label)
+      .join(",");
+    Alert.alert("End visit", "End this visit and fill in the care report?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "End visit",
+        onPress: () =>
+          router.push({
+            pathname: `/care-report/${visitId}` as any,
+            params: { notes, quickLog },
+          }),
+      },
+    ]);
   }
 
   return (
@@ -88,13 +111,6 @@ export default function ActiveVisitScreen() {
         <Text className="flex-1 text-foreground font-bold" style={{ fontSize: 18 }}>
           Active visit
         </Text>
-        <Pressable
-          onPress={() => Linking.openURL("tel:0244000000")}
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{ backgroundColor: "#fee2e2" }}
-        >
-          <Ionicons name="call" size={18} color="#dc2626" />
-        </Pressable>
       </View>
 
       <ScrollView
@@ -112,7 +128,7 @@ export default function ActiveVisitScreen() {
           <View className="flex-row items-center">
             <View
               className="w-11 h-11 rounded-full items-center justify-center"
-              style={{ backgroundColor: client.avatarColor }}
+              style={{ backgroundColor: avatarColor(client.name) }}
             >
               <Text className="text-white font-bold" style={{ fontSize: 14 }}>
                 {client.initials}
@@ -123,25 +139,9 @@ export default function ActiveVisitScreen() {
                 {client.name}
               </Text>
               <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
-                {client.age} yrs · {nurseCase.careType}
+                {client.age} yrs · {client.area}
               </Text>
             </View>
-            <Pressable
-              onPress={() => Linking.openURL("tel:0244000000")}
-              className="w-9 h-9 rounded-full items-center justify-center mr-2"
-              style={{ backgroundColor: "#eff6ff" }}
-              hitSlop={6}
-            >
-              <Ionicons name="call-outline" size={16} color="#2563eb" />
-            </Pressable>
-            <Pressable
-              onPress={() => Alert.alert("Coming soon", "In-app chat is on the way.")}
-              className="w-9 h-9 rounded-full items-center justify-center"
-              style={{ backgroundColor: "#f0fdf4" }}
-              hitSlop={6}
-            >
-              <Ionicons name="chatbubble-outline" size={16} color="#16a34a" />
-            </Pressable>
           </View>
           <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
             {client.conditions.map((c) => (

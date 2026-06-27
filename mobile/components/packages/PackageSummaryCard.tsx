@@ -1,9 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Text, View } from "react-native";
-import type { ServicePackage } from "@/constants/packages";
+import type { PackageView } from "@/constants/package-presentation";
 
 // Compact package row reused on the checkout and confirmation screens.
-export function PackageSummaryCard({ pkg }: { pkg: ServicePackage }) {
+export function PackageSummaryCard({ pkg }: { pkg: PackageView }) {
   return (
     <View
       className="flex-row items-center bg-card rounded-2xl p-4"
@@ -25,7 +25,7 @@ export function PackageSummaryCard({ pkg }: { pkg: ServicePackage }) {
       </View>
       <View className="items-end">
         <Text className="text-foreground font-bold" style={{ fontSize: 16 }}>
-          GHS {pkg.priceGhsPerMonth.toLocaleString()}
+          GHS {pkg.priceGhs.toLocaleString()}
         </Text>
         <Text className="text-muted" style={{ fontSize: 11 }}>
           per month

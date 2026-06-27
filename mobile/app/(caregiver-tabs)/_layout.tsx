@@ -69,6 +69,7 @@ export default function CaregiverTabLayout() {
       />
       {/* Hidden from the tab bar — opened via navigation with ?id=… */}
       <Tabs.Screen name="active-visit" options={{ href: null }} />
+      <Tabs.Screen name="availability" options={{ href: null }} />
     </Tabs>
   );
 }

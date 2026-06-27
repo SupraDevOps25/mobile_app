@@ -1,15 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
-import { CARE_TEAM_ROLE_LABELS, type CareTeamMember, type TeamNurse } from "@/constants/care";
+import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
+import { avatarColor } from "@/lib/avatar";
+import type { ApiTeamNurse } from "@/services/subscription.service";
 
 type Props = {
-  member: CareTeamMember;
-  onPress: (nurse: TeamNurse) => void;
+  nurse: ApiTeamNurse;
+  onPress: (nurse: ApiTeamNurse) => void;
 };
 
-export function TeamNurseRow({ member, onPress }: Props) {
-  const { nurse, role } = member;
-  const isAssigned = role === "assigned";
+export function TeamNurseRow({ nurse, onPress }: Props) {
+  const isLead = nurse.role === "PRIMARY";
 
   return (
     <Pressable
@@ -17,12 +18,12 @@ export function TeamNurseRow({ member, onPress }: Props) {
       className="flex-row items-center bg-card rounded-2xl p-3 mb-3"
       style={{
         borderWidth: 1,
-        borderColor: isAssigned ? "#bbf7d0" : "#f3f4f6",
+        borderColor: isLead ? "#bbf7d0" : "#f3f4f6",
       }}
     >
       <View
         className="w-11 h-11 rounded-full items-center justify-center"
-        style={{ backgroundColor: nurse.avatarColor }}
+        style={{ backgroundColor: avatarColor(nurse.name) }}
       >
         <Text className="text-white font-bold" style={{ fontSize: 14 }}>
           {nurse.initials}
@@ -34,32 +35,31 @@ export function TeamNurseRow({ member, onPress }: Props) {
           <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
             {nurse.name}
           </Text>
-          {nurse.licenseVerified && (
-            <Ionicons
-              name="checkmark-circle"
-              size={14}
-              color="#2563eb"
-              style={{ marginLeft: 4 }}
-            />
-          )}
+          <Ionicons
+            name="checkmark-circle"
+            size={14}
+            color="#2563eb"
+            style={{ marginLeft: 4 }}
+          />
         </View>
         <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
-          {nurse.qualification} · {nurse.yearsExperience} yrs · ★ {nurse.rating}
+          {nurse.qualification ?? "Nurse"} · {nurse.yearsExperience} yrs · ★{" "}
+          {nurse.rating.toFixed(1)}
         </Text>
       </View>
 
       <View
         className="rounded-full px-2.5 py-1 mr-1"
-        style={{ backgroundColor: isAssigned ? "#dcfce7" : "#f3f4f6" }}
+        style={{ backgroundColor: isLead ? "#dcfce7" : "#f3f4f6" }}
       >
         <Text
           style={{
-            color: isAssigned ? "#16a34a" : "#6b7280",
+            color: isLead ? "#16a34a" : "#6b7280",
             fontSize: 10,
             fontWeight: "600",
           }}
         >
-          {CARE_TEAM_ROLE_LABELS[role]}
+          {ASSIGNMENT_ROLE_LABELS[nurse.role]}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color="#9ca3af" />

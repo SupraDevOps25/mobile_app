@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -12,11 +13,20 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MedicationsSection } from "@/components/care-report/MedicationsSection";
 import { MoodSelector, type Mood } from "@/components/care-report/MoodSelector";
 import { ToggleRow } from "@/components/care-report/ToggleRow";
 import { VitalsGrid, type Vitals } from "@/components/care-report/VitalsGrid";
-import { getNurseVisit } from "@/constants/nurse-cases";
+import { avatarColor } from "@/lib/avatar";
+import { useSubmitLog, useVisit } from "@/hooks/useVisits";
+import type { ApiPatientMood } from "@/services/visit.service";
+
+const MOOD_MAP: Record<Mood, ApiPatientMood> = {
+  Poor: "POOR",
+  Low: "LOW",
+  Good: "GOOD",
+  Great: "GREAT",
+  Excellent: "EXCELLENT",
+};
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -55,13 +65,18 @@ function NotesInput({
 }
 
 export default function CareReportScreen() {
-  const { id, notes } = useLocalSearchParams<{ id: string; notes?: string }>();
+  const { id, notes, quickLog } = useLocalSearchParams<{
+    id: string;
+    notes?: string;
+    quickLog?: string;
+  }>();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const data = getNurseVisit(id);
+  const { data: visit, isLoading } = useVisit(id);
+  const submitLog = useSubmitLog(id ?? "");
 
-  // Care notes typed during the active visit prefill the summary
+  // Care notes typed during the active visit prefill the summary.
   const [summary, setSummary] = useState(notes ?? "");
   const [observations, setObservations] = useState("");
   const [vitals, setVitals] = useState<Vitals>({
@@ -70,14 +85,20 @@ export default function CareReportScreen() {
     heartRate: "",
     temperature: "",
   });
-  const [givenMeds, setGivenMeds] = useState<string[]>(
-    data ? data.nurseCase.client.medications.map((m) => m.id) : [],
-  );
+  const [medications, setMedications] = useState("");
   const [mood, setMood] = useState<Mood | null>(null);
   const [followUp, setFollowUp] = useState(true);
   const [escalation, setEscalation] = useState(false);
 
-  if (!data) {
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator color="#1e3a8a" />
+      </View>
+    );
+  }
+
+  if (!visit) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <Text className="text-muted">Visit not found.</Text>
@@ -85,14 +106,11 @@ export default function CareReportScreen() {
     );
   }
 
-  const { visit, nurseCase } = data;
-  const client = nurseCase.client;
-
-  function toggleMed(medId: string) {
-    setGivenMeds((prev) =>
-      prev.includes(medId) ? prev.filter((x) => x !== medId) : [...prev, medId],
-    );
-  }
+  const client = visit.client;
+  const time = new Date(visit.scheduledFor).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
   function handleSubmit() {
     if (!summary.trim()) {
@@ -103,6 +121,16 @@ export default function CareReportScreen() {
       Alert.alert("Missing mood", "Please select how the patient was during the visit.");
       return;
     }
+
+    const medicationsGiven = medications
+      .split(",")
+      .map((m) => m.trim())
+      .filter(Boolean);
+    const quickLogItems = (quickLog ?? "")
+      .split(",")
+      .map((q) => q.trim())
+      .filter(Boolean);
+
     Alert.alert(
       "Submit report",
       "You won't be able to edit the report after submission. Submit now?",
@@ -110,18 +138,37 @@ export default function CareReportScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Submit",
-          onPress: () => {
-            Alert.alert(
-              "Report submitted",
-              "The care report has been shared with the family and saved to the patient's care record.",
-              [
-                {
-                  text: "Done",
-                  onPress: () => router.replace("/(caregiver-tabs)" as any),
-                },
-              ],
-            );
-          },
+          onPress: () =>
+            submitLog.mutate(
+              {
+                summary: summary.trim(),
+                observations: observations.trim() || undefined,
+                bloodPressure: vitals.bloodPressure.trim() || undefined,
+                bloodGlucose: vitals.bloodGlucose.trim() || undefined,
+                heartRate: vitals.heartRate.trim() || undefined,
+                temperature: vitals.temperature.trim() || undefined,
+                medicationsGiven,
+                quickLog: quickLogItems,
+                mood: MOOD_MAP[mood],
+                followUpRecommended: followUp,
+                escalationNeeded: escalation,
+              },
+              {
+                onSuccess: () =>
+                  Alert.alert(
+                    "Report submitted",
+                    "The care report has been shared with your Care Coordinator and saved to the patient's care record.",
+                    [
+                      {
+                        text: "Done",
+                        onPress: () => router.replace("/(caregiver-tabs)" as any),
+                      },
+                    ],
+                  ),
+                onError: (err: Error) =>
+                  Alert.alert("Couldn't submit", err.message),
+              },
+            ),
         },
       ],
     );
@@ -166,7 +213,7 @@ export default function CareReportScreen() {
           >
             <View
               className="w-11 h-11 rounded-full items-center justify-center"
-              style={{ backgroundColor: client.avatarColor }}
+              style={{ backgroundColor: avatarColor(client.name) }}
             >
               <Text className="text-white font-bold" style={{ fontSize: 14 }}>
                 {client.initials}
@@ -177,7 +224,7 @@ export default function CareReportScreen() {
                 {client.name}
               </Text>
               <Text style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>
-                {nurseCase.careType} · {visit.time} · {visit.durationHrs} hrs
+                {time} · {visit.durationHrs} hrs
               </Text>
             </View>
             <View
@@ -185,7 +232,7 @@ export default function CareReportScreen() {
               style={{ backgroundColor: "rgba(22, 163, 74, 0.3)" }}
             >
               <Text style={{ color: "#4ade80", fontSize: 11, fontWeight: "600" }}>
-                Completed
+                Completing
               </Text>
             </View>
           </View>
@@ -228,11 +275,21 @@ export default function CareReportScreen() {
           {/* Medications */}
           <View className="mt-5">
             <SectionLabel title="Medications administered" />
-            <MedicationsSection
-              medications={client.medications}
-              given={givenMeds}
-              onToggle={toggleMed}
-            />
+            <View
+              className="bg-card rounded-2xl p-4"
+              style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            >
+              <TextInput
+                value={medications}
+                onChangeText={setMedications}
+                placeholder="List medications given, comma separated (e.g. Amlodipine 5mg, Metformin 500mg)"
+                placeholderTextColor="#9ca3af"
+                multiline
+                textAlignVertical="top"
+                className="text-foreground"
+                style={{ fontSize: 14, lineHeight: 21, minHeight: 48, padding: 0 }}
+              />
+            </View>
           </View>
 
           {/* Patient mood */}
@@ -249,7 +306,7 @@ export default function CareReportScreen() {
             <SectionLabel title="Follow-up" />
             <ToggleRow
               title="Follow-up recommended"
-              subtitle="Suggest another visit to the family"
+              subtitle="Suggest another visit to the Coordinator"
               value={followUp}
               onValueChange={setFollowUp}
             />
@@ -276,8 +333,8 @@ export default function CareReportScreen() {
                 flex: 1,
               }}
             >
-              This report will be shared with the patient&apos;s family and stored in
-              their care record.
+              This report is sent to your Care Coordinator for review and stored in
+              the patient&apos;s care record.
             </Text>
           </View>
         </ScrollView>
@@ -293,9 +350,11 @@ export default function CareReportScreen() {
         >
           <Pressable
             onPress={handleSubmit}
-            className="rounded-full items-center justify-center py-4"
-            style={{ backgroundColor: "#1e3a8a" }}
+            disabled={submitLog.isPending}
+            className="rounded-full items-center justify-center py-4 flex-row"
+            style={{ backgroundColor: submitLog.isPending ? "#9ca3af" : "#1e3a8a", gap: 8 }}
           >
+            {submitLog.isPending && <ActivityIndicator color="#ffffff" size="small" />}
             <Text className="text-white font-semibold" style={{ fontSize: 15 }}>
               Submit report
             </Text>

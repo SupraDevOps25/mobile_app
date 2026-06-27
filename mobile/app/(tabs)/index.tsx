@@ -1,14 +1,23 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
 import { CTABanner } from "@/components/home/CTABanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { PackageCard } from "@/components/packages/PackageCard";
-import { getActiveSubscription } from "@/constants/care";
-import { SERVICE_PACKAGES } from "@/constants/packages";
+import { toPackageView } from "@/constants/package-presentation";
+import { usePackages } from "@/hooks/usePackages";
+import { useActiveSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 
 function getGreeting() {
@@ -23,7 +32,8 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const subscription = getActiveSubscription();
+  const { data: subscription } = useActiveSubscription();
+  const { data: packages, isLoading: packagesLoading } = usePackages();
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
 
@@ -87,13 +97,20 @@ export default function HomeScreen() {
           title="Our care packages"
           onSeeAll={() => router.push("/packages" as any)}
         />
-        {SERVICE_PACKAGES.map((pkg) => (
-          <PackageCard
-            key={pkg.id}
-            pkg={pkg}
-            onPress={(p) => router.push(`/packages/${p.id}` as any)}
-          />
-        ))}
+        {packagesLoading ? (
+          <ActivityIndicator color="#1e3a8a" style={{ marginVertical: 24 }} />
+        ) : (
+          (packages ?? []).map((pkg) => {
+            const view = toPackageView(pkg);
+            return (
+              <PackageCard
+                key={view.type}
+                pkg={view}
+                onPress={(p) => router.push(`/packages/${p.type}` as any)}
+              />
+            );
+          })
+        )}
       </View>
 
       {/* How it works */}

@@ -1,10 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
-import type { ServicePackage } from "@/constants/packages";
+import type { PackageView } from "@/constants/package-presentation";
 
 type Props = {
-  pkg: ServicePackage;
-  onPress: (pkg: ServicePackage) => void;
+  pkg: PackageView;
+  onPress: (pkg: PackageView) => void;
 };
 
 export function PackageCard({ pkg, onPress }: Props) {
@@ -34,7 +34,7 @@ export function PackageCard({ pkg, onPress }: Props) {
 
       <View className="flex-row items-baseline mt-3">
         <Text className="text-foreground font-bold" style={{ fontSize: 20 }}>
-          GHS {pkg.priceGhsPerMonth.toLocaleString()}
+          GHS {pkg.priceGhs.toLocaleString()}
         </Text>
         <Text className="text-muted" style={{ fontSize: 13, marginLeft: 3 }}>
           /month

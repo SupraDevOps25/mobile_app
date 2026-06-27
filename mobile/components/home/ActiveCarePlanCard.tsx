@@ -1,22 +1,26 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
-import { SUBSCRIPTION_STATUS_LABELS, type Subscription } from "@/constants/care";
-import { getPackage } from "@/constants/packages";
+import { PACKAGE_LABELS } from "@/constants/package-presentation";
+import {
+  SUBSCRIPTION_STATUS_LABELS,
+  subscriptionStatusPill,
+} from "@/constants/subscription-presentation";
+import { avatarColor } from "@/lib/avatar";
+import type { ApiSubscription } from "@/services/subscription.service";
 
 // Compact summary of the family's active subscription, shown on the home screen
 // when they're subscribed. Taps through to the full care plan (Care tab).
-export function ActiveCarePlanCard({ subscription }: { subscription: Subscription }) {
+export function ActiveCarePlanCard({
+  subscription,
+}: {
+  subscription: ApiSubscription;
+}) {
   const router = useRouter();
-  const pkg = getPackage(subscription.package);
-  const assigned = subscription.careTeam?.members.find(
-    (m) => m.role === "assigned",
-  )?.nurse;
-
-  const pill =
-    subscription.status === "matching"
-      ? { bg: "rgba(251,191,36,0.2)", color: "#fbbf24" }
-      : { bg: "rgba(74,222,128,0.2)", color: "#4ade80" };
+  const lead =
+    subscription.careTeam.nurses.find((n) => n.role === "PRIMARY") ??
+    subscription.careTeam.nurses[0];
+  const pill = subscriptionStatusPill(subscription.status);
 
   return (
     <Pressable
@@ -36,21 +40,21 @@ export function ActiveCarePlanCard({ subscription }: { subscription: Subscriptio
       </View>
 
       <Text className="text-white font-bold" style={{ fontSize: 18, marginTop: 8 }}>
-        {pkg?.name}
+        {PACKAGE_LABELS[subscription.packageType]}
       </Text>
 
-      {assigned ? (
+      {lead ? (
         <View className="flex-row items-center" style={{ marginTop: 10 }}>
           <View
             className="w-7 h-7 rounded-full items-center justify-center"
-            style={{ backgroundColor: assigned.avatarColor }}
+            style={{ backgroundColor: avatarColor(lead.name) }}
           >
             <Text className="text-white font-bold" style={{ fontSize: 11 }}>
-              {assigned.initials}
+              {lead.initials}
             </Text>
           </View>
           <Text style={{ color: "#cbd5e1", fontSize: 13, marginLeft: 8 }}>
-            {assigned.name} · Assigned nurse
+            {lead.name} · Lead nurse
           </Text>
         </View>
       ) : (

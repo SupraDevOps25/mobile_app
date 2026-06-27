@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AssignmentRole,
   AssignmentStatus,
   CareRecipient,
   NotificationType,
@@ -23,6 +24,10 @@ import { SubscribeDto } from './dto/subscribe.dto';
 type SubscriptionWithRecipient = Subscription & {
   careRecipient: CareRecipient;
 };
+
+type CareTeam = Awaited<
+  ReturnType<SubscriptionsService['buildCareTeam']>
+>;
 
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
@@ -115,7 +120,10 @@ export class SubscriptionsService {
       include: { careRecipient: true },
     });
 
-    return subscription ? this.toResponse(subscription) : null;
+    if (!subscription) return null;
+
+    const careTeam = await this.buildCareTeam(subscription);
+    return this.toResponse(subscription, careTeam);
   }
 
   // ── Coordinator: activation flow ──────────────────────────────────────────
@@ -284,6 +292,76 @@ export class SubscriptionsService {
 
   // ── Shared helpers ────────────────────────────────────────────────────────
 
+  // Ordering for the care-team list: lead nurse first, then backups.
+  private static readonly ROLE_WEIGHT: Record<AssignmentRole, number> = {
+    PRIMARY: 0,
+    BACKUP_1: 1,
+    BACKUP_2: 2,
+  };
+
+  /** The coordinator + accepted nurses the family can see for a subscription. */
+  private async buildCareTeam(subscription: Subscription) {
+    const [coordinator, assignments] = await Promise.all([
+      subscription.coordinatorId
+        ? this.prisma.user.findUnique({
+            where: { id: subscription.coordinatorId },
+            select: { firstName: true, lastName: true, phone: true },
+          })
+        : Promise.resolve(null),
+      this.prisma.assignment.findMany({
+        where: {
+          subscriptionId: subscription.id,
+          status: {
+            in: [AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE],
+          },
+        },
+        include: {
+          caregiver: {
+            include: {
+              user: {
+                select: { firstName: true, lastName: true, phone: true },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const nurses = assignments
+      .map((a) => {
+        const u = a.caregiver.user;
+        return {
+          assignmentId: a.id,
+          role: a.role,
+          status: a.status,
+          name: `${u.firstName} ${u.lastName}`,
+          initials:
+            `${u.firstName[0] ?? ''}${u.lastName[0] ?? ''}`.toUpperCase(),
+          phone: u.phone,
+          qualification: a.caregiver.qualification,
+          yearsExperience: a.caregiver.yearsExperience,
+          rating: a.caregiver.rating.toNumber(),
+          reliabilityScore: a.caregiver.reliabilityScore,
+          serviceAreas: a.caregiver.serviceAreas,
+        };
+      })
+      .sort(
+        (a, b) =>
+          SubscriptionsService.ROLE_WEIGHT[a.role] -
+          SubscriptionsService.ROLE_WEIGHT[b.role],
+      );
+
+    return {
+      coordinator: coordinator
+        ? {
+            name: `${coordinator.firstName} ${coordinator.lastName}`,
+            phone: coordinator.phone,
+          }
+        : null,
+      nurses,
+    };
+  }
+
   private async leadAssignment(subscriptionId: string) {
     return this.prisma.assignment.findFirst({
       where: { subscriptionId, status: AssignmentStatus.ACCEPTED },
@@ -312,7 +390,10 @@ export class SubscriptionsService {
     });
   }
 
-  private toResponse(s: SubscriptionWithRecipient) {
+  private toResponse(
+    s: SubscriptionWithRecipient,
+    careTeam: CareTeam = { coordinator: null, nurses: [] },
+  ) {
     return {
       id: s.id,
       packageType: s.packageType,
@@ -322,6 +403,7 @@ export class SubscriptionsService {
       renewsAt: s.renewsAt,
       careStartAt: s.careStartAt,
       activatedAt: s.activatedAt,
+      careTeam,
       careRecipient: {
         id: s.careRecipient.id,
         name: s.careRecipient.name,

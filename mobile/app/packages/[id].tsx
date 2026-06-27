@@ -1,23 +1,41 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getPackage, type PackageId } from "@/constants/packages";
+import { toPackageView } from "@/constants/package-presentation";
+import { usePackage } from "@/hooks/usePackages";
+import type { ApiPackageType } from "@/services/package.service";
 
 export default function PackageDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const pkg = getPackage(id as PackageId);
+  const { data, isLoading, isError } = usePackage(id as ApiPackageType);
 
-  if (!pkg) {
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator color="#1e3a8a" />
+      </View>
+    );
+  }
+
+  if (isError || !data) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <Text className="text-muted">Package not found.</Text>
       </View>
     );
   }
+
+  const pkg = toPackageView(data);
 
   return (
     <View className="flex-1 bg-background">
@@ -62,7 +80,7 @@ export default function PackageDetailScreen() {
           </Text>
           <View className="flex-row items-baseline mt-3">
             <Text className="text-foreground font-bold" style={{ fontSize: 26 }}>
-              GHS {pkg.priceGhsPerMonth.toLocaleString()}
+              GHS {pkg.priceGhs.toLocaleString()}
             </Text>
             <Text className="text-muted" style={{ fontSize: 14, marginLeft: 4 }}>
               /month
@@ -121,12 +139,12 @@ export default function PackageDetailScreen() {
         }}
       >
         <Pressable
-          onPress={() => router.push(`/subscribe/${pkg.id}` as any)}
+          onPress={() => router.push(`/subscribe/${pkg.type}` as any)}
           className="rounded-2xl items-center justify-center py-4"
           style={{ backgroundColor: "#1e3a8a" }}
         >
           <Text className="text-white font-bold" style={{ fontSize: 16 }}>
-            Subscribe · GHS {pkg.priceGhsPerMonth.toLocaleString()}/mo
+            Subscribe · GHS {pkg.priceGhs.toLocaleString()}/mo
           </Text>
         </Pressable>
       </View>

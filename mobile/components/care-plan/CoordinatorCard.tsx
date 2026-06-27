@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Alert, Linking, Pressable, Text, View } from "react-native";
-import type { CareCoordinator } from "@/constants/care";
+import { avatarColor, initialsOf } from "@/lib/avatar";
+import type { ApiCoordinator } from "@/services/subscription.service";
 
-export function CoordinatorCard({ coordinator }: { coordinator: CareCoordinator }) {
+export function CoordinatorCard({ coordinator }: { coordinator: ApiCoordinator }) {
   return (
     <View
       className="flex-row items-center bg-card rounded-2xl p-4"
@@ -10,10 +11,10 @@ export function CoordinatorCard({ coordinator }: { coordinator: CareCoordinator 
     >
       <View
         className="w-11 h-11 rounded-full items-center justify-center"
-        style={{ backgroundColor: coordinator.avatarColor }}
+        style={{ backgroundColor: avatarColor(coordinator.name) }}
       >
         <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-          {coordinator.initials}
+          {initialsOf(coordinator.name)}
         </Text>
       </View>
       <View className="flex-1 ml-3">

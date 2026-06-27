@@ -1,12 +1,28 @@
 import { Pressable, Text, View } from "react-native";
-import type { UpcomingVisit } from "@/constants/caregiver-dashboard";
+import type { ApiVisitRow, ApiVisitKind } from "@/services/visit.service";
+
+const MONTHS = [
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+];
+
+const KIND_TAGS: Record<ApiVisitKind, string> = {
+  INITIAL_ASSESSMENT: "Assessment",
+  CARE_VISIT: "Care visit",
+};
 
 type Props = {
-  visit: UpcomingVisit;
-  onPress: (visit: UpcomingVisit) => void;
+  visit: ApiVisitRow;
+  onPress: (visit: ApiVisitRow) => void;
 };
 
 export function UpcomingVisitRow({ visit, onPress }: Props) {
+  const date = new Date(visit.scheduledFor);
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
   return (
     <Pressable
       onPress={() => onPress(visit)}
@@ -19,19 +35,19 @@ export function UpcomingVisitRow({ visit, onPress }: Props) {
         style={{ width: 48, height: 48, backgroundColor: "#eef2ff" }}
       >
         <Text style={{ color: "#1e3a8a", fontSize: 16, fontWeight: "700" }}>
-          {visit.dayOfMonth}
+          {date.getDate()}
         </Text>
         <Text style={{ color: "#1e3a8a", fontSize: 9, fontWeight: "600" }}>
-          {visit.month}
+          {MONTHS[date.getMonth()]}
         </Text>
       </View>
 
       <View className="flex-1 ml-3">
         <Text className="text-foreground font-bold" style={{ fontSize: 14 }}>
-          {visit.familyName}
+          {visit.clientName}
         </Text>
         <Text className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>
-          {visit.careType} · {visit.time} · {visit.durationHrs}hrs
+          {visit.area} · {time} · {visit.durationHrs}hrs
         </Text>
       </View>
 
@@ -40,7 +56,7 @@ export function UpcomingVisitRow({ visit, onPress }: Props) {
         style={{ backgroundColor: "#eef2ff" }}
       >
         <Text style={{ color: "#1e3a8a", fontSize: 11, fontWeight: "600" }}>
-          {visit.tag}
+          {KIND_TAGS[visit.kind]}
         </Text>
       </View>
     </Pressable>

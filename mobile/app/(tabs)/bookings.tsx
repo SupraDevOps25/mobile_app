@@ -1,16 +1,26 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CareRecipientCard } from "@/components/care-plan/CareRecipientCard";
 import { CoordinatorCard } from "@/components/care-plan/CoordinatorCard";
 import { MatchingView } from "@/components/care-plan/MatchingView";
+import { RenewalCard } from "@/components/care-plan/RenewalCard";
 import { SubscriptionHeaderCard } from "@/components/care-plan/SubscriptionHeaderCard";
 import { TeamNurseRow } from "@/components/care-plan/TeamNurseRow";
 import { VisitRow } from "@/components/care-plan/VisitRow";
-import { getActiveSubscription, type Visit } from "@/constants/care";
-import { getPackage } from "@/constants/packages";
+import { toPackageView } from "@/constants/package-presentation";
+import { usePackage } from "@/hooks/usePackages";
+import { useActiveSubscription } from "@/hooks/useSubscription";
+import { useCarePlan } from "@/hooks/useVisits";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -60,20 +70,30 @@ export default function CarePlanScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
 
-  const subscription = getActiveSubscription();
+  const { data: subscription, isLoading } = useActiveSubscription();
+  const { data: pkgData } = usePackage(subscription?.packageType);
+  const { data: visits } = useCarePlan();
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator color="#1e3a8a" />
+      </View>
+    );
+  }
+
   if (!subscription) return <EmptyState />;
 
-  const pkg = getPackage(subscription.package);
-  if (!pkg) return <EmptyState />;
-
-  const isMatching = subscription.status === "matching";
+  const pkg = pkgData ? toPackageView(pkgData) : undefined;
   const team = subscription.careTeam;
+  const hasTeam = team.nurses.length > 0;
+  const isMatching = subscription.status === "MATCHING" || !hasTeam;
 
-  const upcoming = subscription.visits.filter(
-    (v) => v.status === "scheduled" || v.status === "in-progress",
+  const upcoming = (visits ?? []).filter(
+    (v) => v.status === "SCHEDULED" || v.status === "IN_PROGRESS",
   );
-  const recent = subscription.visits.filter(
-    (v) => v.status === "completed" || v.status === "missed",
+  const recent = (visits ?? []).filter(
+    (v) => v.status === "COMPLETED" || v.status === "MISSED",
   );
 
   return (
@@ -100,27 +120,37 @@ export default function CarePlanScreen() {
       </View>
 
       <View className="px-5">
-        <SubscriptionHeaderCard pkg={pkg} subscription={subscription} />
+        {pkg && (
+          <SubscriptionHeaderCard pkg={pkg} subscription={subscription} />
+        )}
 
-        {isMatching || !team ? (
+        {subscription.status === "RENEWING" && (
+          <RenewalCard subscription={subscription} />
+        )}
+
+        {isMatching ? (
           <MatchingView />
         ) : (
           <>
             {/* Care recipient */}
             <SectionLabel title="Care recipient" />
-            <CareRecipientCard client={subscription.client} />
+            <CareRecipientCard client={subscription.careRecipient} />
 
             {/* Coordinator */}
-            <SectionLabel title="Your Care Coordinator" />
-            <CoordinatorCard coordinator={team.coordinator} />
+            {team.coordinator && (
+              <>
+                <SectionLabel title="Your Care Coordinator" />
+                <CoordinatorCard coordinator={team.coordinator} />
+              </>
+            )}
 
             {/* Care team */}
             <SectionLabel title="Care team" />
-            {team.members.map((member) => (
+            {team.nurses.map((nurse) => (
               <TeamNurseRow
-                key={member.nurse.id}
-                member={member}
-                onPress={(nurse) => router.push(`/nurse/${nurse.id}` as any)}
+                key={nurse.assignmentId}
+                nurse={nurse}
+                onPress={(n) => router.push(`/nurse/${n.assignmentId}` as any)}
               />
             ))}
 
@@ -128,7 +158,7 @@ export default function CarePlanScreen() {
             {upcoming.length > 0 && (
               <>
                 <SectionLabel title="Upcoming visits" />
-                {upcoming.map((visit: Visit) => (
+                {upcoming.map((visit) => (
                   <VisitRow key={visit.id} visit={visit} />
                 ))}
               </>
@@ -138,7 +168,7 @@ export default function CarePlanScreen() {
             {recent.length > 0 && (
               <>
                 <SectionLabel title="Recent visits" />
-                {recent.map((visit: Visit) => (
+                {recent.map((visit) => (
                   <VisitRow key={visit.id} visit={visit} />
                 ))}
               </>
