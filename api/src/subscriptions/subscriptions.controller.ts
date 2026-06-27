@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  Patch,
   Post,
   Request,
   UseGuards,
@@ -10,20 +12,21 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { SetCareStartDto } from './dto/set-care-start.dto';
 import { SubscribeDto } from './dto/subscribe.dto';
 import { SubscriptionsService } from './subscriptions.service';
 
 @ApiBearerAuth()
 @ApiTags('Subscriptions')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('FAMILY')
 @Controller('subscriptions')
 export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
 
   @ApiOperation({
-    summary: 'Subscribe to a care package (also creates the care recipient)',
+    summary: 'Family: subscribe to a care package (also creates the recipient)',
   })
+  @Roles('FAMILY')
   @Post()
   subscribe(
     @Request() req: { user: { id: string } },
@@ -32,9 +35,46 @@ export class SubscriptionsController {
     return this.subscriptionsService.subscribe(req.user.id, dto);
   }
 
-  @ApiOperation({ summary: "Get the family's current subscription" })
+  @ApiOperation({ summary: "Family: get the family's current subscription" })
+  @Roles('FAMILY')
   @Get('active')
   getActive(@Request() req: { user: { id: string } }) {
     return this.subscriptionsService.getActive(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Family: renew the same package for next period' })
+  @Roles('FAMILY')
+  @Post(':id/renew')
+  renew(@Request() req: { user: { id: string } }, @Param('id') id: string) {
+    return this.subscriptionsService.renew(req.user.id, id);
+  }
+
+  @ApiOperation({ summary: 'Family: end the service (or decline renewal)' })
+  @Roles('FAMILY')
+  @Post(':id/cancel')
+  cancel(@Request() req: { user: { id: string } }, @Param('id') id: string) {
+    return this.subscriptionsService.cancel(req.user.id, id);
+  }
+
+  @ApiOperation({
+    summary: 'Coordinator: set the care-start date (captured at assessment)',
+  })
+  @Roles('CARE_COORDINATOR', 'ADMIN')
+  @Patch(':id/care-start')
+  setCareStart(
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() dto: SetCareStartDto,
+  ) {
+    return this.subscriptionsService.setCareStart(req.user.id, id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Coordinator: activate care (generates the visit schedule)',
+  })
+  @Roles('CARE_COORDINATOR', 'ADMIN')
+  @Post(':id/activate')
+  activate(@Request() req: { user: { id: string } }, @Param('id') id: string) {
+    return this.subscriptionsService.activate(req.user.id, id);
   }
 }

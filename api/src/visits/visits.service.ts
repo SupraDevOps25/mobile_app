@@ -1,0 +1,355 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AssignmentStatus,
+  NotificationType,
+  Prisma,
+  VisitKind,
+  VisitLog,
+  VisitStatus,
+} from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateVisitDto } from './dto/create-visit.dto';
+import { CreateVisitLogDto } from './dto/create-visit-log.dto';
+
+type VisitRowPayload = Prisma.VisitGetPayload<{
+  include: { subscription: { include: { careRecipient: true } } };
+}>;
+
+type VisitDetailPayload = Prisma.VisitGetPayload<{
+  include: { subscription: { include: { careRecipient: true } }; log: true };
+}>;
+
+function initialsOf(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
+
+@Injectable()
+export class VisitsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  private async caregiverIdFor(userId: string): Promise<string> {
+    const profile = await this.prisma.caregiverProfile.findUnique({
+      where: { userId },
+    });
+    if (!profile) throw new NotFoundException('Caregiver profile not found');
+    return profile.id;
+  }
+
+  private async familyIdFor(userId: string): Promise<string> {
+    const family = await this.prisma.familyProfile.findUnique({
+      where: { userId },
+    });
+    if (!family) throw new NotFoundException('Family profile not found');
+    return family.id;
+  }
+
+  // ── Coordinator: schedule a visit ─────────────────────────────────────────
+
+  async scheduleVisit(coordinatorUserId: string, dto: CreateVisitDto) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id: dto.subscriptionId },
+      include: { careRecipient: true },
+    });
+    if (!subscription) throw new NotFoundException('Subscription not found');
+    if (subscription.coordinatorId !== coordinatorUserId) {
+      throw new ForbiddenException('This case is not yours to coordinate');
+    }
+
+    // Visits are delivered by the lead nurse (the accepted assignment).
+    const lead = await this.prisma.assignment.findFirst({
+      where: {
+        subscriptionId: dto.subscriptionId,
+        status: AssignmentStatus.ACCEPTED,
+      },
+      include: { caregiver: { select: { userId: true } } },
+    });
+    if (!lead)
+      throw new BadRequestException('No nurse has accepted this case yet');
+
+    const visit = await this.prisma.visit.create({
+      data: {
+        subscriptionId: dto.subscriptionId,
+        caregiverId: lead.caregiverId,
+        assignmentId: lead.id,
+        kind: dto.kind ?? VisitKind.CARE_VISIT,
+        scheduledFor: new Date(dto.scheduledFor),
+        durationHrs: dto.durationHrs,
+      },
+      include: {
+        subscription: { include: { careRecipient: true } },
+        log: true,
+      },
+    });
+
+    await this.notifications.notify({
+      userId: lead.caregiver.userId,
+      type: NotificationType.VISIT_REMINDER,
+      title: 'New visit scheduled',
+      body: `A ${
+        visit.kind === VisitKind.INITIAL_ASSESSMENT ? 'home assessment' : 'care'
+      } visit for ${subscription.careRecipient.name} has been scheduled.`,
+    });
+
+    return this.toVisitDetail(visit);
+  }
+
+  // ── Nurse: caseload + delivery ────────────────────────────────────────────
+
+  async upcomingForNurse(userId: string) {
+    const caregiverId = await this.caregiverIdFor(userId);
+    const visits = await this.prisma.visit.findMany({
+      where: {
+        caregiverId,
+        status: { in: [VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS] },
+      },
+      include: { subscription: { include: { careRecipient: true } } },
+      orderBy: { scheduledFor: 'asc' },
+    });
+    return visits.map((v) => this.toVisitRow(v));
+  }
+
+  async getVisit(userId: string, visitId: string) {
+    const caregiverId = await this.caregiverIdFor(userId);
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        subscription: { include: { careRecipient: true } },
+        log: true,
+      },
+    });
+    if (!visit) throw new NotFoundException('Visit not found');
+    if (visit.caregiverId !== caregiverId) {
+      throw new ForbiddenException('This visit is not yours');
+    }
+    return this.toVisitDetail(visit);
+  }
+
+  async startVisit(userId: string, visitId: string) {
+    const caregiverId = await this.caregiverIdFor(userId);
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+    if (!visit) throw new NotFoundException('Visit not found');
+    if (visit.caregiverId !== caregiverId) {
+      throw new ForbiddenException('This visit is not yours');
+    }
+    if (visit.status !== VisitStatus.SCHEDULED) {
+      throw new BadRequestException('This visit cannot be started');
+    }
+
+    const updated = await this.prisma.visit.update({
+      where: { id: visitId },
+      data: { status: VisitStatus.IN_PROGRESS, startedAt: new Date() },
+    });
+    return {
+      id: updated.id,
+      status: updated.status,
+      startedAt: updated.startedAt,
+    };
+  }
+
+  /** Submit the daily care log and complete the visit. */
+  async submitLog(userId: string, visitId: string, dto: CreateVisitLogDto) {
+    const caregiverId = await this.caregiverIdFor(userId);
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        subscription: { include: { careRecipient: true } },
+        log: true,
+      },
+    });
+    if (!visit) throw new NotFoundException('Visit not found');
+    if (visit.caregiverId !== caregiverId) {
+      throw new ForbiddenException('This visit is not yours');
+    }
+    if (visit.status === VisitStatus.COMPLETED || visit.log) {
+      throw new BadRequestException('This visit has already been logged');
+    }
+
+    const log = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.visitLog.create({
+        data: {
+          visitId,
+          summary: dto.summary,
+          observations: dto.observations,
+          bloodPressure: dto.bloodPressure,
+          bloodGlucose: dto.bloodGlucose,
+          heartRate: dto.heartRate,
+          temperature: dto.temperature,
+          medicationsGiven: dto.medicationsGiven ?? [],
+          quickLog: dto.quickLog ?? [],
+          mood: dto.mood,
+          followUpRecommended: dto.followUpRecommended ?? false,
+          escalationNeeded: dto.escalationNeeded ?? false,
+        },
+      });
+      await tx.visit.update({
+        where: { id: visitId },
+        data: { status: VisitStatus.COMPLETED, endedAt: new Date() },
+      });
+      return created;
+    });
+
+    // The coordinator reviews every log.
+    if (visit.subscription.coordinatorId) {
+      await this.notifications.notify({
+        userId: visit.subscription.coordinatorId,
+        type: NotificationType.DAILY_LOG_SUBMITTED,
+        title: 'Daily care log submitted',
+        body: `A care log for ${visit.subscription.careRecipient.name} was submitted${
+          dto.escalationNeeded ? ' and flagged for escalation' : ''
+        }.`,
+      });
+    }
+
+    return this.toLogResponse(log);
+  }
+
+  // ── Coordinator: review logs ──────────────────────────────────────────────
+
+  async pendingLogs(coordinatorUserId: string) {
+    const logs = await this.prisma.visitLog.findMany({
+      where: {
+        reviewedAt: null,
+        visit: { subscription: { coordinatorId: coordinatorUserId } },
+      },
+      include: {
+        visit: {
+          include: {
+            subscription: { include: { careRecipient: true } },
+            caregiver: { include: { user: true } },
+          },
+        },
+      },
+      orderBy: { submittedAt: 'asc' },
+    });
+    return logs.map((l) => ({
+      visitId: l.visitId,
+      summary: l.summary,
+      mood: l.mood,
+      escalationNeeded: l.escalationNeeded,
+      followUpRecommended: l.followUpRecommended,
+      submittedAt: l.submittedAt,
+      clientName: l.visit.subscription.careRecipient.name,
+      nurseName: `${l.visit.caregiver.user.firstName} ${l.visit.caregiver.user.lastName}`,
+    }));
+  }
+
+  async reviewLog(coordinatorUserId: string, visitId: string) {
+    const log = await this.prisma.visitLog.findUnique({
+      where: { visitId },
+      include: { visit: { include: { subscription: true } } },
+    });
+    if (!log) throw new NotFoundException('Visit log not found');
+    if (log.visit.subscription.coordinatorId !== coordinatorUserId) {
+      throw new ForbiddenException('This case is not yours');
+    }
+    if (log.reviewedAt) {
+      throw new BadRequestException('This log has already been reviewed');
+    }
+
+    const updated = await this.prisma.visitLog.update({
+      where: { visitId },
+      data: { reviewedById: coordinatorUserId, reviewedAt: new Date() },
+    });
+    return { visitId, reviewedAt: updated.reviewedAt };
+  }
+
+  // ── Family: care plan visits ──────────────────────────────────────────────
+
+  async carePlanVisits(userId: string) {
+    const familyId = await this.familyIdFor(userId);
+    const visits = await this.prisma.visit.findMany({
+      where: { subscription: { familyId } },
+      include: {
+        caregiver: { include: { user: true } },
+        log: { select: { reviewedAt: true } },
+      },
+      orderBy: { scheduledFor: 'desc' },
+    });
+    return visits.map((v) => ({
+      id: v.id,
+      kind: v.kind,
+      status: v.status,
+      scheduledFor: v.scheduledFor,
+      durationHrs: v.durationHrs,
+      nurseName: `${v.caregiver.user.firstName} ${v.caregiver.user.lastName}`,
+      hasLog: v.log !== null,
+      logReviewed: v.log?.reviewedAt != null,
+    }));
+  }
+
+  // ── Response shaping ──────────────────────────────────────────────────────
+
+  private toVisitRow(v: VisitRowPayload) {
+    const c = v.subscription.careRecipient;
+    return {
+      id: v.id,
+      kind: v.kind,
+      status: v.status,
+      scheduledFor: v.scheduledFor,
+      durationHrs: v.durationHrs,
+      clientName: c.name,
+      clientInitials: initialsOf(c.name),
+      area: c.area,
+    };
+  }
+
+  private toVisitDetail(v: VisitDetailPayload) {
+    const c = v.subscription.careRecipient;
+    return {
+      id: v.id,
+      kind: v.kind,
+      status: v.status,
+      scheduledFor: v.scheduledFor,
+      durationHrs: v.durationHrs,
+      startedAt: v.startedAt,
+      endedAt: v.endedAt,
+      client: {
+        name: c.name,
+        initials: initialsOf(c.name),
+        age: c.age,
+        gender: c.gender,
+        area: c.area,
+        city: c.city,
+        address: c.address,
+        conditions: c.conditions,
+        basicCareNeeds: c.basicCareNeeds,
+      },
+      log: v.log ? this.toLogResponse(v.log) : null,
+    };
+  }
+
+  private toLogResponse(log: VisitLog) {
+    return {
+      visitId: log.visitId,
+      summary: log.summary,
+      observations: log.observations,
+      bloodPressure: log.bloodPressure,
+      bloodGlucose: log.bloodGlucose,
+      heartRate: log.heartRate,
+      temperature: log.temperature,
+      medicationsGiven: log.medicationsGiven,
+      quickLog: log.quickLog,
+      mood: log.mood,
+      followUpRecommended: log.followUpRecommended,
+      escalationNeeded: log.escalationNeeded,
+      submittedAt: log.submittedAt,
+      reviewedAt: log.reviewedAt,
+    };
+  }
+}

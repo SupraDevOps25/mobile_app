@@ -172,6 +172,7 @@ model CaregiverProfile {
   competencies       Competency[]
   serviceAreas       String[]
   licenseVerified    Boolean            @default(false)
+  isAvailable        Boolean            @default(true) // nurse-controlled (availability screen)
   verificationStatus VerificationStatus @default(UNVERIFIED)
   rating             Decimal            @default(0) @db.Decimal(3, 2)
   reliabilityScore   Int                @default(0) // 0–100
@@ -284,6 +285,7 @@ model Assignment {
   status         AssignmentStatus @default(OFFERED)
   payoutGhs      Decimal?         @db.Decimal(10, 2)
   offeredAt      DateTime         @default(now())
+  expiresAt      DateTime? // active-offer acceptance deadline (5-min escalation)
   respondedAt    DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
