@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { RenewDto } from './dto/renew.dto';
 import { SetCareStartDto } from './dto/set-care-start.dto';
 import { SubscribeDto } from './dto/subscribe.dto';
 import { SubscriptionsService } from './subscriptions.service';
@@ -42,11 +43,17 @@ export class SubscriptionsController {
     return this.subscriptionsService.getActive(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Family: renew the same package for next period' })
+  @ApiOperation({
+    summary: 'Family: renew the package (same team, or re-match a new nurse)',
+  })
   @Roles('FAMILY')
   @Post(':id/renew')
-  renew(@Request() req: { user: { id: string } }, @Param('id') id: string) {
-    return this.subscriptionsService.renew(req.user.id, id);
+  renew(
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() dto: RenewDto,
+  ) {
+    return this.subscriptionsService.renew(req.user.id, id, dto);
   }
 
   @ApiOperation({ summary: 'Family: end the service (or decline renewal)' })
@@ -54,6 +61,13 @@ export class SubscriptionsController {
   @Post(':id/cancel')
   cancel(@Request() req: { user: { id: string } }, @Param('id') id: string) {
     return this.subscriptionsService.cancel(req.user.id, id);
+  }
+
+  @ApiOperation({ summary: 'Coordinator: list the cases I coordinate' })
+  @Roles('CARE_COORDINATOR', 'ADMIN')
+  @Get('coordinating')
+  coordinating(@Request() req: { user: { id: string } }) {
+    return this.subscriptionsService.coordinatingCases(req.user.id);
   }
 
   @ApiOperation({

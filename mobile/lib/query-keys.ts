@@ -17,4 +17,7 @@ export const qk = {
   caregiverProfile: ["caregivers", "me"] as const,
 
   invoices: ["billing", "invoices"] as const,
+
+  coordinatorCases: ["coordinator", "cases"] as const,
+  pendingLogs: ["coordinator", "pending-logs"] as const,
 };

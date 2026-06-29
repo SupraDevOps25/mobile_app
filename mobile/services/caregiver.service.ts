@@ -34,10 +34,22 @@ export interface ApiCaregiverProfile {
   serviceAreas: string[];
   licenseVerified: boolean;
   isAvailable: boolean;
+  // Weekly working pattern. workingDays uses JS getDay(): 0=Sun … 6=Sat.
+  workingDays: number[];
+  workStart: string; // "HH:MM"
+  workEnd: string; // "HH:MM"
+  maxVisitsPerDay: number;
   verificationStatus: ApiVerificationStatus;
   rating: number;
   reliabilityScore: number;
   totalReviews: number;
+}
+
+export interface SchedulePayload {
+  workingDays: number[];
+  workStart: string;
+  workEnd: string;
+  maxVisitsPerDay: number;
 }
 
 export const caregiverService = {
@@ -46,4 +58,6 @@ export const caregiverService = {
     api.patch<ApiCaregiverProfile>("/caregivers/me/availability", {
       isAvailable,
     }),
+  setSchedule: (payload: SchedulePayload) =>
+    api.patch<ApiCaregiverProfile>("/caregivers/me/schedule", payload),
 };

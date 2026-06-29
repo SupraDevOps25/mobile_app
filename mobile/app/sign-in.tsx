@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
 import { signInSchema, type SignInFormValues } from "@/schemas/auth.schemas";
 import { authService } from "@/services/auth.service";
+import { homeGroupForRole } from "@/lib/home-route";
 
 // Format a Ghana phone number to +233XXXXXXXXX for the backend.
 function toE164(raw: string): string {
@@ -55,8 +56,8 @@ export default function SignInScreen() {
     },
     onSuccess: async ({ accessToken }) => {
       const user = await saveSession(accessToken);
-      // Caregivers and families land on different tab groups
-      const home = user.role === "CAREGIVER" ? "(caregiver-tabs)" : "(tabs)";
+      // Family / caregiver / coordinator each land on their own tab group
+      const home = homeGroupForRole(user.role);
       // Reset the entire navigation stack — user cannot swipe back to auth screens
       navigation.dispatch(
         CommonActions.reset({ index: 0, routes: [{ name: home }] }),

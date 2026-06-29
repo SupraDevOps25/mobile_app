@@ -145,7 +145,11 @@ export class AssignmentsService {
 
     const picks = ranked.slice(0, ROLES_IN_ORDER.length);
     const price = pkg.priceGhs.toNumber();
-    const coordinatorId = await this.pickCoordinator();
+    // Keep the existing coordinator (e.g. on a renewal re-match) for continuity;
+    // only assign a fresh one when the case has none yet.
+    const existingCoordinatorId = subscription.coordinatorId;
+    const coordinatorId =
+      existingCoordinatorId ?? (await this.pickCoordinator());
 
     await this.prisma.$transaction(async (tx) => {
       for (let i = 0; i < picks.length; i++) {
@@ -164,7 +168,7 @@ export class AssignmentsService {
           },
         });
       }
-      if (coordinatorId) {
+      if (coordinatorId && !existingCoordinatorId) {
         await tx.subscription.update({
           where: { id: subscriptionId },
           data: { coordinatorId },

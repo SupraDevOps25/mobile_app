@@ -27,7 +27,11 @@ export function useSubscribe() {
 export function useRenewSubscription() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => subscriptionService.renew(id),
+    mutationFn: (args: { id: string; rematch?: boolean; reason?: string }) =>
+      subscriptionService.renew(args.id, {
+        rematch: args.rematch,
+        reason: args.reason,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.activeSubscription });
       qc.invalidateQueries({ queryKey: qk.carePlan });

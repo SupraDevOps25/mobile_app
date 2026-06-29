@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,139 +16,238 @@ import {
   useSetAvailability,
 } from "@/hooks/useCaregiverProfile";
 
+// Palette taken from the Figma "Set availability" design.
+const GREEN = "#16a34a";
+const GREEN_LIGHT = "#f0fdf4";
+const GREEN_CHIP_TEXT = "#15803d";
+const SCREEN_BG = "#f3f4f6";
+const CARD_BORDER = "#eef2f6";
+const RED = "#ef4444";
+const LABEL = "#9ca3af";
+
+function SectionLabel({ title }: { title: string }) {
+  return (
+    <Text
+      style={{
+        color: LABEL,
+        fontSize: 11,
+        letterSpacing: 1,
+        fontWeight: "600",
+        marginBottom: 10,
+      }}
+    >
+      {title.toUpperCase()}
+    </Text>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#ffffff",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: CARD_BORDER,
+        padding: 16,
+        marginBottom: 14,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-1 items-center">
       <Text className="text-foreground font-bold" style={{ fontSize: 18 }}>
         {value}
       </Text>
-      <Text className="text-muted" style={{ fontSize: 11, marginTop: 2 }}>
-        {label}
-      </Text>
+      <Text style={{ color: LABEL, fontSize: 11, marginTop: 2 }}>{label}</Text>
     </View>
   );
 }
 
 export default function AvailabilityScreen() {
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const { data: profile, isLoading } = useCaregiverProfile();
   const setAvailability = useSetAvailability();
 
-  const available = profile?.isAvailable ?? false;
+  const [available, setAvailable] = useState(false);
 
-  function onToggle(next: boolean) {
-    setAvailability.mutate(next, {
+  // Sync local state once the profile loads.
+  useEffect(() => {
+    if (profile) setAvailable(profile.isAvailable);
+  }, [profile]);
+
+  const dirty = profile ? available !== profile.isAvailable : false;
+
+  function handleSave() {
+    setAvailability.mutate(available, {
+      onSuccess: () => {
+        Alert.alert(
+          "Availability updated",
+          available
+            ? "You're now available for new cases."
+            : "You won't be offered new cases until you turn this back on.",
+        );
+      },
       onError: (err: Error) => Alert.alert("Couldn't update", err.message),
     });
   }
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1" style={{ backgroundColor: SCREEN_BG }}>
       {/* Header */}
-      <View className="flex-row items-center px-5 pb-3" style={{ paddingTop: top + 8 }}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          className="w-10 h-10 rounded-full items-center justify-center mr-3"
-          style={{ backgroundColor: "#f3f4f6" }}
-        >
-          <Ionicons name="arrow-back" size={20} color="#111827" />
-        </Pressable>
-        <Text className="text-foreground font-bold" style={{ fontSize: 18 }}>
-          Availability
-        </Text>
+      <View
+        className="flex-row items-center justify-between px-5 pb-3"
+        style={{ paddingTop: top + 8, backgroundColor: SCREEN_BG }}
+      >
+        <View className="flex-row items-center">
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            className="w-10 h-10 rounded-full items-center justify-center mr-2"
+            style={{ backgroundColor: "#ffffff" }}
+          >
+            <Ionicons name="chevron-back" size={20} color="#111827" />
+          </Pressable>
+          <Text className="text-foreground font-bold" style={{ fontSize: 18 }}>
+            Set availability
+          </Text>
+        </View>
+        {dirty && (
+          <Pressable
+            onPress={() => profile && setAvailable(profile.isAvailable)}
+            hitSlop={8}
+          >
+            <Text style={{ color: RED, fontSize: 14, fontWeight: "600" }}>
+              Reset
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {isLoading || !profile ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#16a34a" />
+          <ActivityIndicator color={GREEN} />
         </View>
       ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
-        >
-          {/* Availability toggle */}
-          <View
-            className="rounded-2xl p-5"
-            style={{
-              backgroundColor: available ? "#0f2461" : "#1f2937",
-            }}
+        <>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 6 }}
           >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1 pr-3">
-                <Text className="text-white font-bold" style={{ fontSize: 17 }}>
-                  {available ? "You're available" : "You're unavailable"}
-                </Text>
-                <Text style={{ color: "#cbd5e1", fontSize: 13, marginTop: 4, lineHeight: 19 }}>
-                  {available
-                    ? "You can be matched to new care cases."
-                    : "You won't be offered new cases until you turn this on."}
-                </Text>
+            {/* Availability toggle */}
+            <SectionLabel title="Availability" />
+            <Card>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
+                    Available for new cases
+                  </Text>
+                  <Text style={{ color: "#6b7280", fontSize: 13, marginTop: 2, lineHeight: 18 }}>
+                    Turn this off when you can&apos;t take on new families.
+                  </Text>
+                </View>
+                <Switch
+                  value={available}
+                  onValueChange={setAvailable}
+                  trackColor={{ false: "#d1d5db", true: GREEN }}
+                  thumbColor="#ffffff"
+                />
               </View>
-              <Switch
-                value={available}
-                onValueChange={onToggle}
-                disabled={setAvailability.isPending}
-                trackColor={{ false: "#4b5563", true: "#16a34a" }}
-                thumbColor="#ffffff"
-              />
-            </View>
-          </View>
 
-          {/* Profile stats */}
-          <View
-            className="flex-row bg-card rounded-2xl py-4 mt-5"
-            style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
-          >
-            <Stat label="Experience" value={`${profile.yearsExperience} yrs`} />
-            <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-            <Stat label="Rating" value={`★ ${profile.rating.toFixed(1)}`} />
-            <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-            <Stat label="Reliability" value={`${profile.reliabilityScore}%`} />
-          </View>
+              {available && (
+                <View
+                  className="flex-row items-center rounded-xl px-3 py-2.5 mt-3"
+                  style={{ backgroundColor: GREEN_LIGHT }}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color={GREEN} />
+                  <Text style={{ color: GREEN_CHIP_TEXT, fontSize: 12, fontWeight: "600", marginLeft: 6 }}>
+                    You can be matched to new care cases
+                  </Text>
+                </View>
+              )}
+            </Card>
 
-          {/* Service areas */}
-          {profile.serviceAreas.length > 0 && (
-            <>
-              <Text
-                className="text-muted font-semibold"
-                style={{ fontSize: 11, letterSpacing: 1, marginTop: 24, marginBottom: 12 }}
-              >
-                YOUR SERVICE AREAS
-              </Text>
-              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                {profile.serviceAreas.map((area) => (
-                  <View
-                    key={area}
-                    className="flex-row items-center rounded-full px-3 py-1.5"
-                    style={{ backgroundColor: "#f3f4f6" }}
-                  >
-                    <Ionicons name="location-outline" size={13} color="#6b7280" />
-                    <Text style={{ color: "#374151", fontSize: 12, marginLeft: 4 }}>
-                      {area}
-                    </Text>
+            {/* Standing / match factors */}
+            <SectionLabel title="Your standing" />
+            <Card>
+              <View className="flex-row">
+                <Stat label="Experience" value={`${profile.yearsExperience} yrs`} />
+                <View style={{ width: 1, backgroundColor: CARD_BORDER }} />
+                <Stat label="Rating" value={`★ ${profile.rating.toFixed(1)}`} />
+                <View style={{ width: 1, backgroundColor: CARD_BORDER }} />
+                <Stat label="Reliability" value={`${profile.reliabilityScore}%`} />
+              </View>
+            </Card>
+
+            {/* Service areas (proximity) */}
+            {profile.serviceAreas.length > 0 && (
+              <>
+                <SectionLabel title="Service areas" />
+                <Card>
+                  <Text style={{ color: "#6b7280", fontSize: 13, marginBottom: 12, lineHeight: 18 }}>
+                    Families near these areas are matched to you first.
+                  </Text>
+                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                    {profile.serviceAreas.map((area) => (
+                      <View
+                        key={area}
+                        className="flex-row items-center rounded-full px-3 py-1.5"
+                        style={{ backgroundColor: GREEN_LIGHT }}
+                      >
+                        <Ionicons name="location" size={13} color={GREEN} />
+                        <Text style={{ color: GREEN_CHIP_TEXT, fontSize: 12, fontWeight: "500", marginLeft: 4 }}>
+                          {area}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            </>
-          )}
+                </Card>
+              </>
+            )}
 
-          <View
-            className="flex-row rounded-2xl p-4 mt-6"
-            style={{ backgroundColor: "#eff6ff" }}
-          >
-            <Ionicons name="information-circle-outline" size={18} color="#2563eb" />
-            <Text
-              style={{ color: "#1d4ed8", fontSize: 12, lineHeight: 18, marginLeft: 8, flex: 1 }}
+            {/* Info note */}
+            <View
+              className="flex-row rounded-2xl p-4 mt-1"
+              style={{ backgroundColor: "#eff6ff" }}
             >
-              We match nurses by availability, experience, proximity, reliability and
-              continuity with the family. Keep this up to date so you only get cases
-              you can take.
-            </Text>
+              <Ionicons name="information-circle-outline" size={18} color="#2563eb" />
+              <Text style={{ color: "#1d4ed8", fontSize: 12, lineHeight: 18, marginLeft: 8, flex: 1 }}>
+                We match nurses by availability, experience, proximity, reliability and
+                continuity with the family. Changes take effect once you save.
+              </Text>
+            </View>
+          </ScrollView>
+
+          {/* Sticky footer */}
+          <View
+            className="px-4 pt-3"
+            style={{ paddingBottom: bottom + 12, backgroundColor: SCREEN_BG }}
+          >
+            <Pressable
+              onPress={handleSave}
+              disabled={!dirty || setAvailability.isPending}
+              className="rounded-2xl items-center justify-center flex-row"
+              style={{
+                backgroundColor: !dirty ? "#9ca3af" : GREEN,
+                paddingVertical: 16,
+                gap: 8,
+              }}
+            >
+              {setAvailability.isPending && (
+                <ActivityIndicator color="#ffffff" size="small" />
+              )}
+              <Text className="text-white font-bold" style={{ fontSize: 16 }}>
+                Save availability
+              </Text>
+            </Pressable>
           </View>
-        </ScrollView>
+        </>
       )}
     </View>
   );

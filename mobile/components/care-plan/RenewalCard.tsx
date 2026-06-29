@@ -19,9 +19,36 @@ export function RenewalCard({
   const busy = renew.isPending || cancel.isPending;
 
   function onRenew() {
-    renew.mutate(subscription.id, {
-      onError: (err: Error) => Alert.alert("Couldn't renew", err.message),
-    });
+    renew.mutate(
+      { id: subscription.id },
+      { onError: (err: Error) => Alert.alert("Couldn't renew", err.message) },
+    );
+  }
+
+  function onRenewDifferentNurse() {
+    Alert.alert(
+      "Renew with a different nurse",
+      "We'll keep your Care Coordinator and match a new nurse for the next period. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Find a new nurse",
+          onPress: () =>
+            renew.mutate(
+              { id: subscription.id, rematch: true },
+              {
+                onSuccess: () =>
+                  Alert.alert(
+                    "Finding a new nurse",
+                    "We're matching a new nurse for your loved one. Your Coordinator will be in touch.",
+                  ),
+                onError: (err: Error) =>
+                  Alert.alert("Couldn't renew", err.message),
+              },
+            ),
+        },
+      ],
+    );
   }
 
   function onCancel() {
@@ -85,6 +112,17 @@ export function RenewalCard({
           </Text>
         </Pressable>
       </View>
+
+      <Pressable
+        onPress={onRenewDifferentNurse}
+        disabled={busy}
+        className="items-center mt-3"
+        hitSlop={6}
+      >
+        <Text style={{ color: "#92400e", fontSize: 13, fontWeight: "600", textDecorationLine: "underline" }}>
+          Had concerns? Renew with a different nurse
+        </Text>
+      </Pressable>
     </View>
   );
 }

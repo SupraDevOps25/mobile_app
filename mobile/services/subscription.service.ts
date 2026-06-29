@@ -85,7 +85,8 @@ export const subscriptionService = {
   subscribe: (payload: SubscribePayload) =>
     api.post<ApiSubscription>("/subscriptions", payload),
   getActive: () => api.get<ApiSubscription | null>("/subscriptions/active"),
-  renew: (id: string) => api.post<ApiSubscription>(`/subscriptions/${id}/renew`),
+  renew: (id: string, payload?: { rematch?: boolean; reason?: string }) =>
+    api.post<ApiSubscription>(`/subscriptions/${id}/renew`, payload),
   cancel: (id: string) =>
     api.post<ApiSubscription>(`/subscriptions/${id}/cancel`),
 };

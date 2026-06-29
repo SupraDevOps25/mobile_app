@@ -12,6 +12,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CaregiversService } from './caregivers.service';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { UpdateScheduleDto } from './dto/update-schedule.dto';
 
 @ApiBearerAuth()
 @ApiTags('Caregivers')
@@ -34,5 +35,14 @@ export class CaregiversController {
     @Body() dto: UpdateAvailabilityDto,
   ) {
     return this.caregiversService.setAvailability(req.user.id, dto.isAvailable);
+  }
+
+  @ApiOperation({ summary: 'Nurse: set my weekly working schedule' })
+  @Patch('me/schedule')
+  setSchedule(
+    @Request() req: { user: { id: string } },
+    @Body() dto: UpdateScheduleDto,
+  ) {
+    return this.caregiversService.setSchedule(req.user.id, dto);
   }
 }

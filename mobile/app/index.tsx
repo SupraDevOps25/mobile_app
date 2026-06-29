@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { Image, View } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
+import { homeGroupForRole } from "@/lib/home-route";
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -14,9 +15,8 @@ export default function SplashScreen() {
 
     async function proceed() {
       if (token) {
-        // Caregivers and families land on different tab groups
-        const home = user?.role === "CAREGIVER" ? "/(caregiver-tabs)" : "/(tabs)";
-        router.replace(home as any);
+        // Family / caregiver / coordinator each land on their own tab group
+        router.replace(`/${homeGroupForRole(user?.role)}` as any);
         return;
       }
       try {

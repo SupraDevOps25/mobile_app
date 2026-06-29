@@ -173,6 +173,12 @@ model CaregiverProfile {
   serviceAreas       String[]
   licenseVerified    Boolean            @default(false)
   isAvailable        Boolean            @default(true) // nurse-controlled (availability screen)
+  // Weekly working pattern (schedule screen). workingDays uses JS getDay():
+  // 0=Sun … 6=Sat. Hours are "HH:MM" 24h strings.
+  workingDays        Int[]              @default([1, 2, 3, 4, 5])
+  workStart          String             @default("08:00")
+  workEnd            String             @default("17:00")
+  maxVisitsPerDay    Int                @default(3)
   verificationStatus VerificationStatus @default(UNVERIFIED)
   rating             Decimal            @default(0) @db.Decimal(3, 2)
   reliabilityScore   Int                @default(0) // 0–100

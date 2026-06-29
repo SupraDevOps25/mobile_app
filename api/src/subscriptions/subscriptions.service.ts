@@ -18,6 +18,7 @@ import {
 import { AssignmentsService } from '../assignments/assignments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RenewDto } from './dto/renew.dto';
 import { SetCareStartDto } from './dto/set-care-start.dto';
 import { SubscribeDto } from './dto/subscribe.dto';
 
@@ -221,8 +222,13 @@ export class SubscriptionsService {
 
   // ── Family: renewal decision (no auto-renew) ──────────────────────────────
 
-  /** Family renews the same package for the next period (same care team). */
-  async renew(userId: string, subscriptionId: string) {
+  /**
+   * Family renews the same package for the next period. By default the same
+   * care team continues; if the family had concerns they can request a
+   * re-match (`dto.rematch`) — the coordinator stays, the nurses are matched
+   * afresh and the case flows back through assignment → activation.
+   */
+  async renew(userId: string, subscriptionId: string, dto: RenewDto = {}) {
     const familyId = await this.familyIdFor(userId);
     const subscription = await this.prisma.subscription.findUnique({
       where: { id: subscriptionId },
@@ -232,6 +238,10 @@ export class SubscriptionsService {
     }
     if (subscription.status !== SubscriptionStatus.RENEWING) {
       throw new BadRequestException('Subscription is not awaiting renewal');
+    }
+
+    if (dto.rematch) {
+      return this.renewWithRematch(subscription, dto.reason);
     }
 
     const lead = await this.leadAssignment(subscriptionId);
@@ -286,6 +296,111 @@ export class SubscriptionsService {
       include: { careRecipient: true },
     });
     return this.toResponse(updated);
+  }
+
+  /** Renewal where the family wants a different nurse — same coordinator. */
+  private async renewWithRematch(subscription: Subscription, reason?: string) {
+    const periodStart = subscription.renewsAt ?? new Date();
+
+    // Free the prior team's role slots and send the case back to matching.
+    // Completed visits keep their caregiverId for history; their assignmentId
+    // is nulled by the optional relation.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.assignment.deleteMany({
+        where: { subscriptionId: subscription.id },
+      });
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: SubscriptionStatus.MATCHING,
+          renewsAt: addMonths(periodStart, 1),
+        },
+      });
+    });
+
+    // Re-run matching (keeps the existing coordinator). A failure leaves the
+    // case in MATCHING for retry rather than throwing.
+    try {
+      await this.assignments.match(subscription.id);
+    } catch (err) {
+      this.logger.warn(
+        `Renewal re-match failed for subscription ${subscription.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    if (subscription.coordinatorId) {
+      await this.notifications.notify({
+        userId: subscription.coordinatorId,
+        type: NotificationType.GENERAL,
+        title: 'Renewal with a new nurse',
+        body: reason
+          ? `${subscription.id}: family requested a different nurse — "${reason}"`
+          : 'The family requested a different nurse on renewal.',
+      });
+    }
+
+    const updated = await this.prisma.subscription.findUniqueOrThrow({
+      where: { id: subscription.id },
+      include: { careRecipient: true },
+    });
+    const careTeam = await this.buildCareTeam(updated);
+    return this.toResponse(updated, careTeam);
+  }
+
+  // ── Coordinator: case list ────────────────────────────────────────────────
+
+  /** Every non-cancelled case this coordinator owns, newest first. */
+  async coordinatingCases(coordinatorUserId: string) {
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: {
+        coordinatorId: coordinatorUserId,
+        status: { not: SubscriptionStatus.CANCELLED },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        careRecipient: true,
+        family: {
+          include: {
+            user: {
+              select: { firstName: true, lastName: true, phone: true },
+            },
+          },
+        },
+      },
+    });
+
+    return Promise.all(
+      subscriptions.map(async (s) => {
+        const careTeam = await this.buildCareTeam(s);
+        return {
+          id: s.id,
+          packageType: s.packageType,
+          status: s.status,
+          priceGhs: s.priceGhs.toNumber(),
+          createdAt: s.createdAt,
+          careStartAt: s.careStartAt,
+          activatedAt: s.activatedAt,
+          renewsAt: s.renewsAt,
+          family: {
+            name: `${s.family.user.firstName} ${s.family.user.lastName}`,
+            phone: s.family.user.phone,
+          },
+          recipient: {
+            name: s.careRecipient.name,
+            age: s.careRecipient.age,
+            gender: s.careRecipient.gender,
+            area: s.careRecipient.area,
+            city: s.careRecipient.city,
+            address: s.careRecipient.address,
+            conditions: s.careRecipient.conditions,
+            basicCareNeeds: s.careRecipient.basicCareNeeds,
+          },
+          careTeam,
+        };
+      }),
+    );
   }
 
   // ── Shared helpers ────────────────────────────────────────────────────────
