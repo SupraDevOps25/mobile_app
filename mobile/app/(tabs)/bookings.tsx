@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -110,12 +109,12 @@ export default function CarePlanScreen() {
           My care plan
         </Text>
         <Pressable
-          onPress={() => Alert.alert("Manage subscription", "Subscription management is coming soon.")}
+          onPress={() => router.push("/invoices" as any)}
           hitSlop={8}
           className="w-9 h-9 rounded-full items-center justify-center"
           style={{ backgroundColor: "#f3f4f6" }}
         >
-          <Ionicons name="settings-outline" size={18} color="#374151" />
+          <Ionicons name="receipt-outline" size={18} color="#374151" />
         </Pressable>
       </View>
 

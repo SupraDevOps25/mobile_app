@@ -25,9 +25,7 @@ type SubscriptionWithRecipient = Subscription & {
   careRecipient: CareRecipient;
 };
 
-type CareTeam = Awaited<
-  ReturnType<SubscriptionsService['buildCareTeam']>
->;
+type CareTeam = Awaited<ReturnType<SubscriptionsService['buildCareTeam']>>;
 
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
