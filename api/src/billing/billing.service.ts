@@ -195,6 +195,13 @@ export class BillingService {
 
     const result = await this.paystack.verifyTransaction(reference);
     if (result.status === 'success') {
+      // Never settle an invoice unless the amount paid matches what we billed.
+      if (result.amount !== this.expectedPesewas(payment)) {
+        this.logger.warn(
+          `Amount mismatch on ${reference}: paid ${result.amount}, expected ${this.expectedPesewas(payment)}`,
+        );
+        throw new BadRequestException('Paid amount does not match the invoice');
+      }
       await this.markPaid(payment);
       return { status: PaymentStatus.SUCCESS, reference };
     }
@@ -223,7 +230,7 @@ export class BillingService {
     }
     const event = JSON.parse(rawBody.toString()) as {
       event: string;
-      data: { reference: string };
+      data: { reference: string; amount?: number };
     };
 
     if (event.event === 'charge.success') {
@@ -232,13 +239,25 @@ export class BillingService {
         include: { subscription: true, family: true },
       });
       if (payment && payment.status !== PaymentStatus.SUCCESS) {
-        await this.markPaid(payment);
+        // Only settle if the charged amount matches the invoice.
+        if (event.data.amount === this.expectedPesewas(payment)) {
+          await this.markPaid(payment);
+        } else {
+          this.logger.warn(
+            `Webhook amount mismatch on ${event.data.reference}: charged ${event.data.amount}, expected ${this.expectedPesewas(payment)}`,
+          );
+        }
       }
     }
     return { received: true };
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /** Invoice amount in pesewas (GHS × 100), matching Paystack's unit. */
+  private expectedPesewas(payment: PaymentWithContext): number {
+    return Math.round(payment.amount.toNumber() * 100);
+  }
 
   private async markPaid(payment: PaymentWithContext) {
     await this.prisma.$transaction(async (tx) => {

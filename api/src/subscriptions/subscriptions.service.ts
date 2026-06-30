@@ -373,7 +373,10 @@ export class SubscriptionsService {
 
     return Promise.all(
       subscriptions.map(async (s) => {
-        const careTeam = await this.buildCareTeam(s);
+        const [careTeam, roster] = await Promise.all([
+          this.buildCareTeam(s),
+          this.buildRoster(s.id),
+        ]);
         return {
           id: s.id,
           packageType: s.packageType,
@@ -398,6 +401,7 @@ export class SubscriptionsService {
             basicCareNeeds: s.careRecipient.basicCareNeeds,
           },
           careTeam,
+          roster,
         };
       }),
     );
@@ -473,6 +477,95 @@ export class SubscriptionsService {
         : null,
       nurses,
     };
+  }
+
+  /** Every assignment on a case (any status) for the coordinator's view. */
+  private async buildRoster(subscriptionId: string) {
+    const assignments = await this.prisma.assignment.findMany({
+      where: { subscriptionId },
+      include: {
+        caregiver: {
+          include: {
+            user: {
+              select: { firstName: true, lastName: true, phone: true },
+            },
+          },
+        },
+      },
+    });
+
+    return assignments
+      .map((a) => {
+        const u = a.caregiver.user;
+        return {
+          assignmentId: a.id,
+          role: a.role,
+          status: a.status,
+          name: `${u.firstName} ${u.lastName}`,
+          initials:
+            `${u.firstName[0] ?? ''}${u.lastName[0] ?? ''}`.toUpperCase(),
+          phone: u.phone,
+          expiresAt: a.expiresAt,
+        };
+      })
+      .sort(
+        (a, b) =>
+          SubscriptionsService.ROLE_WEIGHT[a.role] -
+          SubscriptionsService.ROLE_WEIGHT[b.role],
+      );
+  }
+
+  /**
+   * Coordinator re-runs matching for a stalled case (no one accepted),
+   * excluding everyone previously offered so a DIFFERENT primary is tried.
+   */
+  async rematch(coordinatorUserId: string, subscriptionId: string) {
+    const subscription = await this.requireCoordinatorCase(
+      coordinatorUserId,
+      subscriptionId,
+    );
+    if (subscription.status !== SubscriptionStatus.MATCHING) {
+      throw new BadRequestException(
+        'Re-matching is only available while the case is still matching',
+      );
+    }
+
+    const prior = await this.prisma.assignment.findMany({
+      where: { subscriptionId },
+      select: { caregiverId: true },
+    });
+    const excludeCaregiverIds = [...new Set(prior.map((a) => a.caregiverId))];
+
+    // Make sure there's someone new before tearing down the current offers.
+    const alternatives = await this.prisma.caregiverProfile.count({
+      where: {
+        licenseVerified: true,
+        isAvailable: true,
+        id: { notIn: excludeCaregiverIds },
+      },
+    });
+    if (alternatives === 0) {
+      throw new BadRequestException(
+        'No other nurses are available to re-match right now',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.assignment.deleteMany({ where: { subscriptionId } });
+      await tx.subscription.update({
+        where: { id: subscriptionId },
+        data: { status: SubscriptionStatus.MATCHING },
+      });
+    });
+
+    await this.assignments.match(subscriptionId, { excludeCaregiverIds });
+
+    const updated = await this.prisma.subscription.findUniqueOrThrow({
+      where: { id: subscriptionId },
+      include: { careRecipient: true },
+    });
+    const careTeam = await this.buildCareTeam(updated);
+    return this.toResponse(updated, careTeam);
   }
 
   private async leadAssignment(subscriptionId: string) {

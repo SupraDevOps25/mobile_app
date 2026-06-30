@@ -9,10 +9,10 @@ export function useCoordinatorCases() {
   });
 }
 
-export function usePendingLogs() {
+export function useCoordinatorLogs() {
   return useQuery({
-    queryKey: qk.pendingLogs,
-    queryFn: () => coordinatorService.pendingLogs(),
+    queryKey: qk.coordinatorLogs,
+    queryFn: () => coordinatorService.logs(),
   });
 }
 
@@ -36,6 +36,10 @@ export function useActivateCase() {
   return useCaseMutation((id: string) => coordinatorService.activate(id));
 }
 
+export function useRematchCase() {
+  return useCaseMutation((id: string) => coordinatorService.rematch(id));
+}
+
 export function useIssueInvoice() {
   return useCaseMutation((subscriptionId: string) =>
     coordinatorService.issueInvoice(subscriptionId),
@@ -47,7 +51,7 @@ export function useReviewLog() {
   return useMutation({
     mutationFn: (visitId: string) => coordinatorService.reviewLog(visitId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.pendingLogs });
+      qc.invalidateQueries({ queryKey: qk.coordinatorLogs });
     },
   });
 }

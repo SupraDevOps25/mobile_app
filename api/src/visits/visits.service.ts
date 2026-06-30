@@ -221,10 +221,11 @@ export class VisitsService {
 
   // ── Coordinator: review logs ──────────────────────────────────────────────
 
-  async pendingLogs(coordinatorUserId: string) {
+  /** All logs across the coordinator's cases — those needing review first,
+   * then already-reviewed — each with full detail for the review screen. */
+  async allLogs(coordinatorUserId: string) {
     const logs = await this.prisma.visitLog.findMany({
       where: {
-        reviewedAt: null,
         visit: { subscription: { coordinatorId: coordinatorUserId } },
       },
       include: {
@@ -235,18 +236,21 @@ export class VisitsService {
           },
         },
       },
-      orderBy: { submittedAt: 'asc' },
+      orderBy: { submittedAt: 'desc' },
     });
-    return logs.map((l) => ({
-      visitId: l.visitId,
-      summary: l.summary,
-      mood: l.mood,
-      escalationNeeded: l.escalationNeeded,
-      followUpRecommended: l.followUpRecommended,
-      submittedAt: l.submittedAt,
-      clientName: l.visit.subscription.careRecipient.name,
-      nurseName: `${l.visit.caregiver.user.firstName} ${l.visit.caregiver.user.lastName}`,
-    }));
+    return (
+      logs
+        .map((l) => ({
+          ...this.toLogResponse(l),
+          clientName: l.visit.subscription.careRecipient.name,
+          nurseName: `${l.visit.caregiver.user.firstName} ${l.visit.caregiver.user.lastName}`,
+          visitKind: l.visit.kind,
+          scheduledFor: l.visit.scheduledFor,
+          durationHrs: l.visit.durationHrs,
+        }))
+        // Pending (not yet reviewed) bubble to the top; date order kept within.
+        .sort((a, b) => (a.reviewedAt ? 1 : 0) - (b.reviewedAt ? 1 : 0))
+    );
   }
 
   async reviewLog(coordinatorUserId: string, visitId: string) {

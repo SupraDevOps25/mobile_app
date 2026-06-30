@@ -74,7 +74,8 @@ export class PaystackService {
     };
   }
 
-  /** HMAC-SHA512 of the raw body, compared to the x-paystack-signature header. */
+  /** HMAC-SHA512 of the raw body, compared to the x-paystack-signature header
+   * with a constant-time comparison (avoids signature timing attacks). */
   verifyWebhookSignature(
     signature: string | undefined,
     rawBody: Buffer,
@@ -84,6 +85,11 @@ export class PaystackService {
       .createHmac('sha512', this.webhookSecret)
       .update(rawBody)
       .digest('hex');
-    return hash === signature;
+    const expected = Buffer.from(hash);
+    const received = Buffer.from(signature);
+    return (
+      expected.length === received.length &&
+      crypto.timingSafeEqual(expected, received)
+    );
   }
 }

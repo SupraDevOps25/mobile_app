@@ -19,5 +19,5 @@ export const qk = {
   invoices: ["billing", "invoices"] as const,
 
   coordinatorCases: ["coordinator", "cases"] as const,
-  pendingLogs: ["coordinator", "pending-logs"] as const,
+  coordinatorLogs: ["coordinator", "logs"] as const,
 };

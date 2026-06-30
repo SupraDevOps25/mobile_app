@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -35,20 +35,9 @@ export default function ActiveVisitScreen() {
 
   const { data: visit, isLoading } = useVisit(id);
   const startVisit = useStartVisit(id ?? "");
-  const startedRef = useRef(false);
 
   const [logged, setLogged] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
-
-  // Begin the visit on the backend the first time the screen opens (if it
-  // hasn't already started). The timer is presentational.
-  useEffect(() => {
-    if (!visit || startedRef.current) return;
-    if (visit.status === "SCHEDULED") {
-      startedRef.current = true;
-      startVisit.mutate();
-    }
-  }, [visit, startVisit]);
 
   if (isLoading) {
     return (
@@ -68,6 +57,20 @@ export default function ActiveVisitScreen() {
 
   const client = visit.client;
   const visitId = visit.id;
+  const started = visit.status === "IN_PROGRESS";
+  const scheduledLabel = new Date(visit.scheduledFor).toLocaleString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  function handleStart() {
+    startVisit.mutate(undefined, {
+      onError: (err: Error) => Alert.alert("Couldn't start visit", err.message),
+    });
+  }
 
   function toggleLog(itemId: string) {
     setLogged((prev) =>
@@ -109,7 +112,7 @@ export default function ActiveVisitScreen() {
           <Ionicons name="arrow-back" size={20} color="#111827" />
         </Pressable>
         <Text className="flex-1 text-foreground font-bold" style={{ fontSize: 18 }}>
-          Active visit
+          {started ? "Active visit" : "Visit"}
         </Text>
       </View>
 
@@ -118,7 +121,44 @@ export default function ActiveVisitScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
         keyboardShouldPersistTaps="handled"
       >
-        <TimerCard durationHrs={visit.durationHrs} onEndVisit={handleEndVisit} />
+        {started ? (
+          <TimerCard
+            durationHrs={visit.durationHrs}
+            startedAt={visit.startedAt}
+            onEndVisit={handleEndVisit}
+          />
+        ) : (
+          <View className="rounded-2xl p-5" style={{ backgroundColor: "#0f2461" }}>
+            <Text style={{ color: "#94a3b8", fontSize: 11, letterSpacing: 1 }}>
+              SCHEDULED VISIT
+            </Text>
+            <Text className="text-white font-bold" style={{ fontSize: 18, marginTop: 8 }}>
+              {scheduledLabel}
+            </Text>
+            <Text style={{ color: "#94a3b8", fontSize: 13, marginTop: 2 }}>
+              {visit.durationHrs} hour visit · not started yet
+            </Text>
+            <Pressable
+              onPress={handleStart}
+              disabled={startVisit.isPending}
+              className="rounded-2xl items-center justify-center mt-4 flex-row"
+              style={{
+                backgroundColor: startVisit.isPending ? "#9ca3af" : "#16a34a",
+                paddingVertical: 14,
+                gap: 8,
+              }}
+            >
+              {startVisit.isPending ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Ionicons name="play" size={16} color="#ffffff" />
+              )}
+              <Text className="text-white font-bold" style={{ fontSize: 15 }}>
+                Start visit
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Patient card */}
         <View
@@ -158,31 +198,34 @@ export default function ActiveVisitScreen() {
           </View>
         </View>
 
-        {/* Quick log */}
-        <View className="mt-5">
-          <SectionLabel title="Quick log" />
-          <QuickLogGrid logged={logged} onToggle={toggleLog} />
-        </View>
+        {/* Quick log + care notes — only once the visit has started */}
+        {started && (
+          <>
+            <View className="mt-5">
+              <SectionLabel title="Quick log" />
+              <QuickLogGrid logged={logged} onToggle={toggleLog} />
+            </View>
 
-        {/* Care notes */}
-        <View className="mt-5">
-          <SectionLabel title="Care notes" />
-          <View
-            className="bg-card rounded-2xl p-4"
-            style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
-          >
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Write notes about the patient's condition, medication given, activities completed…"
-              placeholderTextColor="#9ca3af"
-              multiline
-              textAlignVertical="top"
-              className="text-foreground"
-              style={{ fontSize: 14, lineHeight: 21, minHeight: 90, padding: 0 }}
-            />
-          </View>
-        </View>
+            <View className="mt-5">
+              <SectionLabel title="Care notes" />
+              <View
+                className="bg-card rounded-2xl p-4"
+                style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+              >
+                <TextInput
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Write notes about the patient's condition, medication given, activities completed…"
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                  textAlignVertical="top"
+                  className="text-foreground"
+                  style={{ fontSize: 14, lineHeight: 21, minHeight: 90, padding: 0 }}
+                />
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Emergency assistance */}
         <View

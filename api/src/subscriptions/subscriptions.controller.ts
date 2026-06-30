@@ -71,6 +71,15 @@ export class SubscriptionsController {
   }
 
   @ApiOperation({
+    summary: 'Coordinator: re-run matching with a different primary nurse',
+  })
+  @Roles('CARE_COORDINATOR', 'ADMIN')
+  @Post(':id/rematch')
+  rematch(@Request() req: { user: { id: string } }, @Param('id') id: string) {
+    return this.subscriptionsService.rematch(req.user.id, id);
+  }
+
+  @ApiOperation({
     summary: 'Coordinator: set the care-start date (captured at assessment)',
   })
   @Roles('CARE_COORDINATOR', 'ADMIN')

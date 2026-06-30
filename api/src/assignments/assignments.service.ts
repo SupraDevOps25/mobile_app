@@ -97,7 +97,10 @@ export class AssignmentsService {
    * nurses, creates Primary + Backup offers (only the Primary is "live" with a
    * 5-minute clock), attaches + notifies a coordinator.
    */
-  async match(subscriptionId: string) {
+  async match(
+    subscriptionId: string,
+    opts?: { excludeCaregiverIds?: string[] },
+  ) {
     const subscription = await this.prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: { careRecipient: true, assignments: true },
@@ -115,9 +118,16 @@ export class AssignmentsService {
     });
     if (!pkg) throw new NotFoundException('Package not found');
 
-    const eligible = await this.prisma.caregiverProfile.findMany({
-      where: { licenseVerified: true, isAvailable: true },
-    });
+    // Optionally skip nurses who already had (and lost) this offer, so a
+    // coordinator-triggered re-match lands on a different primary.
+    const exclude = opts?.excludeCaregiverIds ?? [];
+    const where: Prisma.CaregiverProfileWhereInput = {
+      licenseVerified: true,
+      isAvailable: true,
+    };
+    if (exclude.length) where.id = { notIn: exclude };
+
+    const eligible = await this.prisma.caregiverProfile.findMany({ where });
     if (eligible.length === 0) {
       throw new BadRequestException('No eligible caregivers are available');
     }

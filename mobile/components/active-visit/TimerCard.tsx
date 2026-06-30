@@ -4,6 +4,8 @@ import { Pressable, Text, View } from "react-native";
 type Props = {
   durationHrs: number;
   onEndVisit: () => void;
+  /** When the visit actually started (from the backend), if known. */
+  startedAt?: string | null;
 };
 
 function pad(n: number) {
@@ -21,10 +23,12 @@ function formatClock(date: Date) {
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-export function TimerCard({ durationHrs, onEndVisit }: Props) {
-  // The visit "starts" when this screen first mounts (mock behaviour —
-  // a real implementation would use the start timestamp from the backend).
-  const [startedAt] = useState(() => new Date());
+export function TimerCard({ durationHrs, onEndVisit, startedAt: startedAtIso }: Props) {
+  // Anchor the timer to the backend start time when known, so it stays
+  // accurate if the nurse leaves and reopens the visit.
+  const [startedAt] = useState(() =>
+    startedAtIso ? new Date(startedAtIso) : new Date(),
+  );
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {

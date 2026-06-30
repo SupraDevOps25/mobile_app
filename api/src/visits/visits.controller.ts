@@ -46,11 +46,13 @@ export class VisitsController {
     return this.visitsService.carePlanVisits(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Coordinator: logs awaiting my review' })
+  @ApiOperation({
+    summary: 'Coordinator: all logs (pending first, then reviewed)',
+  })
   @Roles('CARE_COORDINATOR', 'ADMIN')
-  @Get('logs/pending')
-  pendingLogs(@Request() req: { user: { id: string } }) {
-    return this.visitsService.pendingLogs(req.user.id);
+  @Get('logs')
+  allLogs(@Request() req: { user: { id: string } }) {
+    return this.visitsService.allLogs(req.user.id);
   }
 
   @ApiOperation({ summary: 'Nurse: get one visit (with its log)' })

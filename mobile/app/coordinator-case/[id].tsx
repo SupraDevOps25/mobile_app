@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,9 +11,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TeamNurseRow } from "@/components/care-plan/TeamNurseRow";
 import { PACKAGE_LABELS } from "@/constants/package-presentation";
+import { rosterStatus } from "@/constants/coordinator-presentation";
 import {
+  ASSIGNMENT_ROLE_LABELS,
   SUBSCRIPTION_STATUS_LABELS,
   subscriptionStatusPill,
 } from "@/constants/subscription-presentation";
@@ -20,6 +22,7 @@ import {
   useActivateCase,
   useCoordinatorCases,
   useIssueInvoice,
+  useRematchCase,
   useSetCareStart,
 } from "@/hooks/useCoordinator";
 import { avatarColor, initialsOf } from "@/lib/avatar";
@@ -43,6 +46,14 @@ function atEightAm(daysFromNow: number): string {
   return d.toISOString();
 }
 
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 const CARE_START_OPTIONS: { label: string; days: number }[] = [
   { label: "Today", days: 0 },
   { label: "Tomorrow", days: 1 },
@@ -61,6 +72,9 @@ export default function CoordinatorCaseScreen() {
   const setCareStart = useSetCareStart();
   const activate = useActivateCase();
   const issueInvoice = useIssueInvoice();
+  const rematch = useRematchCase();
+  // Which care-start option is currently selected (instant highlight on tap).
+  const [pickedDays, setPickedDays] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -89,10 +103,24 @@ export default function CoordinatorCaseScreen() {
       })
     : null;
 
+  // Highlight the option matching the saved date, unless one was just tapped.
+  const savedDays = item.careStartAt
+    ? (CARE_START_OPTIONS.find((o) =>
+        sameDay(new Date(atEightAm(o.days)), new Date(item.careStartAt!)),
+      )?.days ?? null)
+    : null;
+  const activeDays = pickedDays ?? savedDays;
+
   function onSetCareStart(days: number) {
+    setPickedDays(days); // instant active state
     setCareStart.mutate(
       { id: item!.id, careStartAt: atEightAm(days) },
-      { onError: (err: Error) => Alert.alert("Couldn't set date", err.message) },
+      {
+        onError: (err: Error) => {
+          setPickedDays(null); // revert highlight on failure
+          Alert.alert("Couldn't set date", err.message);
+        },
+      },
     );
   }
 
@@ -108,6 +136,25 @@ export default function CoordinatorCaseScreen() {
             activate.mutate(item!.id, {
               onSuccess: () => Alert.alert("Care activated", "The visit schedule is live."),
               onError: (err: Error) => Alert.alert("Couldn't activate", err.message),
+            }),
+        },
+      ],
+    );
+  }
+
+  function onRematch() {
+    Alert.alert(
+      "Re-match a new nurse",
+      "The system will run matching again and offer a different primary nurse. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Re-match",
+          onPress: () =>
+            rematch.mutate(item!.id, {
+              onSuccess: () =>
+                Alert.alert("Re-matching", "A new nurse is being offered the case."),
+              onError: (err: Error) => Alert.alert("Couldn't re-match", err.message),
             }),
         },
       ],
@@ -236,17 +283,67 @@ export default function CoordinatorCaseScreen() {
           </Pressable>
         </View>
 
-        {/* Care team */}
-        {item.careTeam.nurses.length > 0 && (
+        {/* Matched nurses (roster) */}
+        {item.roster.length > 0 && (
           <>
-            <SectionLabel title="Care team" />
-            {item.careTeam.nurses.map((nurse) => (
-              <TeamNurseRow
-                key={nurse.assignmentId}
-                nurse={nurse}
-                onPress={(n) => Linking.openURL(`tel:${n.phone}`)}
-              />
-            ))}
+            <SectionLabel title="Matched nurses" />
+            {item.roster.map((m) => {
+              const st = rosterStatus(m.status, m.expiresAt);
+              return (
+                <View
+                  key={m.assignmentId}
+                  className="flex-row items-center bg-card rounded-2xl p-3 mb-3"
+                  style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+                >
+                  <View
+                    className="w-11 h-11 rounded-full items-center justify-center"
+                    style={{ backgroundColor: avatarColor(m.name) }}
+                  >
+                    <Text className="text-white font-bold" style={{ fontSize: 14 }}>
+                      {m.initials}
+                    </Text>
+                  </View>
+                  <View className="flex-1 ml-3">
+                    <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
+                      {m.name}
+                    </Text>
+                    <View className="flex-row items-center mt-1" style={{ gap: 8 }}>
+                      <Text className="text-muted" style={{ fontSize: 12 }}>
+                        {ASSIGNMENT_ROLE_LABELS[m.role]}
+                      </Text>
+                      <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: st.bg }}>
+                        <Text style={{ color: st.color, fontSize: 10, fontWeight: "600" }}>
+                          {st.label}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Pressable
+                    onPress={() => Linking.openURL(`tel:${m.phone}`)}
+                    className="w-10 h-10 rounded-full items-center justify-center"
+                    style={{ backgroundColor: "#eff6ff" }}
+                    hitSlop={6}
+                  >
+                    <Ionicons name="call-outline" size={17} color="#2563eb" />
+                  </Pressable>
+                </View>
+              );
+            })}
+
+            {item.status === "MATCHING" && (
+              <Pressable
+                onPress={onRematch}
+                disabled={rematch.isPending}
+                className="rounded-2xl items-center justify-center mt-1 flex-row"
+                style={{ borderWidth: 1, borderColor: "#0d9488", paddingVertical: 14, gap: 8 }}
+              >
+                {rematch.isPending && <ActivityIndicator color="#0d9488" size="small" />}
+                <Ionicons name="refresh" size={16} color="#0d9488" />
+                <Text style={{ color: "#0d9488", fontWeight: "bold", fontSize: 14 }}>
+                  Re-match with a different primary
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
 
@@ -277,19 +374,36 @@ export default function CoordinatorCaseScreen() {
               </Text>
             )}
             <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
-              {CARE_START_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.label}
-                  onPress={() => onSetCareStart(opt.days)}
-                  disabled={setCareStart.isPending}
-                  className="rounded-full px-3 py-2"
-                  style={{ borderWidth: 1, borderColor: "#0d9488" }}
-                >
-                  <Text style={{ color: "#0d9488", fontSize: 12, fontWeight: "600" }}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
+              {CARE_START_OPTIONS.map((opt) => {
+                const active = activeDays === opt.days;
+                return (
+                  <Pressable
+                    key={opt.label}
+                    onPress={() => onSetCareStart(opt.days)}
+                    disabled={setCareStart.isPending}
+                    className="rounded-full px-3 py-2 flex-row items-center"
+                    style={{
+                      borderWidth: 1,
+                      borderColor: "#0d9488",
+                      backgroundColor: active ? "#0d9488" : "transparent",
+                      gap: 5,
+                    }}
+                  >
+                    {active && (
+                      <Ionicons name="checkmark" size={13} color="#ffffff" />
+                    )}
+                    <Text
+                      style={{
+                        color: active ? "#ffffff" : "#0d9488",
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         )}
