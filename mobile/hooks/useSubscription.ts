@@ -12,6 +12,21 @@ export function useActiveSubscription() {
   });
 }
 
+export function useSubscriptionHistory() {
+  return useQuery({
+    queryKey: qk.subscriptionHistory,
+    queryFn: () => subscriptionService.history(),
+  });
+}
+
+export function usePastCareDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: qk.pastCare(id ?? ""),
+    queryFn: () => subscriptionService.historyDetail(id as string),
+    enabled: !!id,
+  });
+}
+
 export function useSubscribe() {
   const qc = useQueryClient();
   return useMutation({

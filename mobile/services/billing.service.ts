@@ -24,8 +24,8 @@ export interface ApiPayInit {
 
 export const billingService = {
   invoices: () => api.get<ApiInvoice[]>("/billing/invoices"),
-  pay: (paymentId: string) =>
-    api.post<ApiPayInit>(`/billing/invoices/${paymentId}/pay`),
+  pay: (paymentId: string, callbackUrl?: string) =>
+    api.post<ApiPayInit>(`/billing/invoices/${paymentId}/pay`, { callbackUrl }),
   verify: (reference: string) =>
     api.post<{ status: ApiPaymentStatus; reference: string }>(
       "/billing/verify",

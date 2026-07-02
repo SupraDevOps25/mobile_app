@@ -44,6 +44,25 @@ export class SubscriptionsController {
   }
 
   @ApiOperation({
+    summary: 'Family: past care engagements (ended subscriptions)',
+  })
+  @Roles('FAMILY')
+  @Get('history')
+  history(@Request() req: { user: { id: string } }) {
+    return this.subscriptionsService.history(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Family: full detail of one past engagement' })
+  @Roles('FAMILY')
+  @Get('history/:id')
+  historyDetail(
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    return this.subscriptionsService.historyDetail(req.user.id, id);
+  }
+
+  @ApiOperation({
     summary: 'Family: renew the package (same team, or re-match a new nurse)',
   })
   @Roles('FAMILY')

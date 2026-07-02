@@ -4,6 +4,7 @@ import type {
   ApiAssignmentRole,
   ApiAssignmentStatus,
 } from "@/services/assignment.service";
+import type { ApiCarePlanVisit } from "@/services/visit.service";
 
 export type ApiGender = "MALE" | "FEMALE";
 
@@ -66,6 +67,26 @@ export interface ApiSubscription {
   careRecipient: ApiCareRecipient;
 }
 
+export interface ApiPastCare {
+  id: string;
+  packageType: ApiPackageType;
+  status: ApiSubscriptionStatus;
+  priceGhs: number;
+  startedAt: string;
+  endedAt: string;
+  recipientName: string;
+  relationToAccount: string;
+  completedVisits: number;
+}
+
+export interface ApiPastCareDetail extends ApiSubscription {
+  packageName: string | null;
+  endedAt: string;
+  completedVisits: number;
+  totalVisits: number;
+  visits: ApiCarePlanVisit[];
+}
+
 export interface SubscribePayload {
   packageType: ApiPackageType;
   careRecipient: {
@@ -85,6 +106,9 @@ export const subscriptionService = {
   subscribe: (payload: SubscribePayload) =>
     api.post<ApiSubscription>("/subscriptions", payload),
   getActive: () => api.get<ApiSubscription | null>("/subscriptions/active"),
+  history: () => api.get<ApiPastCare[]>("/subscriptions/history"),
+  historyDetail: (id: string) =>
+    api.get<ApiPastCareDetail>(`/subscriptions/history/${id}`),
   renew: (id: string, payload?: { rematch?: boolean; reason?: string }) =>
     api.post<ApiSubscription>(`/subscriptions/${id}/renew`, payload),
   cancel: (id: string) =>

@@ -54,10 +54,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="help"
+        name="invoices"
         options={{
-          title: "Help",
-          tabBarIcon: icon("help-circle", "help-circle-outline"),
+          title: "Invoices",
+          tabBarIcon: icon("receipt", "receipt-outline"),
         }}
       />
       <Tabs.Screen

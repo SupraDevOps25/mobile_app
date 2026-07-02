@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { BillingService } from './billing.service';
+import { PayInvoiceDto } from './dto/pay-invoice.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 
 @ApiTags('Billing')
@@ -52,8 +53,9 @@ export class BillingController {
   pay(
     @Request() req: { user: { id: string } },
     @Param('paymentId') paymentId: string,
+    @Body() dto: PayInvoiceDto,
   ) {
-    return this.billingService.pay(req.user.id, paymentId);
+    return this.billingService.pay(req.user.id, paymentId, dto.callbackUrl);
   }
 
   @ApiBearerAuth()

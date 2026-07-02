@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PackageSummaryCard } from "@/components/packages/PackageSummaryCard";
 import { Input } from "@/components/ui/Input";
 import { toPackageView } from "@/constants/package-presentation";
+import { useAddresses } from "@/hooks/useFamily";
+import { useDeviceLocation } from "@/hooks/useDeviceLocation";
 import { usePackage } from "@/hooks/usePackages";
 import { useSubscribe } from "@/hooks/useSubscription";
 import {
@@ -43,10 +45,13 @@ export default function SubscribeScreen() {
 
   const { data, isLoading } = usePackage(packageType);
   const subscribe = useSubscribe();
+  const { data: savedAddresses } = useAddresses();
+  const { getCurrent, loading: locating } = useDeviceLocation();
 
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<SubscribeFormValues>({
     resolver: zodResolver(subscribeSchema),
@@ -80,6 +85,21 @@ export default function SubscribeScreen() {
   }
 
   const pkg = toPackageView(data);
+
+  function applyAddress(a: {
+    address: string;
+    area?: string | null;
+    city?: string | null;
+  }) {
+    setValue("address", a.address, { shouldValidate: true });
+    if (a.area) setValue("area", a.area, { shouldValidate: true });
+    if (a.city) setValue("city", a.city, { shouldValidate: true });
+  }
+
+  async function handleUseLocation() {
+    const loc = await getCurrent();
+    if (loc) applyAddress(loc);
+  }
 
   function onSubmit(values: SubscribeFormValues) {
     const conditions = values.conditions
@@ -238,6 +258,51 @@ export default function SubscribeScreen() {
           />
 
           <SectionLabel title="Location" />
+
+          {/* Use current location */}
+          <Pressable
+            onPress={handleUseLocation}
+            disabled={locating}
+            className="flex-row items-center rounded-2xl px-4 py-3 mb-3"
+            style={{ backgroundColor: "#eef2ff" }}
+          >
+            {locating ? (
+              <ActivityIndicator color="#4f46e5" size="small" />
+            ) : (
+              <Ionicons name="navigate" size={18} color="#4f46e5" />
+            )}
+            <Text
+              style={{ color: "#3730a3", fontSize: 13, fontWeight: "700", marginLeft: 8 }}
+            >
+              {locating ? "Getting your location…" : "Use my current location"}
+            </Text>
+          </Pressable>
+
+          {/* Saved addresses */}
+          {(savedAddresses ?? []).length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+              className="mb-3"
+            >
+              {(savedAddresses ?? []).map((a) => (
+                <Pressable
+                  key={a.id}
+                  onPress={() =>
+                    applyAddress({ address: a.address, area: a.area, city: a.city })
+                  }
+                  className="flex-row items-center rounded-full px-3 py-2"
+                  style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb" }}
+                >
+                  <Ionicons name="location-outline" size={13} color="#4f46e5" />
+                  <Text style={{ color: "#374151", fontSize: 12, fontWeight: "600", marginLeft: 4 }}>
+                    {a.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
 
           <View className="flex-row" style={{ gap: 12 }}>
             <View style={{ flex: 1 }}>

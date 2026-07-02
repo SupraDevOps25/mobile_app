@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -76,8 +76,17 @@ export default function CareReportScreen() {
   const { data: visit, isLoading } = useVisit(id);
   const submitLog = useSubmitLog(id ?? "");
 
-  // Care notes typed during the active visit prefill the summary.
+  // Care notes typed during the active visit prefill the summary. Params can
+  // land a tick after mount, so sync once when they first arrive (without
+  // clobbering anything the caregiver has since typed).
   const [summary, setSummary] = useState(notes ?? "");
+  const prefilled = useRef(Boolean(notes));
+  useEffect(() => {
+    if (!prefilled.current && notes) {
+      prefilled.current = true;
+      setSummary((current) => (current ? current : notes));
+    }
+  }, [notes]);
   const [observations, setObservations] = useState("");
   const [vitals, setVitals] = useState<Vitals>({
     bloodPressure: "",
@@ -87,7 +96,7 @@ export default function CareReportScreen() {
   });
   const [medications, setMedications] = useState("");
   const [mood, setMood] = useState<Mood | null>(null);
-  const [followUp, setFollowUp] = useState(true);
+  const [followUp, setFollowUp] = useState(false);
   const [escalation, setEscalation] = useState(false);
 
   if (isLoading) {
@@ -115,6 +124,10 @@ export default function CareReportScreen() {
   function handleSubmit() {
     if (!summary.trim()) {
       Alert.alert("Missing summary", "Please describe what you did during the visit.");
+      return;
+    }
+    if (!observations.trim()) {
+      Alert.alert("Missing observations", "Please record your observations of the patient.");
       return;
     }
     if (!mood) {
@@ -253,7 +266,7 @@ export default function CareReportScreen() {
                 placeholder="e.g. Administered morning medications, monitored blood pressure and glucose levels…"
               />
               <Text className="text-foreground font-semibold mb-2" style={{ fontSize: 13 }}>
-                Observations
+                Observations <Text style={{ color: "#dc2626" }}>*</Text>
               </Text>
               <NotesInput
                 value={observations}

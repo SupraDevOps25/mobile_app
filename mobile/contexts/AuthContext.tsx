@@ -23,6 +23,7 @@ export interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   saveSession: (accessToken: string) => Promise<User>;
+  updateUser: (partial: Partial<User>) => void;
   logout: () => Promise<void>;
 }
 
@@ -64,6 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return newUser;
   }, []);
 
+  // Patch the in-memory user (e.g. after editing personal info) so the UI
+  // reflects the change immediately without needing a re-login.
+  const updateUser = useCallback((partial: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : prev));
+  }, []);
+
   const logout = useCallback(async () => {
     await SecureStore.deleteItemAsync("auth_token");
     setToken(null);
@@ -71,8 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, token, isLoading, saveSession, logout }),
-    [user, token, isLoading, saveSession, logout],
+    () => ({ user, token, isLoading, saveSession, updateUser, logout }),
+    [user, token, isLoading, saveSession, updateUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

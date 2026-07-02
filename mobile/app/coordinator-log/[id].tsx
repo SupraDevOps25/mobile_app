@@ -244,7 +244,7 @@ export default function CoordinatorLogScreen() {
           <View className="flex-row items-center justify-center" style={{ gap: 8, paddingVertical: 6 }}>
             <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
             <Text className="text-muted" style={{ fontSize: 13 }}>
-              Reviewed on {new Date(log.reviewedAt!).toLocaleDateString()}
+              Reviewed on  {new Date(log.reviewedAt!).toLocaleDateString()} 
             </Text>
           </View>
         ) : (

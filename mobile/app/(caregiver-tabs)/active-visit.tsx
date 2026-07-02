@@ -78,22 +78,32 @@ export default function ActiveVisitScreen() {
     );
   }
 
-  function handleEndVisit() {
-    // Carry the quick-log labels and notes into the care report.
+  // Carry the quick-log labels and typed care notes into the care report.
+  function goToReport() {
     const quickLog = QUICK_LOG_ITEMS.filter((i) => logged.includes(i.id))
       .map((i) => i.label)
       .join(",");
+    router.push({
+      pathname: `/care-report/${visitId}` as any,
+      params: { notes, quickLog },
+    });
+  }
+
+  function handleEndVisit() {
     Alert.alert("End visit", "End this visit and fill in the care report?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "End visit",
-        onPress: () =>
-          router.push({
-            pathname: `/care-report/${visitId}` as any,
-            params: { notes, quickLog },
-          }),
-      },
+      { text: "End visit", onPress: goToReport },
     ]);
+  }
+
+  // The visit runs only for its scheduled duration. When the time is up we
+  // auto-end it, let the caregiver know, and take them straight to the report.
+  function handleAutoEnd() {
+    Alert.alert(
+      "Visit time complete",
+      `The scheduled ${visit?.durationHrs}-hour visit has ended. Please complete the care report.`,
+      [{ text: "Fill report", onPress: goToReport }],
+    );
   }
 
   return (
@@ -126,6 +136,7 @@ export default function ActiveVisitScreen() {
             durationHrs={visit.durationHrs}
             startedAt={visit.startedAt}
             onEndVisit={handleEndVisit}
+            onAutoEnd={handleAutoEnd}
           />
         ) : (
           <View className="rounded-2xl p-5" style={{ backgroundColor: "#0f2461" }}>

@@ -12,14 +12,37 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CareRecipientCard } from "@/components/care-plan/CareRecipientCard";
 import { CoordinatorCard } from "@/components/care-plan/CoordinatorCard";
 import { MatchingView } from "@/components/care-plan/MatchingView";
+import { PastCareCard } from "@/components/care-plan/PastCareCard";
 import { RenewalCard } from "@/components/care-plan/RenewalCard";
 import { SubscriptionHeaderCard } from "@/components/care-plan/SubscriptionHeaderCard";
 import { TeamNurseRow } from "@/components/care-plan/TeamNurseRow";
 import { VisitRow } from "@/components/care-plan/VisitRow";
 import { toPackageView } from "@/constants/package-presentation";
 import { usePackage } from "@/hooks/usePackages";
-import { useActiveSubscription } from "@/hooks/useSubscription";
+import {
+  useActiveSubscription,
+  useSubscriptionHistory,
+} from "@/hooks/useSubscription";
 import { useCarePlan } from "@/hooks/useVisits";
+import type { ApiPastCare } from "@/services/subscription.service";
+
+function PreviousCareSection({
+  items,
+  onOpen,
+}: {
+  items: ApiPastCare[];
+  onOpen: (id: string) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <>
+      <SectionLabel title="Previous care" />
+      {items.map((item) => (
+        <PastCareCard key={item.id} item={item} onPress={(p) => onOpen(p.id)} />
+      ))}
+    </>
+  );
+}
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -72,6 +95,8 @@ export default function CarePlanScreen() {
   const { data: subscription, isLoading } = useActiveSubscription();
   const { data: pkgData } = usePackage(subscription?.packageType);
   const { data: visits } = useCarePlan();
+  const { data: pastCare } = useSubscriptionHistory();
+  const history = pastCare ?? [];
 
   if (isLoading) {
     return (
@@ -81,7 +106,49 @@ export default function CarePlanScreen() {
     );
   }
 
-  if (!subscription) return <EmptyState />;
+  // No current plan. If they've received care before, still show that history
+  // rather than a bare empty state.
+  if (!subscription) {
+    if (history.length === 0) return <EmptyState />;
+    return (
+      <ScrollView
+        className="flex-1 bg-background"
+        contentContainerStyle={{ paddingTop: top + 12, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <StatusBar style="dark" />
+        <Text className="text-foreground font-bold px-5 mb-2" style={{ fontSize: 22 }}>
+          My care
+        </Text>
+        <View className="px-5">
+          <View
+            className="rounded-2xl p-5 mb-2"
+            style={{ backgroundColor: "#eff6ff" }}
+          >
+            <Text className="text-foreground font-semibold" style={{ fontSize: 15 }}>
+              No active care plan
+            </Text>
+            <Text className="text-muted" style={{ fontSize: 13, marginTop: 4, lineHeight: 19 }}>
+              Start a new package anytime to bring back a coordinated care team.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/packages" as any)}
+              className="rounded-xl items-center justify-center py-3 mt-4"
+              style={{ backgroundColor: "#1e3a8a" }}
+            >
+              <Text className="text-white font-bold" style={{ fontSize: 14 }}>
+                Browse packages
+              </Text>
+            </Pressable>
+          </View>
+          <PreviousCareSection
+            items={history}
+            onOpen={(id) => router.push(`/past-care/${id}` as any)}
+          />
+        </View>
+      </ScrollView>
+    );
+  }
 
   const pkg = pkgData ? toPackageView(pkgData) : undefined;
   const team = subscription.careTeam;
@@ -174,6 +241,12 @@ export default function CarePlanScreen() {
             )}
           </>
         )}
+
+        {/* Previous care received across past engagements */}
+        <PreviousCareSection
+          items={history}
+          onOpen={(id) => router.push(`/past-care/${id}` as any)}
+        />
       </View>
     </ScrollView>
   );

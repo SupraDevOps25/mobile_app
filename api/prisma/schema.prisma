@@ -212,8 +212,51 @@ model FamilyProfile {
   careRecipients CareRecipient[]
   subscriptions  Subscription[]
   payments       Payment[]
+  savedAddresses SavedAddress[]
+  paymentMethods PaymentMethod[]
 
   @@map("family_profiles")
+}
+
+// A reusable Paystack authorization captured after a successful payment. We
+// never store raw card details — only Paystack's token plus safe metadata.
+// The authorizationCode is server-only and is never returned to the client.
+model PaymentMethod {
+  id                String   @id @default(uuid())
+  familyId          String
+  authorizationCode String   @unique
+  channel           String // "card" | "mobile_money" | "bank"
+  brand             String? // visa / mastercard / MTN, etc.
+  last4             String?
+  bank              String?
+  expMonth          String?
+  expYear           String?
+  reusable          Boolean  @default(true)
+  isDefault         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  family FamilyProfile @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@map("payment_methods")
+}
+
+model SavedAddress {
+  id        String   @id @default(uuid())
+  familyId  String
+  label     String // "Home", "Work", "Other", or a custom label
+  address   String // full address line
+  area      String? // neighbourhood / area
+  city      String?
+  lat       Float?
+  lng       Float?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  family FamilyProfile @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@map("saved_addresses")
 }
 
 // ─── Care Recipient (the client receiving care) ───────────────────────────────

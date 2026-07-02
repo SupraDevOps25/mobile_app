@@ -9,6 +9,6 @@ import { PaystackService } from './paystack.service';
   imports: [MailModule, NotificationsModule],
   controllers: [BillingController],
   providers: [BillingService, PaystackService],
-  exports: [BillingService],
+  exports: [BillingService, PaystackService],
 })
 export class BillingModule {}

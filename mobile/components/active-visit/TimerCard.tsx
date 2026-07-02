@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 type Props = {
   durationHrs: number;
   onEndVisit: () => void;
+  /** Fired once when the scheduled duration is reached (visit auto-ends). */
+  onAutoEnd?: () => void;
   /** When the visit actually started (from the backend), if known. */
   startedAt?: string | null;
 };
@@ -23,22 +25,44 @@ function formatClock(date: Date) {
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-export function TimerCard({ durationHrs, onEndVisit, startedAt: startedAtIso }: Props) {
+export function TimerCard({
+  durationHrs,
+  onEndVisit,
+  onAutoEnd,
+  startedAt: startedAtIso,
+}: Props) {
   // Anchor the timer to the backend start time when known, so it stays
   // accurate if the nurse leaves and reopens the visit.
   const [startedAt] = useState(() =>
     startedAtIso ? new Date(startedAtIso) : new Date(),
   );
-  const [elapsed, setElapsed] = useState(0);
+  const totalSeconds = durationHrs * 3600;
+  // Start already elapsed if the visit was opened past its scheduled duration.
+  const [elapsed, setElapsed] = useState(() =>
+    Math.floor((Date.now() - startedAt.getTime()) / 1000),
+  );
+
+  // Fire the auto-end exactly once when the scheduled time is reached.
+  const autoEnded = useRef(false);
+  const onAutoEndRef = useRef(onAutoEnd);
+  onAutoEndRef.current = onAutoEnd;
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAt.getTime()) / 1000));
-    }, 1000);
+    function tick() {
+      const secs = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+      setElapsed(secs);
+      if (secs >= totalSeconds && !autoEnded.current) {
+        autoEnded.current = true;
+        onAutoEndRef.current?.();
+      }
+    }
+    tick(); // check immediately in case we opened past the duration
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [startedAt]);
+  }, [startedAt, totalSeconds]);
 
-  const totalSeconds = durationHrs * 3600;
+  // Never show the timer running past the scheduled duration.
+  const shown = Math.min(elapsed, totalSeconds);
   const percent = Math.min(Math.round((elapsed / totalSeconds) * 100), 100);
   const endsAt = new Date(startedAt.getTime() + totalSeconds * 1000);
 
@@ -71,7 +95,7 @@ export function TimerCard({ durationHrs, onEndVisit, startedAt: startedAtIso }: 
         className="text-white font-bold"
         style={{ fontSize: 40, marginTop: 14, fontVariant: ["tabular-nums"] }}
       >
-        {formatElapsed(elapsed)}
+        {formatElapsed(shown)}
       </Text>
       <Text style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
         Started at {formatClock(startedAt)} · Scheduled for {durationHrs} hrs

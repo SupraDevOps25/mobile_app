@@ -16,7 +16,10 @@ import {
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaystackService } from './paystack.service';
+import {
+  PaystackService,
+  type PaystackAuthorization,
+} from './paystack.service';
 
 type PaymentWithContext = Prisma.PaymentGetPayload<{
   include: { subscription: true; family: true };
@@ -140,7 +143,7 @@ export class BillingService {
   }
 
   /** Initialize a Paystack transaction for an invoice. */
-  async pay(userId: string, paymentId: string) {
+  async pay(userId: string, paymentId: string, callbackUrl?: string) {
     const family = await this.prisma.familyProfile.findUnique({
       where: { userId },
       include: { user: true },
@@ -162,6 +165,7 @@ export class BillingService {
       email: family.user.email,
       amountGhs: payment.amount.toNumber(),
       reference,
+      callbackUrl,
     });
 
     const updated = await this.prisma.payment.update({
@@ -202,17 +206,27 @@ export class BillingService {
         );
         throw new BadRequestException('Paid amount does not match the invoice');
       }
-      await this.markPaid(payment);
+      await this.markPaid(payment, result.authorization);
       return { status: PaymentStatus.SUCCESS, reference };
     }
 
-    const status =
-      result.status === 'abandoned'
-        ? PaymentStatus.ABANDONED
-        : PaymentStatus.FAILED;
+    // Paystack may still be settling the charge right after checkout. Only mark
+    // the invoice terminal on a genuinely final status — otherwise leave it
+    // PENDING so the app can poll verify again a moment later.
+    const terminal: Record<string, PaymentStatus> = {
+      failed: PaymentStatus.FAILED,
+      reversed: PaymentStatus.FAILED,
+      abandoned: PaymentStatus.ABANDONED,
+    };
+    const finalStatus = terminal[result.status];
+    if (!finalStatus) {
+      // pending / ongoing / processing / queued — not confirmed yet.
+      return { status: PaymentStatus.PENDING, reference };
+    }
+
     await this.prisma.payment.update({
       where: { id: payment.id },
-      data: { status },
+      data: { status: finalStatus },
     });
     await this.notifications.notify({
       userId: payment.family.userId,
@@ -220,7 +234,7 @@ export class BillingService {
       title: 'Payment failed',
       body: 'Your payment could not be completed. Please try again.',
     });
-    return { status, reference };
+    return { status: finalStatus, reference };
   }
 
   /** Paystack webhook — verified server-side, independent of the callback. */
@@ -230,7 +244,11 @@ export class BillingService {
     }
     const event = JSON.parse(rawBody.toString()) as {
       event: string;
-      data: { reference: string; amount?: number };
+      data: {
+        reference: string;
+        amount?: number;
+        authorization?: PaystackAuthorization | null;
+      };
     };
 
     if (event.event === 'charge.success') {
@@ -241,7 +259,7 @@ export class BillingService {
       if (payment && payment.status !== PaymentStatus.SUCCESS) {
         // Only settle if the charged amount matches the invoice.
         if (event.data.amount === this.expectedPesewas(payment)) {
-          await this.markPaid(payment);
+          await this.markPaid(payment, event.data.authorization);
         } else {
           this.logger.warn(
             `Webhook amount mismatch on ${event.data.reference}: charged ${event.data.amount}, expected ${this.expectedPesewas(payment)}`,
@@ -259,7 +277,10 @@ export class BillingService {
     return Math.round(payment.amount.toNumber() * 100);
   }
 
-  private async markPaid(payment: PaymentWithContext) {
+  private async markPaid(
+    payment: PaymentWithContext,
+    authorization?: PaystackAuthorization | null,
+  ) {
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: payment.id },
@@ -272,6 +293,14 @@ export class BillingService {
         data: { status: SubscriptionStatus.RENEWING },
       });
     });
+
+    // Save the reusable payment method (token + safe metadata only).
+    if (
+      authorization?.reusable !== false &&
+      authorization?.authorization_code
+    ) {
+      await this.saveAuthorization(payment.familyId, authorization);
+    }
 
     await this.notifications.notify({
       userId: payment.family.userId,
@@ -286,6 +315,37 @@ export class BillingService {
       body: 'Your care month is complete. Open the app to renew the same package or end the service.',
     });
     this.logger.log(`Invoice ${payment.id} marked paid`);
+  }
+
+  /** Upsert the reusable Paystack authorization as a saved payment method.
+   * Stores only the token + safe display metadata (no raw card data). */
+  private async saveAuthorization(
+    familyId: string,
+    auth: PaystackAuthorization,
+  ) {
+    const existing = await this.prisma.paymentMethod.count({
+      where: { familyId },
+    });
+    const data = {
+      familyId,
+      channel: auth.channel,
+      brand: auth.brand ?? auth.card_type ?? null,
+      last4: auth.last4 ?? null,
+      bank: auth.bank ?? null,
+      expMonth: auth.exp_month ?? null,
+      expYear: auth.exp_year ?? null,
+      reusable: auth.reusable ?? true,
+    };
+    await this.prisma.paymentMethod.upsert({
+      where: { authorizationCode: auth.authorization_code },
+      // The first saved method becomes the default.
+      create: {
+        ...data,
+        authorizationCode: auth.authorization_code,
+        isDefault: existing === 0,
+      },
+      update: data,
+    });
   }
 
   private toInvoice(p: Payment) {

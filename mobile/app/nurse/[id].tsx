@@ -3,7 +3,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
-import { useActiveSubscription } from "@/hooks/useSubscription";
+import {
+  useActiveSubscription,
+  usePastCareDetail,
+} from "@/hooks/useSubscription";
 import { avatarColor } from "@/lib/avatar";
 
 function Stat({ value, label }: { value: string; label: string }) {
@@ -31,17 +34,20 @@ function SectionLabel({ title }: { title: string }) {
 }
 
 export default function NurseProfileScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `sub` is set when opening a nurse from a past (ended) engagement, so we can
+  // look them up in that engagement's team rather than the active plan.
+  const { id, sub } = useLocalSearchParams<{ id: string; sub?: string }>();
   const router = useRouter();
   const { top } = useSafeAreaInsets();
 
   const { data: subscription, isLoading } = useActiveSubscription();
-  const nurse = subscription?.careTeam.nurses.find(
-    (n) => n.assignmentId === id,
-  );
+  const { data: pastDetail, isLoading: pastLoading } = usePastCareDetail(sub);
+  const nurse =
+    subscription?.careTeam.nurses.find((n) => n.assignmentId === id) ??
+    pastDetail?.careTeam.nurses.find((n) => n.assignmentId === id);
   const isLead = nurse?.role === "PRIMARY";
 
-  if (isLoading) {
+  if (isLoading || (!!sub && pastLoading)) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator color="#1e3a8a" />
@@ -120,9 +126,9 @@ export default function NurseProfileScreen() {
         >
           <Stat value={`${nurse.yearsExperience} yrs`} label="Experience" />
           <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-          <Stat value={`★ ${nurse.rating.toFixed(1)}`} label="Rating" />
+          <Stat value={`★ ${nurse.rating.toFixed(1)}`} label="Rating " />
           <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-          <Stat value={`${nurse.reliabilityScore}%`} label="Reliability" />
+          <Stat value={`${nurse.reliabilityScore}%`} label="Reliability " />
         </View>
 
         {/* Service areas (proximity) */}

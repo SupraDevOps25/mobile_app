@@ -11,7 +11,8 @@ export function useInvoices() {
 
 export function usePayInvoice() {
   return useMutation({
-    mutationFn: (paymentId: string) => billingService.pay(paymentId),
+    mutationFn: (vars: { paymentId: string; callbackUrl?: string }) =>
+      billingService.pay(vars.paymentId, vars.callbackUrl),
   });
 }
 

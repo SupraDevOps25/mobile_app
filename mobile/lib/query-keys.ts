@@ -5,6 +5,8 @@ export const qk = {
   package: (type: string) => ["packages", type] as const,
 
   activeSubscription: ["subscription", "active"] as const,
+  subscriptionHistory: ["subscription", "history"] as const,
+  pastCare: (id: string) => ["subscription", "history", id] as const,
 
   offers: ["assignments", "offers"] as const,
   myAssignments: ["assignments", "mine"] as const,
@@ -17,6 +19,11 @@ export const qk = {
   caregiverProfile: ["caregivers", "me"] as const,
 
   invoices: ["billing", "invoices"] as const,
+
+  familyStats: ["family", "stats"] as const,
+  familyProfile: ["family", "me"] as const,
+  familyAddresses: ["family", "addresses"] as const,
+  paymentMethods: ["family", "payment-methods"] as const,
 
   coordinatorCases: ["coordinator", "cases"] as const,
   coordinatorLogs: ["coordinator", "logs"] as const,

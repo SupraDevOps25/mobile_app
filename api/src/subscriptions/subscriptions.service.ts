@@ -14,6 +14,7 @@ import {
   Subscription,
   SubscriptionStatus,
   VisitKind,
+  VisitStatus,
 } from '@prisma/client';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -123,6 +124,95 @@ export class SubscriptionsService {
 
     const careTeam = await this.buildCareTeam(subscription);
     return this.toResponse(subscription, careTeam);
+  }
+
+  /**
+   * The family's past care engagements — subscriptions they've ended (whether
+   * they renewed for a while first or not). Kept as a permanent record of the
+   * care their loved one received, newest first.
+   */
+  async history(userId: string) {
+    const familyId = await this.familyIdFor(userId);
+
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: { familyId, status: SubscriptionStatus.CANCELLED },
+      orderBy: { updatedAt: 'desc' },
+      include: { careRecipient: true },
+    });
+
+    return Promise.all(
+      subscriptions.map(async (s) => {
+        const completedVisits = await this.prisma.visit.count({
+          where: {
+            subscriptionId: s.id,
+            status: VisitStatus.COMPLETED,
+          },
+        });
+        return {
+          id: s.id,
+          packageType: s.packageType,
+          status: s.status,
+          priceGhs: s.priceGhs.toNumber(),
+          startedAt: s.startedAt,
+          endedAt: s.updatedAt,
+          recipientName: s.careRecipient.name,
+          relationToAccount: s.careRecipient.relationToAccount,
+          completedVisits,
+        };
+      }),
+    );
+  }
+
+  /** Full detail of one past (or current) engagement the family owns. */
+  async historyDetail(userId: string, subscriptionId: string) {
+    const familyId = await this.familyIdFor(userId);
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { careRecipient: true },
+    });
+    if (!subscription || subscription.familyId !== familyId) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    const [pkg, careTeam, visits] = await Promise.all([
+      this.prisma.package.findUnique({
+        where: { type: subscription.packageType },
+      }),
+      this.buildCareTeam(subscription),
+      this.prisma.visit.findMany({
+        where: { subscriptionId },
+        orderBy: { scheduledFor: 'desc' },
+        include: {
+          caregiver: {
+            include: { user: { select: { firstName: true, lastName: true } } },
+          },
+          log: { select: { reviewedAt: true } },
+        },
+      }),
+    ]);
+
+    const completedVisits = visits.filter(
+      (v) => v.status === VisitStatus.COMPLETED,
+    ).length;
+
+    const base = this.toResponse(subscription, careTeam);
+    return {
+      ...base,
+      packageName: pkg?.name ?? null,
+      endedAt: subscription.updatedAt,
+      completedVisits,
+      totalVisits: visits.length,
+      visits: visits.map((v) => ({
+        id: v.id,
+        kind: v.kind,
+        status: v.status,
+        scheduledFor: v.scheduledFor,
+        durationHrs: v.durationHrs,
+        nurseName: `${v.caregiver.user.firstName} ${v.caregiver.user.lastName}`,
+        hasLog: v.log !== null,
+        logReviewed: v.log?.reviewedAt != null,
+      })),
+    };
   }
 
   // ── Coordinator: activation flow ──────────────────────────────────────────

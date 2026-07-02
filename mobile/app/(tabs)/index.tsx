@@ -14,11 +14,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
 import { CTABanner } from "@/components/home/CTABanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
+import { PastCareCard } from "@/components/care-plan/PastCareCard";
 import { PackageCard } from "@/components/packages/PackageCard";
 import { toPackageView } from "@/constants/package-presentation";
 import { usePackages } from "@/hooks/usePackages";
-import { useActiveSubscription } from "@/hooks/useSubscription";
+import {
+  useActiveSubscription,
+  useSubscriptionHistory,
+} from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
+
+// How many packages to preview on the home screen (full list is on /packages).
+const HOME_PACKAGE_LIMIT = 2;
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -34,6 +41,7 @@ export default function HomeScreen() {
 
   const { data: subscription } = useActiveSubscription();
   const { data: packages, isLoading: packagesLoading } = usePackages();
+  const { data: pastCare } = useSubscriptionHistory();
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
 
@@ -100,7 +108,7 @@ export default function HomeScreen() {
         {packagesLoading ? (
           <ActivityIndicator color="#1e3a8a" style={{ marginVertical: 24 }} />
         ) : (
-          (packages ?? []).map((pkg) => {
+          (packages ?? []).slice(0, HOME_PACKAGE_LIMIT).map((pkg) => {
             const view = toPackageView(pkg);
             return (
               <PackageCard
@@ -112,6 +120,23 @@ export default function HomeScreen() {
           })
         )}
       </View>
+
+      {/* Previous care received — a record of past engagements */}
+      {(pastCare ?? []).length > 0 && (
+        <View className="px-5 mt-6">
+          <SectionHeader
+            title="Previous care"
+            onSeeAll={() => router.push("/(tabs)/bookings" as any)}
+          />
+          {(pastCare ?? []).slice(0, 2).map((item) => (
+            <PastCareCard
+              key={item.id}
+              item={item}
+              onPress={(p) => router.push(`/past-care/${p.id}` as any)}
+            />
+          ))}
+        </View>
+      )}
 
       {/* How it works */}
       <View className="px-5 mt-2">

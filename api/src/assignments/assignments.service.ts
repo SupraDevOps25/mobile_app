@@ -29,11 +29,10 @@ const ROLES_IN_ORDER: AssignmentRole[] = [
   AssignmentRole.BACKUP_2,
 ];
 
-const PAYOUT_FRACTION: Record<AssignmentRole, number> = {
-  PRIMARY: 0.75,
-  BACKUP_1: 0.15,
-  BACKUP_2: 0.15,
-};
+// Only one nurse ultimately delivers the care — whoever accepts first, whether
+// that's the primary or an escalated backup. That nurse does the full job, so
+// every offer (primary and both backups) carries the same full payout.
+const NURSE_PAYOUT_FRACTION = 0.75;
 
 const ROLE_LABEL: Record<AssignmentRole, string> = {
   PRIMARY: 'primary nurse',
@@ -169,7 +168,7 @@ export class AssignmentsService {
             subscriptionId,
             caregiverId: picks[i].id,
             role,
-            payoutGhs: Math.round(price * PAYOUT_FRACTION[role]),
+            payoutGhs: Math.round(price * NURSE_PAYOUT_FRACTION),
             // Only the primary is live initially; backups wait their turn.
             expiresAt:
               role === AssignmentRole.PRIMARY
