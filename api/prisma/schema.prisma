@@ -33,6 +33,20 @@ enum VerificationStatus {
   REJECTED
 }
 
+// Caregiver-uploaded credentials. MVP collects two cards: the Ghana Card
+// (national ID) and the Nursing & Midwifery Council PIN card (licence).
+enum CaregiverDocumentType {
+  GHANA_CARD
+  PIN_CARD
+}
+
+// Per-document review state (an admin verifies manually).
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 // Clinical competencies used for nurse matching. Mirrors the mobile
 // CompetencyId catalog (constants/competencies.ts).
 enum Competency {
@@ -179,7 +193,13 @@ model CaregiverProfile {
   userId             String             @unique
   qualification      String?
   bio                String?
+  gender             Gender?
+  dateOfBirth        DateTime? // used to show the nurse's age
   yearsExperience    Int                @default(0)
+  hasHomecareExp     Boolean            @default(false) // worked as a homecare nurse before?
+  languages          String[]           @default([]) // e.g. English, Twi, Ga
+  photoUrl           String? // Cloudinary secure URL
+  photoPublicId      String? // Cloudinary public id (for replace/delete)
   competencies       Competency[]
   serviceAreas       String[]
   licenseVerified    Boolean            @default(false)
@@ -200,11 +220,35 @@ model CaregiverProfile {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignments Assignment[]
   visits      Visit[]
+  documents   CaregiverDocument[]
 
   @@map("caregiver_profiles")
+}
+
+// A single uploaded credential (one current record per type per caregiver).
+// The file itself lives in Cloudinary; we store only its URL + metadata.
+model CaregiverDocument {
+  id           String                @id @default(uuid())
+  caregiverId  String
+  type         CaregiverDocumentType
+  idNumber     String? // the number printed on the card (Ghana Card PIN, NMC PIN)
+  url          String // Cloudinary secure URL
+  publicId     String // Cloudinary public id
+  fileName     String?
+  status       DocumentStatus        @default(PENDING)
+  reviewNote   String? // admin's reason on reject
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  caregiver CaregiverProfile @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+
+  @@unique([caregiverId, type])
+  @@map("caregiver_documents")
 }
 
 // ─── Family Profile ───────────────────────────────────────────────────────────
@@ -399,6 +443,8 @@ model VisitLog {
   mood                PatientMood?
   followUpRecommended Boolean      @default(false)
   escalationNeeded    Boolean      @default(false)
+  changesRequested    Boolean      @default(false) // coordinator asked the nurse to revise
+  reviewNote          String? // coordinator's note (what to fix / review remark)
   submittedAt         DateTime     @default(now())
   reviewedById        String? // coordinator who reviewed
   reviewedAt          DateTime?

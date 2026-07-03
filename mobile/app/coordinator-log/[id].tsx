@@ -1,16 +1,22 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { avatarColor, initialsOf } from "@/lib/avatar";
-import { useCoordinatorLogs, useReviewLog } from "@/hooks/useCoordinator";
+import {
+  useCoordinatorLogs,
+  useRequestLogChanges,
+  useReviewLog,
+} from "@/hooks/useCoordinator";
 import type { ApiPatientMood, ApiVisitKind } from "@/services/visit.service";
 
 const MOOD_LABEL: Record<ApiPatientMood, string> = {
@@ -58,6 +64,9 @@ export default function CoordinatorLogScreen() {
   const { data: logs, isLoading } = useCoordinatorLogs();
   const log = logs?.find((l) => l.visitId === id);
   const reviewLog = useReviewLog();
+  const requestChanges = useRequestLogChanges();
+  const [requesting, setRequesting] = useState(false);
+  const [note, setNote] = useState("");
 
   if (isLoading) {
     return (
@@ -91,6 +100,23 @@ export default function CoordinatorLogScreen() {
       onSuccess: () => Alert.alert("Reviewed", "This log is marked as reviewed."),
       onError: (err: Error) => Alert.alert("Couldn't review", err.message),
     });
+  }
+
+  function onRequestChanges() {
+    requestChanges.mutate(
+      { visitId: log!.visitId, note: note.trim() || undefined },
+      {
+        onSuccess: () => {
+          setRequesting(false);
+          setNote("");
+          Alert.alert(
+            "Changes requested",
+            "The nurse has been asked to revise this log.",
+          );
+        },
+        onError: (err: Error) => Alert.alert("Couldn't send", err.message),
+      },
+    );
   }
 
   return (
@@ -145,6 +171,15 @@ export default function CoordinatorLogScreen() {
         <Text className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>
           Submitted by {log.nurseName} on {new Date(log.submittedAt).toLocaleString()}
         </Text>
+
+        {log.changesRequested && (
+          <View className="rounded-2xl p-3 mt-3" style={{ backgroundColor: "#fffbeb" }}>
+            <Text style={{ color: "#92400e", fontSize: 12.5, lineHeight: 18 }}>
+              Changes requested{log.reviewNote ? `: "${log.reviewNote}"` : ""}. Awaiting the
+              nurse&apos;s revision.
+            </Text>
+          </View>
+        )}
 
         {/* Summary */}
         <SectionLabel title="Visit summary" />
@@ -244,21 +279,79 @@ export default function CoordinatorLogScreen() {
           <View className="flex-row items-center justify-center" style={{ gap: 8, paddingVertical: 6 }}>
             <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
             <Text className="text-muted" style={{ fontSize: 13 }}>
-              Reviewed on  {new Date(log.reviewedAt!).toLocaleDateString()} 
+              Reviewed on {new Date(log.reviewedAt!).toLocaleDateString()}
             </Text>
           </View>
+        ) : requesting ? (
+          <View>
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder="What should the nurse fix? (optional)"
+              placeholderTextColor="#9ca3af"
+              multiline
+              maxFontSizeMultiplier={1.2}
+              style={{
+                minHeight: 64,
+                borderWidth: 1,
+                borderColor: "#e5e7eb",
+                backgroundColor: "#f9fafb",
+                borderRadius: 14,
+                padding: 12,
+                fontSize: 14,
+                color: "#111827",
+                textAlignVertical: "top",
+              }}
+            />
+            <View className="flex-row mt-3" style={{ gap: 10 }}>
+              <Pressable
+                onPress={() => {
+                  setRequesting(false);
+                  setNote("");
+                }}
+                className="flex-1 rounded-2xl items-center justify-center"
+                style={{ paddingVertical: 14, borderWidth: 1, borderColor: "#e5e7eb" }}
+              >
+                <Text style={{ color: "#374151", fontSize: 15, fontWeight: "700" }}>
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={onRequestChanges}
+                disabled={requestChanges.isPending}
+                className="flex-1 rounded-2xl items-center justify-center flex-row"
+                style={{ paddingVertical: 14, backgroundColor: requestChanges.isPending ? "#9ca3af" : "#dc2626", gap: 8 }}
+              >
+                {requestChanges.isPending && <ActivityIndicator color="#fff" size="small" />}
+                <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+                  Send request
+                </Text>
+              </Pressable>
+            </View>
+          </View>
         ) : (
-          <Pressable
-            onPress={onReview}
-            disabled={reviewLog.isPending}
-            className="rounded-2xl items-center justify-center flex-row"
-            style={{ backgroundColor: reviewLog.isPending ? "#9ca3af" : "#0d9488", paddingVertical: 16, gap: 8 }}
-          >
-            {reviewLog.isPending && <ActivityIndicator color="#ffffff" size="small" />}
-            <Text className="text-white font-bold" style={{ fontSize: 16 }}>
-              Mark reviewed
-            </Text>
-          </Pressable>
+          <View className="flex-row" style={{ gap: 10 }}>
+            <Pressable
+              onPress={() => setRequesting(true)}
+              className="flex-1 rounded-2xl items-center justify-center"
+              style={{ paddingVertical: 16, borderWidth: 1, borderColor: "#e5e7eb" }}
+            >
+              <Text style={{ color: "#374151", fontSize: 15, fontWeight: "700" }}>
+                Request changes
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onReview}
+              disabled={reviewLog.isPending}
+              className="flex-1 rounded-2xl items-center justify-center flex-row"
+              style={{ backgroundColor: reviewLog.isPending ? "#9ca3af" : "#0d9488", paddingVertical: 16, gap: 8 }}
+            >
+              {reviewLog.isPending && <ActivityIndicator color="#ffffff" size="small" />}
+              <Text className="text-white font-bold" style={{ fontSize: 15 }}>
+                Mark reviewed
+              </Text>
+            </Pressable>
+          </View>
         )}
       </View>
     </View>

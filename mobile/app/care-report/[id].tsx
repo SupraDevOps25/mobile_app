@@ -17,7 +17,7 @@ import { MoodSelector, type Mood } from "@/components/care-report/MoodSelector";
 import { ToggleRow } from "@/components/care-report/ToggleRow";
 import { VitalsGrid, type Vitals } from "@/components/care-report/VitalsGrid";
 import { avatarColor } from "@/lib/avatar";
-import { useSubmitLog, useVisit } from "@/hooks/useVisits";
+import { useEditLog, useSubmitLog, useVisit } from "@/hooks/useVisits";
 import type { ApiPatientMood } from "@/services/visit.service";
 
 const MOOD_MAP: Record<Mood, ApiPatientMood> = {
@@ -26,6 +26,14 @@ const MOOD_MAP: Record<Mood, ApiPatientMood> = {
   Good: "GOOD",
   Great: "GREAT",
   Excellent: "EXCELLENT",
+};
+
+const MOOD_FROM_API: Record<ApiPatientMood, Mood> = {
+  POOR: "Poor",
+  LOW: "Low",
+  GOOD: "Good",
+  GREAT: "Great",
+  EXCELLENT: "Excellent",
 };
 
 function SectionLabel({ title }: { title: string }) {
@@ -75,6 +83,9 @@ export default function CareReportScreen() {
 
   const { data: visit, isLoading } = useVisit(id);
   const submitLog = useSubmitLog(id ?? "");
+  const editLog = useEditLog(id ?? "");
+  const editing = !!visit?.log;
+  const pending = submitLog.isPending || editLog.isPending;
 
   // Care notes typed during the active visit prefill the summary. Params can
   // land a tick after mount, so sync once when they first arrive (without
@@ -98,6 +109,26 @@ export default function CareReportScreen() {
   const [mood, setMood] = useState<Mood | null>(null);
   const [followUp, setFollowUp] = useState(false);
   const [escalation, setEscalation] = useState(false);
+
+  // Edit mode: seed the form from the existing log once it loads.
+  const seededFromLog = useRef(false);
+  useEffect(() => {
+    const l = visit?.log;
+    if (!l || seededFromLog.current) return;
+    seededFromLog.current = true;
+    setSummary(l.summary);
+    setObservations(l.observations ?? "");
+    setVitals({
+      bloodPressure: l.bloodPressure ?? "",
+      bloodGlucose: l.bloodGlucose ?? "",
+      heartRate: l.heartRate ?? "",
+      temperature: l.temperature ?? "",
+    });
+    setMedications(l.medicationsGiven.join(", "));
+    setMood(l.mood ? MOOD_FROM_API[l.mood] : null);
+    setFollowUp(l.followUpRecommended);
+    setEscalation(l.escalationNeeded);
+  }, [visit]);
 
   if (isLoading) {
     return (
@@ -139,52 +170,49 @@ export default function CareReportScreen() {
       .split(",")
       .map((m) => m.trim())
       .filter(Boolean);
-    const quickLogItems = (quickLog ?? "")
-      .split(",")
-      .map((q) => q.trim())
-      .filter(Boolean);
+    const quickLogItems =
+      editing && visit?.log
+        ? visit.log.quickLog
+        : (quickLog ?? "")
+            .split(",")
+            .map((q) => q.trim())
+            .filter(Boolean);
 
-    Alert.alert(
-      "Submit report",
-      "You won't be able to edit the report after submission. Submit now?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Submit",
-          onPress: () =>
-            submitLog.mutate(
-              {
-                summary: summary.trim(),
-                observations: observations.trim() || undefined,
-                bloodPressure: vitals.bloodPressure.trim() || undefined,
-                bloodGlucose: vitals.bloodGlucose.trim() || undefined,
-                heartRate: vitals.heartRate.trim() || undefined,
-                temperature: vitals.temperature.trim() || undefined,
-                medicationsGiven,
-                quickLog: quickLogItems,
-                mood: MOOD_MAP[mood],
-                followUpRecommended: followUp,
-                escalationNeeded: escalation,
-              },
-              {
-                onSuccess: () =>
-                  Alert.alert(
-                    "Report submitted",
-                    "The care report has been shared with your Care Coordinator and saved to the patient's care record.",
-                    [
-                      {
-                        text: "Done",
-                        onPress: () => router.replace("/(caregiver-tabs)" as any),
-                      },
-                    ],
-                  ),
-                onError: (err: Error) =>
-                  Alert.alert("Couldn't submit", err.message),
-              },
-            ),
-        },
-      ],
-    );
+    const payload = {
+      summary: summary.trim(),
+      observations: observations.trim() || undefined,
+      bloodPressure: vitals.bloodPressure.trim() || undefined,
+      bloodGlucose: vitals.bloodGlucose.trim() || undefined,
+      heartRate: vitals.heartRate.trim() || undefined,
+      temperature: vitals.temperature.trim() || undefined,
+      medicationsGiven,
+      quickLog: quickLogItems,
+      mood: MOOD_MAP[mood],
+      followUpRecommended: followUp,
+      escalationNeeded: escalation,
+    };
+
+    const action = editing ? editLog : submitLog;
+    action.mutate(payload, {
+      onSuccess: () =>
+        Alert.alert(
+          editing ? "Report updated" : "Report submitted",
+          editing
+            ? "Your revised report has been resubmitted to your Care Coordinator for review."
+            : "The care report has been shared with your Care Coordinator and saved to the patient's care record.",
+          [
+            {
+              text: "Done",
+              onPress: () =>
+                editing
+                  ? router.back()
+                  : router.replace("/(caregiver-tabs)" as any),
+            },
+          ],
+        ),
+      onError: (err: Error) =>
+        Alert.alert(editing ? "Couldn't save" : "Couldn't submit", err.message),
+    });
   }
 
   return (
@@ -207,10 +235,10 @@ export default function CareReportScreen() {
             <Ionicons name="arrow-back" size={20} color="#111827" />
           </Pressable>
           <Text className="flex-1 text-foreground font-bold" style={{ fontSize: 18 }}>
-            Care report
+            {editing ? "Edit care report" : "Care report"}
           </Text>
           <Text className="text-muted" style={{ fontSize: 13 }}>
-            Draft
+            {editing ? "Editing" : "Draft"}
           </Text>
         </View>
 
@@ -219,6 +247,22 @@ export default function CareReportScreen() {
           contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Changes requested by the coordinator */}
+          {visit.log?.changesRequested && (
+            <View className="rounded-2xl p-4 mb-4" style={{ backgroundColor: "#fef2f2" }}>
+              <View className="flex-row items-center">
+                <Ionicons name="alert-circle" size={18} color="#dc2626" />
+                <Text className="font-bold" style={{ color: "#dc2626", fontSize: 13, marginLeft: 6 }}>
+                  Changes requested
+                </Text>
+              </View>
+              <Text style={{ color: "#b91c1c", fontSize: 13, marginTop: 6, lineHeight: 19 }}>
+                {visit.log.reviewNote ??
+                  "Your Care Coordinator asked you to revise this report."}
+              </Text>
+            </View>
+          )}
+
           {/* Patient banner */}
           <View
             className="flex-row items-center rounded-2xl p-4"
@@ -363,17 +407,19 @@ export default function CareReportScreen() {
         >
           <Pressable
             onPress={handleSubmit}
-            disabled={submitLog.isPending}
+            disabled={pending}
             className="rounded-full items-center justify-center py-4 flex-row"
-            style={{ backgroundColor: submitLog.isPending ? "#9ca3af" : "#1e3a8a", gap: 8 }}
+            style={{ backgroundColor: pending ? "#9ca3af" : "#1e3a8a", gap: 8 }}
           >
-            {submitLog.isPending && <ActivityIndicator color="#ffffff" size="small" />}
+            {pending && <ActivityIndicator color="#ffffff" size="small" />}
             <Text className="text-white font-semibold" style={{ fontSize: 15 }}>
-              Submit report
+              {editing ? "Save changes" : "Submit report"}
             </Text>
           </Pressable>
           <Text className="text-muted text-center" style={{ fontSize: 11, marginTop: 8 }}>
-            You won&apos;t be able to edit after submission
+            {editing
+              ? "You can edit until your Coordinator reviews it"
+              : "You can revise this until your Coordinator reviews it"}
           </Text>
         </View>
       </View>

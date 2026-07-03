@@ -13,7 +13,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
@@ -185,6 +187,53 @@ export class AuthService {
 
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  /** Self-service profile update for any authenticated user (any role). */
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    try {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+          ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+          ...(dto.phone !== undefined && { phone: dto.phone }),
+        },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'That phone number is already in use by another account',
+        );
+      }
+      throw err;
+    }
+    return this.getProfile(userId);
+  }
+
+  /** Change the logged-in user's password (verifies the current one first). */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const ok = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!ok) throw new UnauthorizedException('Current password is incorrect');
+
+    if (await bcrypt.compare(dto.newPassword, user.password)) {
+      throw new ConflictException(
+        'New password must be different from the current one',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+    return { changed: true };
   }
 
   private signToken(

@@ -11,7 +11,11 @@ import type {
   ApiGender,
   ApiSubscriptionStatus,
 } from "@/services/subscription.service";
-import type { ApiPatientMood, ApiVisitKind } from "@/services/visit.service";
+import type {
+  ApiPatientMood,
+  ApiVisitKind,
+  ApiVisitStatus,
+} from "@/services/visit.service";
 
 // One matched nurse on a case, in any state — what the coordinator sees so
 // they can chase up the primary/backups and re-match if no one accepts.
@@ -65,11 +69,14 @@ export interface ApiCoordinatorLog {
   mood: ApiPatientMood | null;
   followUpRecommended: boolean;
   escalationNeeded: boolean;
+  changesRequested: boolean;
+  reviewNote: string | null;
   submittedAt: string;
   reviewedAt: string | null;
   clientName: string;
   nurseName: string;
   visitKind: ApiVisitKind;
+  visitStatus: ApiVisitStatus;
   scheduledFor: string;
   durationHrs: number;
 }
@@ -84,6 +91,11 @@ export const coordinatorService = {
   reviewLog: (visitId: string) =>
     api.post<{ visitId: string; reviewedAt: string }>(
       `/visits/${visitId}/review`,
+    ),
+  requestChanges: (visitId: string, note?: string) =>
+    api.post<{ visitId: string; changesRequested: boolean; reviewNote: string | null }>(
+      `/visits/${visitId}/request-changes`,
+      { note },
     ),
   issueInvoice: (subscriptionId: string) =>
     api.post<ApiInvoice>(`/billing/invoices/${subscriptionId}`),

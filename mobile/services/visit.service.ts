@@ -33,8 +33,16 @@ export interface ApiVisitLog {
   mood: ApiPatientMood | null;
   followUpRecommended: boolean;
   escalationNeeded: boolean;
+  changesRequested: boolean;
+  reviewNote: string | null;
   submittedAt: string;
   reviewedAt: string | null;
+}
+
+export interface ApiVisitHistoryRow extends ApiVisitRow {
+  hasLog: boolean;
+  logReviewed: boolean;
+  changesRequested: boolean;
 }
 
 export interface ApiVisitDetail {
@@ -86,6 +94,7 @@ export interface SubmitLogPayload {
 
 export const visitService = {
   upcoming: () => api.get<ApiVisitRow[]>("/visits/upcoming"),
+  history: () => api.get<ApiVisitHistoryRow[]>("/visits/history"),
   get: (id: string) => api.get<ApiVisitDetail>(`/visits/${id}`),
   start: (id: string) =>
     api.post<{ id: string; status: ApiVisitStatus; startedAt: string }>(
@@ -93,5 +102,7 @@ export const visitService = {
     ),
   submitLog: (id: string, payload: SubmitLogPayload) =>
     api.post<ApiVisitLog>(`/visits/${id}/log`, payload),
+  editLog: (id: string, payload: SubmitLogPayload) =>
+    api.patch<ApiVisitLog>(`/visits/${id}/log`, payload),
   carePlan: () => api.get<ApiCarePlanVisit[]>("/visits/care-plan"),
 };

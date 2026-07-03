@@ -11,6 +11,7 @@ import { FamilyModule } from './family/family.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PackagesModule } from './packages/packages.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { StorageModule } from './storage/storage.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { VisitsModule } from './visits/visits.module';
 
@@ -19,6 +20,7 @@ import { VisitsModule } from './visits/visits.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    StorageModule,
     AuthModule,
     NotificationsModule,
     PackagesModule,

@@ -9,6 +9,13 @@ export function useUpcomingVisits() {
   });
 }
 
+export function useVisitHistory() {
+  return useQuery({
+    queryKey: qk.visitHistory,
+    queryFn: () => visitService.history(),
+  });
+}
+
 export function useCarePlan() {
   return useQuery({
     queryKey: qk.carePlan,
@@ -43,6 +50,18 @@ export function useSubmitLog(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.visit(id) });
       qc.invalidateQueries({ queryKey: qk.upcomingVisits });
+      qc.invalidateQueries({ queryKey: qk.visitHistory });
+    },
+  });
+}
+
+export function useEditLog(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: SubmitLogPayload) => visitService.editLog(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.visit(id) });
+      qc.invalidateQueries({ queryKey: qk.visitHistory });
     },
   });
 }

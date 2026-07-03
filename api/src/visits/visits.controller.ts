@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Request,
   UseGuards,
@@ -13,6 +14,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CreateVisitDto } from './dto/create-visit.dto';
 import { CreateVisitLogDto } from './dto/create-visit-log.dto';
+import { RequestChangesDto } from './dto/request-changes.dto';
 import { VisitsService } from './visits.service';
 
 @ApiBearerAuth()
@@ -37,6 +39,13 @@ export class VisitsController {
   @Get('upcoming')
   upcoming(@Request() req: { user: { id: string } }) {
     return this.visitsService.upcomingForNurse(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Nurse: my past visits (completed / missed)' })
+  @Roles('CAREGIVER')
+  @Get('history')
+  history(@Request() req: { user: { id: string } }) {
+    return this.visitsService.historyForNurse(req.user.id);
   }
 
   @ApiOperation({ summary: 'Family: visits on my care plan' })
@@ -82,10 +91,32 @@ export class VisitsController {
     return this.visitsService.submitLog(req.user.id, id, dto);
   }
 
+  @ApiOperation({ summary: 'Nurse: edit an unreviewed log (revise & resubmit)' })
+  @Roles('CAREGIVER')
+  @Patch(':id/log')
+  editLog(
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() dto: CreateVisitLogDto,
+  ) {
+    return this.visitsService.updateLog(req.user.id, id, dto);
+  }
+
   @ApiOperation({ summary: 'Coordinator: mark a visit log reviewed' })
   @Roles('CARE_COORDINATOR', 'ADMIN')
   @Post(':id/review')
   review(@Request() req: { user: { id: string } }, @Param('id') id: string) {
     return this.visitsService.reviewLog(req.user.id, id);
+  }
+
+  @ApiOperation({ summary: 'Coordinator: request changes to a visit log' })
+  @Roles('CARE_COORDINATOR', 'ADMIN')
+  @Post(':id/request-changes')
+  requestChanges(
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+    @Body() dto: RequestChangesDto,
+  ) {
+    return this.visitsService.requestChanges(req.user.id, id, dto.note);
   }
 }

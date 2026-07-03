@@ -107,7 +107,7 @@ export default function AvailabilityScreen() {
       >
         <View className="flex-row items-center">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.push("/profile" as any)}
             hitSlop={12}
             className="w-10 h-10 rounded-full items-center justify-center mr-2"
             style={{ backgroundColor: "#ffffff" }}

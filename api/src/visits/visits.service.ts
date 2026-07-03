@@ -122,6 +122,28 @@ export class VisitsService {
     return visits.map((v) => this.toVisitRow(v));
   }
 
+  /** The nurse's completed / missed visits, newest first, with log status. */
+  async historyForNurse(userId: string) {
+    const caregiverId = await this.caregiverIdFor(userId);
+    const visits = await this.prisma.visit.findMany({
+      where: {
+        caregiverId,
+        status: { in: [VisitStatus.COMPLETED, VisitStatus.MISSED] },
+      },
+      include: {
+        subscription: { include: { careRecipient: true } },
+        log: { select: { reviewedAt: true, changesRequested: true } },
+      },
+      orderBy: { scheduledFor: 'desc' },
+    });
+    return visits.map((v) => ({
+      ...this.toVisitRow(v),
+      hasLog: v.log !== null,
+      logReviewed: v.log?.reviewedAt != null,
+      changesRequested: v.log?.changesRequested ?? false,
+    }));
+  }
+
   async getVisit(userId: string, visitId: string) {
     const caregiverId = await this.caregiverIdFor(userId);
     const visit = await this.prisma.visit.findUnique({
@@ -219,6 +241,59 @@ export class VisitsService {
     return this.toLogResponse(log);
   }
 
+  /** Edit an already-submitted log. Allowed until the coordinator marks it
+   * reviewed — covers a nurse fixing their own log or responding to a
+   * coordinator's "changes requested". */
+  async updateLog(userId: string, visitId: string, dto: CreateVisitLogDto) {
+    const caregiverId = await this.caregiverIdFor(userId);
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        subscription: { include: { careRecipient: true } },
+        log: true,
+      },
+    });
+    if (!visit) throw new NotFoundException('Visit not found');
+    if (visit.caregiverId !== caregiverId) {
+      throw new ForbiddenException('This visit is not yours');
+    }
+    if (!visit.log) throw new BadRequestException('No log to edit yet');
+    if (visit.log.reviewedAt) {
+      throw new BadRequestException('A reviewed log can no longer be edited');
+    }
+
+    const log = await this.prisma.visitLog.update({
+      where: { visitId },
+      data: {
+        summary: dto.summary,
+        observations: dto.observations,
+        bloodPressure: dto.bloodPressure,
+        bloodGlucose: dto.bloodGlucose,
+        heartRate: dto.heartRate,
+        temperature: dto.temperature,
+        medicationsGiven: dto.medicationsGiven ?? [],
+        quickLog: dto.quickLog ?? [],
+        mood: dto.mood,
+        followUpRecommended: dto.followUpRecommended ?? false,
+        escalationNeeded: dto.escalationNeeded ?? false,
+        // Editing clears the "changes requested" flag and re-submits for review.
+        changesRequested: false,
+        submittedAt: new Date(),
+      },
+    });
+
+    if (visit.subscription.coordinatorId) {
+      await this.notifications.notify({
+        userId: visit.subscription.coordinatorId,
+        type: NotificationType.DAILY_LOG_SUBMITTED,
+        title: 'Care log updated',
+        body: `${visit.subscription.careRecipient.name}'s care log was revised and resubmitted for review.`,
+      });
+    }
+
+    return this.toLogResponse(log);
+  }
+
   // ── Coordinator: review logs ──────────────────────────────────────────────
 
   /** All logs across the coordinator's cases — those needing review first,
@@ -247,6 +322,7 @@ export class VisitsService {
           visitKind: l.visit.kind,
           scheduledFor: l.visit.scheduledFor,
           durationHrs: l.visit.durationHrs,
+          visitStatus: l.visit.status,
         }))
         // Pending (not yet reviewed) bubble to the top; date order kept within.
         .sort((a, b) => (a.reviewedAt ? 1 : 0) - (b.reviewedAt ? 1 : 0))
@@ -271,6 +347,52 @@ export class VisitsService {
       data: { reviewedById: coordinatorUserId, reviewedAt: new Date() },
     });
     return { visitId, reviewedAt: updated.reviewedAt };
+  }
+
+  /** Coordinator asks the nurse to revise a log before it's approved. */
+  async requestChanges(
+    coordinatorUserId: string,
+    visitId: string,
+    note?: string,
+  ) {
+    const log = await this.prisma.visitLog.findUnique({
+      where: { visitId },
+      include: {
+        visit: {
+          include: {
+            subscription: { include: { careRecipient: true } },
+            caregiver: { select: { userId: true } },
+          },
+        },
+      },
+    });
+    if (!log) throw new NotFoundException('Visit log not found');
+    if (log.visit.subscription.coordinatorId !== coordinatorUserId) {
+      throw new ForbiddenException('This case is not yours');
+    }
+    if (log.reviewedAt) {
+      throw new BadRequestException('A reviewed log can no longer be changed');
+    }
+
+    const updated = await this.prisma.visitLog.update({
+      where: { visitId },
+      data: { changesRequested: true, reviewNote: note ?? null },
+    });
+
+    await this.notifications.notify({
+      userId: log.visit.caregiver.userId,
+      type: NotificationType.DAILY_LOG_SUBMITTED,
+      title: 'Changes requested on your care log',
+      body: note
+        ? `Your Care Coordinator asked you to revise the log for ${log.visit.subscription.careRecipient.name}: "${note}"`
+        : `Your Care Coordinator asked you to revise the log for ${log.visit.subscription.careRecipient.name}.`,
+    });
+
+    return {
+      visitId,
+      changesRequested: updated.changesRequested,
+      reviewNote: updated.reviewNote,
+    };
   }
 
   // ── Family: care plan visits ──────────────────────────────────────────────
@@ -352,6 +474,8 @@ export class VisitsService {
       mood: log.mood,
       followUpRecommended: log.followUpRecommended,
       escalationNeeded: log.escalationNeeded,
+      changesRequested: log.changesRequested,
+      reviewNote: log.reviewNote,
       submittedAt: log.submittedAt,
       reviewedAt: log.reviewedAt,
     };

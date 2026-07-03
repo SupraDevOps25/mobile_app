@@ -55,3 +55,14 @@ export function useReviewLog() {
     },
   });
 }
+
+export function useRequestLogChanges() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { visitId: string; note?: string }) =>
+      coordinatorService.requestChanges(vars.visitId, vars.note),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.coordinatorLogs });
+    },
+  });
+}

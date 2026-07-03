@@ -1,6 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,13 +19,13 @@ import { AssignmentOfferCard } from "@/components/caregiver-home/AssignmentOffer
 import { GreetingCard } from "@/components/caregiver-home/GreetingCard";
 import { StatCard } from "@/components/caregiver-home/StatCard";
 import { UpcomingVisitRow } from "@/components/caregiver-home/UpcomingVisitRow";
-import { CAREGIVER_STATS } from "@/constants/caregiver-dashboard";
+import { verificationMeta } from "@/constants/verification";
 import { useOffers } from "@/hooks/useAssignments";
 import {
   useCaregiverProfile,
   useSetAvailability,
 } from "@/hooks/useCaregiverProfile";
-import { useUpcomingVisits } from "@/hooks/useVisits";
+import { useUpcomingVisits, useVisitHistory } from "@/hooks/useVisits";
 import { useAuth } from "@/hooks/useAuth";
 
 function getGreeting() {
@@ -49,14 +51,40 @@ export default function CaregiverHomeScreen() {
 
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
-  const stats = CAREGIVER_STATS;
 
   const { data: offers, isLoading: offersLoading } = useOffers();
   const { data: upcoming, isLoading: visitsLoading } = useUpcomingVisits();
+  const { data: past } = useVisitHistory();
   const { data: profile } = useCaregiverProfile();
   const setAvailability = useSetAvailability();
   const offerCount = offers?.length ?? 0;
   const available = profile?.isAvailable ?? false;
+
+  // Real dashboard figures derived from the nurse's own data.
+  const upcomingList = upcoming ?? [];
+  const pastList = past ?? [];
+  const completedCount = pastList.filter((v) => v.status === "COMPLETED").length;
+  const changesCount = pastList.filter((v) => v.changesRequested).length;
+  const ratingLabel =
+    profile && profile.totalReviews > 0 ? profile.rating.toFixed(1) : "—";
+  const verification = profile
+    ? verificationMeta(profile.verificationStatus)
+    : null;
+  const previewVisits = upcomingList.slice(0, 3);
+
+  // First-run: send a brand-new caregiver (no credentials submitted yet) into
+  // the onboarding wizard. The "seen" flag means we only auto-redirect once —
+  // afterwards they finish from the profile tab's verification nudge.
+  const redirected = useRef(false);
+  useEffect(() => {
+    if (!profile || redirected.current) return;
+    if (profile.verificationStatus !== "UNVERIFIED") return;
+    redirected.current = true;
+    void (async () => {
+      const seen = await AsyncStorage.getItem("cg_onboarding_seen");
+      if (!seen) router.replace("/caregiver-onboarding" as any);
+    })();
+  }, [profile, router]);
 
   return (
     <View className="flex-1 bg-background">
@@ -105,6 +133,41 @@ export default function CaregiverHomeScreen() {
           offerCount={offerCount}
         />
       </View>
+
+      {/* Verification banner — until the account is verified */}
+      {verification && profile && profile.verificationStatus !== "VERIFIED" && (
+        <Pressable
+          onPress={() => router.push("/caregiver-credentials" as any)}
+          className="mx-5 mb-4 flex-row items-center rounded-2xl p-4"
+          style={{ backgroundColor: verification.bg }}
+        >
+          <Ionicons name={verification.icon} size={20} color={verification.color} />
+          <Text
+            style={{ color: verification.color, fontSize: 12.5, marginLeft: 8, flex: 1, lineHeight: 18 }}
+          >
+            {verification.hint}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={verification.color} />
+        </Pressable>
+      )}
+
+      {/* Logs the coordinator asked to revise */}
+      {changesCount > 0 && (
+        <Pressable
+          onPress={() => router.push("/(caregiver-tabs)/visits" as any)}
+          className="mx-5 mb-4 flex-row items-center rounded-2xl p-4"
+          style={{ backgroundColor: "#fef2f2" }}
+        >
+          <Ionicons name="alert-circle" size={20} color="#dc2626" />
+          <Text
+            style={{ color: "#b91c1c", fontSize: 12.5, marginLeft: 8, flex: 1, lineHeight: 18 }}
+          >
+            {changesCount} care {changesCount === 1 ? "log needs" : "logs need"} changes.
+            Tap to revise and resubmit.
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color="#dc2626" />
+        </Pressable>
+      )}
 
       {/* Availability quick toggle */}
       <View className="px-5 mb-4">
@@ -155,20 +218,21 @@ export default function CaregiverHomeScreen() {
       {/* Stats */}
       <View className="flex-row px-5 mb-6" style={{ gap: 10 }}>
         <StatCard
-          value={String(stats.visitsThisWeek)}
-          label="Visits this week"
-          trend={`↑ ${stats.visitsDelta} vs last`}
+          value={String(upcomingList.length)}
+          label="Upcoming visits"
+          trend="Scheduled"
+          trendColor="#2563eb"
         />
         <StatCard
-          value={stats.rating.toFixed(1)}
+          value={String(completedCount)}
+          label="Visits completed"
+          trend="All time"
+        />
+        <StatCard
+          value={ratingLabel}
           label="Your rating"
-          trend="★ Top rated"
+          trend={profile && profile.totalReviews > 0 ? `★ ${profile.totalReviews} reviews` : "No reviews yet"}
           trendColor="#f59e0b"
-        />
-        <StatCard
-          value={`₵${stats.earnedThisWeekGhs}`}
-          label="Earned this week"
-          trend={`↑ ₵${stats.earnedDeltaGhs}`}
         />
       </View>
 
@@ -200,16 +264,26 @@ export default function CaregiverHomeScreen() {
         )}
       </View>
 
-      {/* Upcoming visits */}
+      {/* Upcoming visits — preview of the next 3 */}
       <View className="px-5">
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-foreground text-lg font-bold">
             Upcoming visits
           </Text>
+          {upcomingList.length > 3 && (
+            <Pressable
+              onPress={() => router.push("/(caregiver-tabs)/visits" as any)}
+              hitSlop={8}
+            >
+              <Text style={{ color: "#16a34a", fontSize: 13, fontWeight: "600" }}>
+                See all
+              </Text>
+            </Pressable>
+          )}
         </View>
         {visitsLoading ? (
           <ActivityIndicator color="#16a34a" style={{ marginVertical: 16 }} />
-        ) : (upcoming ?? []).length === 0 ? (
+        ) : upcomingList.length === 0 ? (
           <View
             className="rounded-2xl p-4 items-center"
             style={{ backgroundColor: "#f9fafb" }}
@@ -220,18 +294,31 @@ export default function CaregiverHomeScreen() {
             </Text>
           </View>
         ) : (
-          (upcoming ?? []).map((visit) => (
-            <UpcomingVisitRow
-              key={visit.id}
-              visit={visit}
-              onPress={(v) =>
-                router.push({
-                  pathname: "/(caregiver-tabs)/active-visit" as any,
-                  params: { id: v.id },
-                })
-              }
-            />
-          ))
+          <>
+            {previewVisits.map((visit) => (
+              <UpcomingVisitRow
+                key={visit.id}
+                visit={visit}
+                onPress={(v) =>
+                  router.push({
+                    pathname: "/(caregiver-tabs)/active-visit" as any,
+                    params: { id: v.id },
+                  })
+                }
+              />
+            ))}
+            {upcomingList.length > 3 && (
+              <Pressable
+                onPress={() => router.push("/(caregiver-tabs)/visits" as any)}
+                className="rounded-2xl items-center justify-center py-3"
+                style={{ backgroundColor: "#f0fdf4" }}
+              >
+                <Text style={{ color: "#15803d", fontSize: 13, fontWeight: "700" }}>
+                  See all {upcomingList.length} visits
+                </Text>
+              </Pressable>
+            )}
+          </>
         )}
       </View>
       </ScrollView>

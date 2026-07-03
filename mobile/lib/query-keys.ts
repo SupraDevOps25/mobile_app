@@ -13,10 +13,12 @@ export const qk = {
   assignment: (id: string) => ["assignments", id] as const,
 
   upcomingVisits: ["visits", "upcoming"] as const,
+  visitHistory: ["visits", "history"] as const,
   carePlan: ["visits", "care-plan"] as const,
   visit: (id: string) => ["visits", id] as const,
 
   caregiverProfile: ["caregivers", "me"] as const,
+  caregiverDocuments: ["caregivers", "documents"] as const,
 
   invoices: ["billing", "invoices"] as const,
 
@@ -31,4 +33,6 @@ export const qk = {
 
   coordinatorCases: ["coordinator", "cases"] as const,
   coordinatorLogs: ["coordinator", "logs"] as const,
+
+  authProfile: ["auth", "profile"] as const,
 };
