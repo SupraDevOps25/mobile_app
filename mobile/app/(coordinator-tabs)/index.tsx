@@ -3,13 +3,13 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NotificationBell } from "@/components/NotificationBell";
 import { CaseCard } from "@/components/coordinator/CaseCard";
 import { CoordinatorLogRow } from "@/components/coordinator/CoordinatorLogRow";
 import { caseAction } from "@/constants/coordinator-presentation";
@@ -85,15 +85,14 @@ export default function CoordinatorHomeScreen() {
   const recent = list.filter((c) => !attentionIds.has(c.id)).slice(0, 4);
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ paddingTop: top + 12, paddingBottom: 28 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <View className="flex-1 bg-background">
       <StatusBar style="dark" />
 
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-5 mb-5">
+      {/* Fixed header — content scrolls beneath it */}
+      <View
+        className="flex-row items-center justify-between px-5 pb-3 bg-background"
+        style={{ paddingTop: top + 12 }}
+      >
         <View>
           <Text className="text-muted" style={{ fontSize: 13 }}>
             {getGreeting()},
@@ -103,12 +102,7 @@ export default function CoordinatorHomeScreen() {
           </Text>
         </View>
         <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => Alert.alert("Notifications", "No new notifications.")}
-            hitSlop={8}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-          </Pressable>
+          <NotificationBell />
           <View
             className="w-9 h-9 rounded-full items-center justify-center"
             style={{ backgroundColor: "#0d9488" }}
@@ -120,6 +114,11 @@ export default function CoordinatorHomeScreen() {
         </View>
       </View>
 
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 28 }}
+        showsVerticalScrollIndicator={false}
+      >
       {isLoading ? (
         <ActivityIndicator color="#0d9488" style={{ marginTop: 40 }} />
       ) : (
@@ -257,6 +256,7 @@ export default function CoordinatorHomeScreen() {
           )}
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

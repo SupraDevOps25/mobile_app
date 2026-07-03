@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
@@ -16,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PackageSummaryCard } from "@/components/packages/PackageSummaryCard";
 import { Input } from "@/components/ui/Input";
 import { toPackageView } from "@/constants/package-presentation";
-import { useAddresses } from "@/hooks/useFamily";
+import { useAddresses, useFamilyProfile } from "@/hooks/useFamily";
 import { useDeviceLocation } from "@/hooks/useDeviceLocation";
 import { usePackage } from "@/hooks/usePackages";
 import { useSubscribe } from "@/hooks/useSubscription";
@@ -46,16 +47,19 @@ export default function SubscribeScreen() {
   const { data, isLoading } = usePackage(packageType);
   const subscribe = useSubscribe();
   const { data: savedAddresses } = useAddresses();
+  const { data: profile } = useFamilyProfile();
   const { getCurrent, loading: locating } = useDeviceLocation();
 
   const {
     control,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<SubscribeFormValues>({
     resolver: zodResolver(subscribeSchema),
     defaultValues: {
+      bookingFor: "LOVED_ONE",
       name: "",
       age: "",
       gender: "MALE",
@@ -67,6 +71,33 @@ export default function SubscribeScreen() {
       basicCareNeeds: "",
     },
   });
+
+  const bookingFor = watch("bookingFor");
+  const accountName = profile
+    ? `${profile.firstName} ${profile.lastName}`.trim()
+    : "";
+
+  // Keep the self-booking name in sync once the account profile resolves
+  // (it may load after the user has already tapped "Myself").
+  useEffect(() => {
+    if (bookingFor === "SELF" && accountName) {
+      setValue("name", accountName, { shouldValidate: true });
+      setValue("relationToAccount", "Self", { shouldValidate: true });
+    }
+  }, [bookingFor, accountName, setValue]);
+
+  // When booking for self, use the account holder's own details; when for a
+  // loved one, let the family fill their name and relationship fresh.
+  function selectBookingFor(value: "SELF" | "LOVED_ONE") {
+    setValue("bookingFor", value);
+    if (value === "SELF") {
+      setValue("name", accountName, { shouldValidate: true });
+      setValue("relationToAccount", "Self", { shouldValidate: true });
+    } else {
+      setValue("name", "");
+      setValue("relationToAccount", "");
+    }
+  }
 
   if (isLoading) {
     return (
@@ -111,6 +142,7 @@ export default function SubscribeScreen() {
       {
         packageType,
         careRecipient: {
+          bookingFor: values.bookingFor,
           name: values.name.trim(),
           age: parseInt(values.age, 10),
           gender: values.gender,
@@ -169,24 +201,84 @@ export default function SubscribeScreen() {
             className="text-muted"
             style={{ fontSize: 13, marginTop: 14, lineHeight: 19 }}
           >
-            Tell us about your loved one so we can match the right care team.
+            {bookingFor === "SELF"
+              ? "Tell us a little about yourself so we can match the right care team."
+              : "Tell us about your loved one so we can match the right care team."}
           </Text>
+
+          <SectionLabel title="Who is this care for?" />
+
+          <View className="flex-row" style={{ gap: 10 }}>
+            {(
+              [
+                { key: "SELF", label: "Myself", icon: "person-outline" },
+                { key: "LOVED_ONE", label: "A loved one", icon: "heart-outline" },
+              ] as const
+            ).map((opt) => {
+              const active = bookingFor === opt.key;
+              return (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => selectBookingFor(opt.key)}
+                  className="flex-1 rounded-2xl items-center justify-center"
+                  style={{
+                    paddingVertical: 16,
+                    borderWidth: 1,
+                    borderColor: active ? "#1e3a8a" : "#e5e7eb",
+                    backgroundColor: active ? "#eff6ff" : "#f9fafb",
+                  }}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={20}
+                    color={active ? "#1e3a8a" : "#6b7280"}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: "700",
+                      marginTop: 6,
+                      color: active ? "#1e3a8a" : "#6b7280",
+                    }}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <SectionLabel title="Care recipient" />
 
-          <Controller
-            control={control}
-            name="name"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <Input
-                placeholder="Full name"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.name?.message}
-              />
-            )}
-          />
+          {bookingFor === "SELF" ? (
+            <View
+              className="flex-row items-center rounded-2xl px-4 py-3 mb-4"
+              style={{ backgroundColor: "#f0fdf4" }}
+            >
+              <Ionicons name="person-circle-outline" size={22} color="#16a34a" />
+              <Text
+                style={{ color: "#166534", fontSize: 13, marginLeft: 8, flex: 1 }}
+              >
+                Booking for yourself
+                {accountName ? ` — ${accountName}` : ""}. Just add your age and
+                care details below.
+              </Text>
+            </View>
+          ) : (
+            <Controller
+              control={control}
+              name="name"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <Input
+                  placeholder="Full name"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.name?.message}
+                />
+              )}
+            />
+          )}
 
           <View className="flex-row" style={{ gap: 12 }}>
             <View style={{ flex: 1 }}>
@@ -243,19 +335,21 @@ export default function SubscribeScreen() {
             </View>
           </View>
 
-          <Controller
-            control={control}
-            name="relationToAccount"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <Input
-                placeholder="Relationship to you (e.g. Father)"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.relationToAccount?.message}
-              />
-            )}
-          />
+          {bookingFor === "LOVED_ONE" && (
+            <Controller
+              control={control}
+              name="relationToAccount"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <Input
+                  placeholder="Relationship to you (e.g. Father)"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.relationToAccount?.message}
+                />
+              )}
+            />
+          )}
 
           <SectionLabel title="Location" />
 

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Gender, PackageType } from '@prisma/client';
+import { BookingFor, Gender, PackageType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -13,6 +13,10 @@ import {
 } from 'class-validator';
 
 export class CareRecipientDto {
+  @ApiProperty({ enum: BookingFor, example: BookingFor.LOVED_ONE })
+  @IsEnum(BookingFor)
+  bookingFor!: BookingFor;
+
   @ApiProperty({ example: 'Kofi Asante' })
   @IsString()
   @IsNotEmpty()

@@ -48,6 +48,13 @@ export class FamilyController {
     return this.familyService.updateMe(req.user.id, dto);
   }
 
+  @ApiOperation({ summary: 'Family: permanently delete my account and data' })
+  @Roles('FAMILY')
+  @Delete('me')
+  deleteAccount(@Request() req: { user: { id: string } }) {
+    return this.familyService.deleteAccount(req.user.id);
+  }
+
   // ── Saved addresses ───────────────────────────────────────────────────────
 
   @ApiOperation({ summary: 'Family: list my saved addresses' })

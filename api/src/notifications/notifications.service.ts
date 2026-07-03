@@ -42,7 +42,10 @@ export class NotificationsService {
     if (!user) return;
 
     const pushToken =
-      user.caregiverProfile?.fcmToken ?? user.familyProfile?.fcmToken ?? null;
+      user.fcmToken ??
+      user.caregiverProfile?.fcmToken ??
+      user.familyProfile?.fcmToken ??
+      null;
 
     await this.sendToUser({
       userId: params.userId,
@@ -51,6 +54,7 @@ export class NotificationsService {
       type: params.type,
       title: params.title,
       body: params.body,
+      prefs: { push: user.notifyPush, sms: user.notifySms },
     });
   }
 
@@ -64,6 +68,48 @@ export class NotificationsService {
     await this.notify(params);
   }
 
+  // ─── Inbox (the recipient reads their own notifications) ──────────────────
+
+  async listForUser(userId: string) {
+    const notifications = await this.prisma.notification.findMany({
+      where: { userId },
+      orderBy: { sentAt: 'desc' },
+      take: 50,
+    });
+    return notifications.map((n) => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      body: n.body,
+      isRead: n.isRead,
+      sentAt: n.sentAt,
+    }));
+  }
+
+  async unreadCount(userId: string): Promise<{ count: number }> {
+    const count = await this.prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+    return { count };
+  }
+
+  async markRead(userId: string, id: string) {
+    // Scope the update to the owner so nobody can mark someone else's read.
+    const result = await this.prisma.notification.updateMany({
+      where: { id, userId },
+      data: { isRead: true },
+    });
+    return { updated: result.count };
+  }
+
+  async markAllRead(userId: string) {
+    const result = await this.prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true },
+    });
+    return { updated: result.count };
+  }
+
   // ─── Core delivery pipeline ───────────────────────────────────────────────
 
   private async sendToUser(params: {
@@ -73,10 +119,12 @@ export class NotificationsService {
     type: NotificationType;
     title: string;
     body: string;
+    prefs: { push: boolean; sms: boolean };
   }): Promise<void> {
     let pushSucceeded = false;
 
-    if (params.pushToken) {
+    // Only push if the user allows it and we have a device token.
+    if (params.prefs.push && params.pushToken) {
       pushSucceeded = await this.sendExpoPush(
         params.pushToken,
         params.title,
@@ -84,19 +132,58 @@ export class NotificationsService {
       );
     }
 
-    if (!pushSucceeded) {
+    // Fall back to WhatsApp/SMS when push didn't reach them — if allowed.
+    if (!pushSucceeded && params.prefs.sms) {
       await this.sendWhatsApp(
         params.phone,
         `*${params.title}*\n${params.body}`,
       );
     }
 
+    // The in-app inbox is always recorded, regardless of channel prefs.
     await this.logNotification(
       params.userId,
       params.type,
       params.title,
       params.body,
     );
+  }
+
+  // ─── Device registration (Expo push token) ───────────────────────────────
+
+  async registerDevice(userId: string, token: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken: token },
+    });
+    return { registered: true };
+  }
+
+  // ─── Channel preferences ──────────────────────────────────────────────────
+
+  async getPreferences(
+    userId: string,
+  ): Promise<{ push: boolean; sms: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { notifyPush: true, notifySms: true },
+    });
+    return { push: user?.notifyPush ?? true, sms: user?.notifySms ?? true };
+  }
+
+  async updatePreferences(
+    userId: string,
+    prefs: { push?: boolean; sms?: boolean },
+  ) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(prefs.push !== undefined && { notifyPush: prefs.push }),
+        ...(prefs.sms !== undefined && { notifySms: prefs.sms }),
+      },
+      select: { notifyPush: true, notifySms: true },
+    });
+    return { push: user.notifyPush, sms: user.notifySms };
   }
 
   // ─── Expo push ────────────────────────────────────────────────────────────

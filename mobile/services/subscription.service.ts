@@ -8,6 +8,8 @@ import type { ApiCarePlanVisit } from "@/services/visit.service";
 
 export type ApiGender = "MALE" | "FEMALE";
 
+export type ApiBookingFor = "SELF" | "LOVED_ONE";
+
 export interface ApiCoordinator {
   name: string;
   phone: string;
@@ -43,6 +45,7 @@ export type ApiSubscriptionStatus =
 
 export interface ApiCareRecipient {
   id: string;
+  bookingFor: ApiBookingFor;
   name: string;
   age: number;
   gender: ApiGender;
@@ -90,6 +93,7 @@ export interface ApiPastCareDetail extends ApiSubscription {
 export interface SubscribePayload {
   packageType: ApiPackageType;
   careRecipient: {
+    bookingFor: ApiBookingFor;
     name: string;
     age: number;
     gender: ApiGender;

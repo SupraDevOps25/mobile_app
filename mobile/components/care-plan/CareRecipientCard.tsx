@@ -24,8 +24,10 @@ export function CareRecipientCard({ client }: { client: ApiCareRecipient }) {
             {client.name}
           </Text>
           <Text className="text-muted" style={{ fontSize: 13, marginTop: 2 }}>
-            {client.age} yrs · {genderLabel} · Your{" "}
-            {client.relationToAccount.toLowerCase()}
+            {client.age} yrs · {genderLabel} ·{" "}
+            {client.bookingFor === "SELF"
+              ? "Yourself"
+              : `Your ${client.relationToAccount.toLowerCase()}`}
           </Text>
         </View>
       </View>

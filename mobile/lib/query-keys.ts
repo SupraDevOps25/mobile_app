@@ -20,6 +20,10 @@ export const qk = {
 
   invoices: ["billing", "invoices"] as const,
 
+  notifications: ["notifications"] as const,
+  notificationsUnread: ["notifications", "unread"] as const,
+  notificationPreferences: ["notifications", "preferences"] as const,
+
   familyStats: ["family", "stats"] as const,
   familyProfile: ["family", "me"] as const,
   familyAddresses: ["family", "addresses"] as const,

@@ -20,6 +20,12 @@ enum Gender {
   FEMALE
 }
 
+// Whether a family is booking care for themselves or for a loved one.
+enum BookingFor {
+  SELF
+  LOVED_ONE
+}
+
 enum VerificationStatus {
   UNVERIFIED
   PENDING_REVIEW
@@ -134,6 +140,11 @@ model User {
   lastName      String
   role          Role
   emailVerified Boolean  @default(false)
+  // Outbound notification channels (the in-app inbox is always on).
+  notifyPush    Boolean  @default(true)
+  notifySms     Boolean  @default(true)
+  // Expo push token for this user's current device (any role).
+  fcmToken      String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -262,12 +273,13 @@ model SavedAddress {
 // ─── Care Recipient (the client receiving care) ───────────────────────────────
 
 model CareRecipient {
-  id                String   @id @default(uuid())
+  id                String     @id @default(uuid())
   familyId          String
+  bookingFor        BookingFor @default(LOVED_ONE) // self vs. loved one
   name              String
   age               Int
   gender            Gender
-  relationToAccount String // e.g. "Father"
+  relationToAccount String // "Self" when bookingFor = SELF; else e.g. "Father"
   area              String
   city              String
   address           String

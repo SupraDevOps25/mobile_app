@@ -111,15 +111,21 @@ export default function CarePlanScreen() {
   if (!subscription) {
     if (history.length === 0) return <EmptyState />;
     return (
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerStyle={{ paddingTop: top + 12, paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <View className="flex-1 bg-background">
         <StatusBar style="dark" />
-        <Text className="text-foreground font-bold px-5 mb-2" style={{ fontSize: 22 }}>
-          My care
-        </Text>
+        <View
+          className="px-5 pb-3 bg-background"
+          style={{ paddingTop: top + 12 }}
+        >
+          <Text className="text-foreground font-bold" style={{ fontSize: 22 }}>
+            My care
+          </Text>
+        </View>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingTop: 4, paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+        >
         <View className="px-5">
           <View
             className="rounded-2xl p-5 mb-2"
@@ -146,7 +152,8 @@ export default function CarePlanScreen() {
             onOpen={(id) => router.push(`/past-care/${id}` as any)}
           />
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -163,15 +170,14 @@ export default function CarePlanScreen() {
   );
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ paddingTop: top + 12, paddingBottom: 32 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <View className="flex-1 bg-background">
       <StatusBar style="dark" />
 
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-5 mb-4">
+      {/* Fixed header — content scrolls beneath it */}
+      <View
+        className="flex-row items-center justify-between px-5 pb-3 bg-background"
+        style={{ paddingTop: top + 12 }}
+      >
         <Text className="text-foreground font-bold" style={{ fontSize: 22 }}>
           My care plan
         </Text>
@@ -185,6 +191,11 @@ export default function CarePlanScreen() {
         </Pressable>
       </View>
 
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
       <View className="px-5">
         {pkg && (
           <SubscriptionHeaderCard pkg={pkg} subscription={subscription} />
@@ -248,6 +259,7 @@ export default function CarePlanScreen() {
           onOpen={(id) => router.push(`/past-care/${id}` as any)}
         />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

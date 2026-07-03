@@ -11,16 +11,20 @@ export default function CoordinatorCasesScreen() {
   const { data: cases, isLoading } = useCoordinatorCases();
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ paddingTop: top + 16, paddingHorizontal: 20, paddingBottom: 24 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text className="text-foreground text-2xl font-bold mb-1">Cases</Text>
-      <Text className="text-muted text-sm mb-5">
-        Every family you&apos;re coordinating.
-      </Text>
+    <View className="flex-1 bg-background">
+      {/* Fixed header — content scrolls beneath it */}
+      <View className="px-5 pb-2 bg-background" style={{ paddingTop: top + 16 }}>
+        <Text className="text-foreground text-2xl font-bold mb-1">Cases</Text>
+        <Text className="text-muted text-sm">
+          Every family you&apos;re coordinating.
+        </Text>
+      </View>
 
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 20, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
       {isLoading ? (
         <ActivityIndicator color="#0d9488" style={{ marginVertical: 24 }} />
       ) : (cases ?? []).length === 0 ? (
@@ -47,6 +51,7 @@ export default function CoordinatorCasesScreen() {
           />
         ))
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

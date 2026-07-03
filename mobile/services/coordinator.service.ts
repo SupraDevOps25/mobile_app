@@ -6,6 +6,7 @@ import type {
 import type { ApiInvoice } from "@/services/billing.service";
 import type { ApiPackageType } from "@/services/package.service";
 import type {
+  ApiBookingFor,
   ApiCareTeam,
   ApiGender,
   ApiSubscriptionStatus,
@@ -25,6 +26,7 @@ export interface ApiRosterMember {
 }
 
 export interface ApiCoordinatorRecipient {
+  bookingFor: ApiBookingFor;
   name: string;
   age: number;
   gender: ApiGender;

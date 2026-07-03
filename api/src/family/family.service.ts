@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,8 +7,10 @@ import {
 import {
   AssignmentStatus,
   PaymentMethod,
+  PaymentStatus,
   Prisma,
   SavedAddress,
+  SubscriptionStatus,
   User,
 } from '@prisma/client';
 import { PaystackService } from '../billing/paystack.service';
@@ -61,6 +64,58 @@ export class FamilyService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Permanently delete the family's account and all their data. Blocked while
+   * care is ongoing or an invoice is unpaid. Revokes saved Paystack tokens,
+   * then removes records in FK-safe order before deleting the user (which
+   * cascades the profile, recipients, addresses, methods and notifications).
+   */
+  async deleteAccount(userId: string) {
+    const family = await this.prisma.familyProfile.findUnique({
+      where: { userId },
+      include: { paymentMethods: true },
+    });
+    if (!family) throw new NotFoundException('Family profile not found');
+
+    const ongoing = await this.prisma.subscription.findFirst({
+      where: {
+        familyId: family.id,
+        status: { not: SubscriptionStatus.CANCELLED },
+      },
+    });
+    if (ongoing) {
+      throw new BadRequestException(
+        'Please end your active care plan before deleting your account.',
+      );
+    }
+
+    const unpaid = await this.prisma.payment.findFirst({
+      where: { familyId: family.id, status: PaymentStatus.PENDING },
+    });
+    if (unpaid) {
+      throw new BadRequestException(
+        'You have an unpaid invoice. Please settle it before deleting your account.',
+      );
+    }
+
+    // Revoke saved payment tokens on Paystack (best-effort).
+    for (const pm of family.paymentMethods) {
+      await this.paystack.deactivateAuthorization(pm.authorizationCode);
+    }
+
+    await this.prisma.$transaction([
+      // Payments block subscriptions (and the family) — remove them first.
+      this.prisma.payment.deleteMany({ where: { familyId: family.id } }),
+      // Subscriptions cascade to their assignments, visits and visit logs.
+      this.prisma.subscription.deleteMany({ where: { familyId: family.id } }),
+      // Deleting the user cascades the profile → recipients, addresses,
+      // payment methods, plus notifications and email verifications.
+      this.prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    return { deleted: true };
   }
 
   private toProfile(user: User, memberSince: Date) {

@@ -20,6 +20,12 @@ export function useFamilyProfile() {
   });
 }
 
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: () => familyService.deleteAccount(),
+  });
+}
+
 export function useUpdateFamilyProfile() {
   const qc = useQueryClient();
   return useMutation({

@@ -3,14 +3,13 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NotificationBell } from "@/components/NotificationBell";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
 import { CTABanner } from "@/components/home/CTABanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
@@ -46,27 +45,21 @@ export default function HomeScreen() {
   const initials = firstName.slice(0, 2).toUpperCase();
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ paddingTop: top + 12, paddingBottom: 24 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <View className="flex-1 bg-background">
       <StatusBar style="dark" />
 
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-5 mb-5">
+      {/* Fixed header — content scrolls beneath it */}
+      <View
+        className="flex-row items-center justify-between px-5 pb-3 bg-background"
+        style={{ paddingTop: top + 12 }}
+      >
         <Image
           source={require("@/assets/images/logo-blue2.png")}
           style={{ width: 42, height: 42 }}
           resizeMode="contain"
         />
         <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => Alert.alert("Notifications", "No new notifications.")}
-            hitSlop={8}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#374151" />
-          </Pressable>
+          <NotificationBell />
           <View
             className="w-9 h-9 rounded-full items-center justify-center"
             style={{ backgroundColor: "#1e3a8a" }}
@@ -78,6 +71,11 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Greeting */}
       <View className="px-5 mb-5">
         <Text className="text-foreground font-bold" style={{ fontSize: 24 }}>
@@ -153,6 +151,7 @@ export default function HomeScreen() {
           </Text>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

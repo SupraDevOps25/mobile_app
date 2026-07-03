@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { rateApp } from "@/lib/rate";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useAddresses,
@@ -152,18 +153,7 @@ export default function ProfileScreen() {
   }
 
   function handleDeleteAccount() {
-    Alert.alert(
-      "Delete account",
-      "This permanently removes your account and all your data. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => soon("Delete account"),
-        },
-      ],
-    );
+    router.push("/delete-account" as any);
   }
 
   const account: RowItem[] = [
@@ -205,8 +195,8 @@ export default function ProfileScreen() {
       tint: "#d97706",
       bg: "#fffbeb",
       title: "Notifications",
-      subtitle: "Push, SMS and email alerts",
-      onPress: () => soon("Notifications"),
+      subtitle: "Push and SMS alerts",
+      onPress: () => router.push("/notification-settings" as any),
     },
     {
       key: "language",
@@ -215,8 +205,8 @@ export default function ProfileScreen() {
       bg: "#f3f4f6",
       title: "Language",
       subtitle: "App display language",
-      value: "English (US)",
-      onPress: () => soon("Language"),
+      value: "English ",
+      onPress: () => router.push("/language" as any),
     },
     {
       key: "accessibility",
@@ -225,7 +215,7 @@ export default function ProfileScreen() {
       bg: "#eff6ff",
       title: "Accessibility",
       subtitle: "Text size, contrast, screen reader",
-      onPress: () => soon("Accessibility"),
+      onPress: () => router.push("/accessibility" as any),
     },
   ];
 
@@ -237,7 +227,7 @@ export default function ProfileScreen() {
       bg: "#f0fdf4",
       title: "Help centre",
       subtitle: "FAQs and how-to guides",
-      onPress: () => soon("Help centre"),
+      onPress: () => router.push("/help-centre" as any),
     },
     {
       key: "contact",
@@ -246,7 +236,7 @@ export default function ProfileScreen() {
       bg: "#eef2ff",
       title: "Contact support",
       subtitle: "Chat, call or email us",
-      onPress: () => soon("Contact support"),
+      onPress: () => router.push("/contact-support" as any),
     },
     {
       key: "rate",
@@ -255,7 +245,7 @@ export default function ProfileScreen() {
       bg: "#fffbeb",
       title: "Rate the app",
       subtitle: "Share your feedback on the store",
-      onPress: () => soon("Rate the app"),
+      onPress: () => rateApp(),
     },
   ];
 
@@ -283,15 +273,15 @@ export default function ProfileScreen() {
   ];
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ paddingTop: top + 8, paddingBottom: 32 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <View className="flex-1 bg-background">
       <StatusBar style="dark" />
 
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-5 mb-4">
+      {/* Fixed header — the content scrolls beneath this, so the notch/status
+          bar area always stays covered. */}
+      <View
+        className="flex-row items-center justify-between px-5 pb-3 bg-background"
+        style={{ paddingTop: top + 8 }}
+      >
         <Text className="text-foreground font-bold" style={{ fontSize: 24 }}>
           My Profile
         </Text>
@@ -305,6 +295,11 @@ export default function ProfileScreen() {
         </Pressable>
       </View>
 
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Profile card */}
       <View className="mx-5">
         <View
@@ -385,6 +380,7 @@ export default function ProfileScreen() {
 
       <SectionLabel title="Account actions" />
       <Section items={actions} />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

@@ -58,6 +58,7 @@ export const familyService = {
   me: () => api.get<ApiFamilyProfile>("/family/me"),
   updateMe: (payload: UpdateFamilyPayload) =>
     api.patch<ApiFamilyProfile>("/family/me", payload),
+  deleteAccount: () => api.delete<{ deleted: boolean }>("/family/me"),
 
   addresses: () => api.get<ApiSavedAddress[]>("/family/addresses"),
   createAddress: (payload: SaveAddressPayload) =>

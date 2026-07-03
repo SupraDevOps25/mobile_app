@@ -26,16 +26,20 @@ export default function CoordinatorLogsScreen() {
   const reviewed = all.filter((l) => l.reviewedAt);
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ paddingTop: top + 16, paddingHorizontal: 20, paddingBottom: 24 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text className="text-foreground text-2xl font-bold mb-1">Daily logs</Text>
-      <Text className="text-muted text-sm mb-3">
-        Review the visit logs your nurses submitted.
-      </Text>
+    <View className="flex-1 bg-background">
+      {/* Fixed header — content scrolls beneath it */}
+      <View className="px-5 pb-2 bg-background" style={{ paddingTop: top + 16 }}>
+        <Text className="text-foreground text-2xl font-bold mb-1">Daily logs</Text>
+        <Text className="text-muted text-sm">
+          Review the visit logs your nurses submitted.
+        </Text>
+      </View>
 
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 8, paddingHorizontal: 20, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
       {isLoading ? (
         <ActivityIndicator color="#0d9488" style={{ marginVertical: 24 }} />
       ) : all.length === 0 ? (
@@ -89,6 +93,7 @@ export default function CoordinatorLogsScreen() {
           )}
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

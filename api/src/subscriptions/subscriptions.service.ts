@@ -481,6 +481,7 @@ export class SubscriptionsService {
             phone: s.family.user.phone,
           },
           recipient: {
+            bookingFor: s.careRecipient.bookingFor,
             name: s.careRecipient.name,
             age: s.careRecipient.age,
             gender: s.careRecipient.gender,
@@ -702,6 +703,7 @@ export class SubscriptionsService {
       careTeam,
       careRecipient: {
         id: s.careRecipient.id,
+        bookingFor: s.careRecipient.bookingFor,
         name: s.careRecipient.name,
         age: s.careRecipient.age,
         gender: s.careRecipient.gender,

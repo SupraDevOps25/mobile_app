@@ -3,6 +3,7 @@ import { z } from "zod";
 // Care-recipient capture form shown on the subscribe screen. The backend
 // requires the recipient's details when a family subscribes to a package.
 export const subscribeSchema = z.object({
+  bookingFor: z.enum(["SELF", "LOVED_ONE"]),
   name: z.string().min(2, "Enter the recipient's name"),
   age: z.string().regex(/^\d{1,3}$/, "Enter a valid age"),
   gender: z.enum(["MALE", "FEMALE"]),
