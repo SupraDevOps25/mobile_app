@@ -48,6 +48,13 @@ export class VisitsController {
     return this.visitsService.historyForNurse(req.user.id);
   }
 
+  @ApiOperation({ summary: 'Nurse: my assignments grouped, each with its visits' })
+  @Roles('CAREGIVER')
+  @Get('assignments')
+  assignments(@Request() req: { user: { id: string } }) {
+    return this.visitsService.assignmentsForNurse(req.user.id);
+  }
+
   @ApiOperation({ summary: 'Family: visits on my care plan' })
   @Roles('FAMILY')
   @Get('care-plan')

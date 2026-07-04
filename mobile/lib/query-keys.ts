@@ -14,6 +14,7 @@ export const qk = {
 
   upcomingVisits: ["visits", "upcoming"] as const,
   visitHistory: ["visits", "history"] as const,
+  caregiverAssignments: ["visits", "assignments"] as const,
   carePlan: ["visits", "care-plan"] as const,
   visit: (id: string) => ["visits", id] as const,
 

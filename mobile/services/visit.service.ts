@@ -1,5 +1,9 @@
 import { api } from "@/lib/api";
-import type { ApiGender } from "@/services/subscription.service";
+import type { ApiPackageType } from "@/services/package.service";
+import type {
+  ApiGender,
+  ApiSubscriptionStatus,
+} from "@/services/subscription.service";
 
 export type ApiVisitKind = "INITIAL_ASSESSMENT" | "CARE_VISIT";
 export type ApiVisitStatus =
@@ -43,6 +47,49 @@ export interface ApiVisitHistoryRow extends ApiVisitRow {
   hasLog: boolean;
   logReviewed: boolean;
   changesRequested: boolean;
+}
+
+export interface ApiAssignmentVisit {
+  id: string;
+  kind: ApiVisitKind;
+  status: ApiVisitStatus;
+  scheduledFor: string;
+  durationHrs: number;
+  hasLog: boolean;
+  logReviewed: boolean;
+  changesRequested: boolean;
+}
+
+export interface ApiCaregiverAssignment {
+  assignmentId: string;
+  subscriptionId: string;
+  role: "PRIMARY" | "BACKUP_1" | "BACKUP_2";
+  subscriptionStatus: ApiSubscriptionStatus;
+  active: boolean;
+  packageType: ApiPackageType;
+  packageName: string | null;
+  coordinatorName: string | null;
+  client: {
+    name: string;
+    initials: string;
+    age: number;
+    gender: ApiGender;
+    area: string;
+    city: string;
+    address: string;
+    conditions: string[];
+    basicCareNeeds: string;
+  };
+  counts: {
+    total: number;
+    reviewed: number;
+    submitted: number;
+    pending: number;
+    missed: number;
+  };
+  nextVisitAt: string | null;
+  lastVisitAt: string | null;
+  visits: ApiAssignmentVisit[];
 }
 
 export interface ApiVisitDetail {
@@ -95,6 +142,8 @@ export interface SubmitLogPayload {
 export const visitService = {
   upcoming: () => api.get<ApiVisitRow[]>("/visits/upcoming"),
   history: () => api.get<ApiVisitHistoryRow[]>("/visits/history"),
+  assignments: () =>
+    api.get<ApiCaregiverAssignment[]>("/visits/assignments"),
   get: (id: string) => api.get<ApiVisitDetail>(`/visits/${id}`),
   start: (id: string) =>
     api.post<{ id: string; status: ApiVisitStatus; startedAt: string }>(

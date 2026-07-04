@@ -222,17 +222,26 @@ export default function CaregiverHomeScreen() {
           label="Upcoming visits"
           trend="Scheduled"
           trendColor="#2563eb"
+          icon="calendar-outline"
+          iconColor="#2563eb"
+          iconBg="#eff6ff"
         />
         <StatCard
           value={String(completedCount)}
           label="Visits completed"
           trend="All time"
+          icon="checkmark-done-outline"
+          iconColor="#16a34a"
+          iconBg="#f0fdf4"
         />
         <StatCard
           value={ratingLabel}
           label="Your rating"
           trend={profile && profile.totalReviews > 0 ? `★ ${profile.totalReviews} reviews` : "No reviews yet"}
           trendColor="#f59e0b"
+          icon="star"
+          iconColor="#f59e0b"
+          iconBg="#fffbeb"
         />
       </View>
 

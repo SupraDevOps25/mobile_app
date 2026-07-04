@@ -8,6 +8,7 @@ import {
   AssignmentStatus,
   NotificationType,
   Prisma,
+  SubscriptionStatus,
   VisitKind,
   VisitLog,
   VisitStatus,
@@ -142,6 +143,94 @@ export class VisitsService {
       logReviewed: v.log?.reviewedAt != null,
       changesRequested: v.log?.changesRequested ?? false,
     }));
+  }
+
+  /**
+   * The nurse's caseload grouped by assignment (one card per case they've
+   * accepted). Each group carries a visit-status breakdown and the visit rows,
+   * so the app can show Active vs Previous assignments and, on tap, the visits
+   * split into pending / submitted / reviewed.
+   */
+  async assignmentsForNurse(userId: string) {
+    const caregiverId = await this.caregiverIdFor(userId);
+    const assignments = await this.prisma.assignment.findMany({
+      where: {
+        caregiverId,
+        status: { in: [AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE] },
+      },
+      include: {
+        subscription: {
+          include: {
+            careRecipient: true,
+            coordinator: { select: { firstName: true, lastName: true } },
+          },
+        },
+        visits: {
+          include: { log: { select: { reviewedAt: true, changesRequested: true } } },
+          orderBy: { scheduledFor: 'asc' },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const packages = await this.prisma.package.findMany();
+    const nameByType = new Map(packages.map((p) => [p.type, p.name]));
+
+    return assignments.map((a) => {
+      const sub = a.subscription;
+      const c = sub.careRecipient;
+
+      const rows = a.visits.map((v) => ({
+        id: v.id,
+        kind: v.kind,
+        status: v.status,
+        scheduledFor: v.scheduledFor,
+        durationHrs: v.durationHrs,
+        hasLog: v.log !== null,
+        logReviewed: v.log?.reviewedAt != null,
+        changesRequested: v.log?.changesRequested ?? false,
+      }));
+
+      const counts = { total: rows.length, reviewed: 0, submitted: 0, pending: 0, missed: 0 };
+      for (const v of rows) {
+        if (v.logReviewed) counts.reviewed += 1;
+        else if (v.hasLog) counts.submitted += 1;
+        else if (v.status === VisitStatus.MISSED) counts.missed += 1;
+        else counts.pending += 1;
+      }
+
+      const upcoming = rows.filter(
+        (v) => v.status === VisitStatus.SCHEDULED || v.status === VisitStatus.IN_PROGRESS,
+      );
+
+      return {
+        assignmentId: a.id,
+        subscriptionId: sub.id,
+        role: a.role,
+        subscriptionStatus: sub.status,
+        active: sub.status !== SubscriptionStatus.CANCELLED,
+        packageType: sub.packageType,
+        packageName: nameByType.get(sub.packageType) ?? null,
+        coordinatorName: sub.coordinator
+          ? `${sub.coordinator.firstName} ${sub.coordinator.lastName}`
+          : null,
+        client: {
+          name: c.name,
+          initials: initialsOf(c.name),
+          age: c.age,
+          gender: c.gender,
+          area: c.area,
+          city: c.city,
+          address: c.address,
+          conditions: c.conditions,
+          basicCareNeeds: c.basicCareNeeds,
+        },
+        counts,
+        nextVisitAt: upcoming.length ? upcoming[0].scheduledFor : null,
+        lastVisitAt: rows.length ? rows[rows.length - 1].scheduledFor : null,
+        visits: rows,
+      };
+    });
   }
 
   async getVisit(userId: string, visitId: string) {

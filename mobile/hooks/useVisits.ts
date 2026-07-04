@@ -16,6 +16,13 @@ export function useVisitHistory() {
   });
 }
 
+export function useCaregiverAssignments() {
+  return useQuery({
+    queryKey: qk.caregiverAssignments,
+    queryFn: () => visitService.assignments(),
+  });
+}
+
 export function useCarePlan() {
   return useQuery({
     queryKey: qk.carePlan,
@@ -38,6 +45,7 @@ export function useStartVisit(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.visit(id) });
       qc.invalidateQueries({ queryKey: qk.upcomingVisits });
+      qc.invalidateQueries({ queryKey: qk.caregiverAssignments });
     },
   });
 }
@@ -51,6 +59,7 @@ export function useSubmitLog(id: string) {
       qc.invalidateQueries({ queryKey: qk.visit(id) });
       qc.invalidateQueries({ queryKey: qk.upcomingVisits });
       qc.invalidateQueries({ queryKey: qk.visitHistory });
+      qc.invalidateQueries({ queryKey: qk.caregiverAssignments });
     },
   });
 }
@@ -62,6 +71,7 @@ export function useEditLog(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.visit(id) });
       qc.invalidateQueries({ queryKey: qk.visitHistory });
+      qc.invalidateQueries({ queryKey: qk.caregiverAssignments });
     },
   });
 }
