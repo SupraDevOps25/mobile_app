@@ -48,7 +48,9 @@ export class VisitsController {
     return this.visitsService.historyForNurse(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Nurse: my assignments grouped, each with its visits' })
+  @ApiOperation({
+    summary: 'Nurse: my assignments grouped, each with its visits',
+  })
   @Roles('CAREGIVER')
   @Get('assignments')
   assignments(@Request() req: { user: { id: string } }) {
@@ -98,7 +100,9 @@ export class VisitsController {
     return this.visitsService.submitLog(req.user.id, id, dto);
   }
 
-  @ApiOperation({ summary: 'Nurse: edit an unreviewed log (revise & resubmit)' })
+  @ApiOperation({
+    summary: 'Nurse: edit an unreviewed log (revise & resubmit)',
+  })
   @Roles('CAREGIVER')
   @Patch(':id/log')
   editLog(

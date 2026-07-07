@@ -47,6 +47,9 @@ export interface ApiCoordinatorCase {
   status: ApiSubscriptionStatus;
   priceGhs: number;
   createdAt: string;
+  assessmentAt: string | null;
+  assessmentDone: boolean;
+  needsAssistant: boolean;
   careStartAt: string | null;
   activatedAt: string | null;
   renewsAt: string | null;
@@ -70,7 +73,7 @@ export interface ApiCoordinatorLog {
   followUpRecommended: boolean;
   escalationNeeded: boolean;
   changesRequested: boolean;
-  reviewNote: string | null;
+  reviewNotes: string[];
   submittedAt: string;
   reviewedAt: string | null;
   clientName: string;
@@ -81,19 +84,54 @@ export interface ApiCoordinatorLog {
   durationHrs: number;
 }
 
+// One visit on a case, as the coordinator sees it — with its log status so the
+// row can link through to the submitted log (whether the case is active or not).
+export interface ApiCoordinatorCaseVisit {
+  id: string;
+  kind: ApiVisitKind;
+  status: ApiVisitStatus;
+  scheduledFor: string;
+  durationHrs: number;
+  nurseName: string;
+  hasLog: boolean;
+  logReviewed: boolean;
+  changesRequested: boolean;
+}
+
+// Deep view of one case: what the package includes + every visit on it.
+export interface ApiCoordinatorCaseDetail {
+  packageName: string | null;
+  packageTagline: string | null;
+  inclusions: string[];
+  priceGhs: number;
+  visits: ApiCoordinatorCaseVisit[];
+}
+
 export const coordinatorService = {
   cases: () => api.get<ApiCoordinatorCase[]>("/subscriptions/coordinating"),
+  caseDetail: (id: string) =>
+    api.get<ApiCoordinatorCaseDetail>(`/subscriptions/coordinating/${id}`),
+  setAssessment: (id: string, assessmentAt: string) =>
+    api.patch(`/subscriptions/${id}/assessment`, { assessmentAt }),
+  completeAssessment: (id: string) =>
+    api.post(`/subscriptions/${id}/complete-assessment`),
+  changePackage: (id: string, packageType: ApiPackageType) =>
+    api.patch(`/subscriptions/${id}/package`, { packageType }),
   setCareStart: (id: string, careStartAt: string) =>
     api.patch(`/subscriptions/${id}/care-start`, { careStartAt }),
   activate: (id: string) => api.post(`/subscriptions/${id}/activate`),
   rematch: (id: string) => api.post(`/subscriptions/${id}/rematch`),
+  matchAssistant: (id: string) =>
+    api.post(`/subscriptions/${id}/match-assistant`),
+  cancelAssistant: (id: string) =>
+    api.post(`/subscriptions/${id}/cancel-assistant`),
   logs: () => api.get<ApiCoordinatorLog[]>("/visits/logs"),
   reviewLog: (visitId: string) =>
     api.post<{ visitId: string; reviewedAt: string }>(
       `/visits/${visitId}/review`,
     ),
   requestChanges: (visitId: string, note?: string) =>
-    api.post<{ visitId: string; changesRequested: boolean; reviewNote: string | null }>(
+    api.post<{ visitId: string; changesRequested: boolean; reviewNotes: string[] }>(
       `/visits/${visitId}/request-changes`,
       { note },
     ),

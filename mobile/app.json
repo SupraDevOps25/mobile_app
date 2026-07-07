@@ -46,7 +46,8 @@
           "locationWhenInUsePermission": "Supracarer uses your location to fill in your care address automatically."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

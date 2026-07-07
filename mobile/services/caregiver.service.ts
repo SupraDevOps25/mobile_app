@@ -48,6 +48,7 @@ export interface ApiCaregiverProfile {
   bio: string | null;
   gender: ApiGender | null;
   dateOfBirth: string | null;
+  address: string | null;
   yearsExperience: number;
   hasHomecareExp: boolean;
   languages: string[];
@@ -74,6 +75,7 @@ export interface UpdateCaregiverProfilePayload {
   bio?: string;
   gender?: ApiGender;
   dateOfBirth?: string; // ISO date (YYYY-MM-DD)
+  address?: string;
   serviceAreas?: string[];
   languages?: string[];
   hasHomecareExp?: boolean;

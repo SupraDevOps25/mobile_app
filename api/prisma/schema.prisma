@@ -92,6 +92,7 @@ enum AssignmentRole {
   PRIMARY
   BACKUP_1
   BACKUP_2
+  ASSISTANT // second nurse sharing a full-time case (rotates days with the lead)
 }
 
 enum AssignmentStatus {
@@ -195,6 +196,7 @@ model CaregiverProfile {
   bio                String?
   gender             Gender?
   dateOfBirth        DateTime? // used to show the nurse's age
+  address            String? // the nurse's home address
   yearsExperience    Int                @default(0)
   hasHomecareExp     Boolean            @default(false) // worked as a homecare nurse before?
   languages          String[]           @default([]) // e.g. English, Twi, Ga
@@ -363,7 +365,9 @@ model Subscription {
   priceGhs        Decimal            @db.Decimal(10, 2) // snapshot at subscribe time
   status          SubscriptionStatus @default(MATCHING)
   coordinatorId   String? // User with role CARE_COORDINATOR
-  careStartAt     DateTime? // day/time care begins, captured at assessment
+  needsAssistant  Boolean            @default(false) // full-time case: lead nurse wants a second nurse
+  assessmentAt    DateTime? // agreed initial home-visit (assessment) date/time
+  careStartAt     DateTime? // day/time care begins, agreed with the family at assessment
   activatedAt     DateTime? // when the coordinator activated care
   startedAt       DateTime           @default(now())
   renewsAt        DateTime?
@@ -444,7 +448,7 @@ model VisitLog {
   followUpRecommended Boolean      @default(false)
   escalationNeeded    Boolean      @default(false)
   changesRequested    Boolean      @default(false) // coordinator asked the nurse to revise
-  reviewNote          String? // coordinator's note (what to fix / review remark)
+  reviewNotes         String[] // coordinator's change-request notes, oldest first (a thread)
   submittedAt         DateTime     @default(now())
   reviewedById        String? // coordinator who reviewed
   reviewedAt          DateTime?

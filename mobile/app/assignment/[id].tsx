@@ -16,6 +16,7 @@ import {
   useAcceptOffer,
   useAssignment,
   useDeclineOffer,
+  useRequestAssistant,
 } from "@/hooks/useAssignments";
 
 function SectionLabel({ title }: { title: string }) {
@@ -84,7 +85,9 @@ export default function AssignmentOfferScreen() {
   const { data: assignment, isLoading } = useAssignment(id);
   const accept = useAcceptOffer();
   const decline = useDeclineOffer();
-  const busy = accept.isPending || decline.isPending;
+  const requestAssistant = useRequestAssistant();
+  const busy =
+    accept.isPending || decline.isPending || requestAssistant.isPending;
 
   if (isLoading) {
     return (
@@ -109,14 +112,59 @@ export default function AssignmentOfferScreen() {
     ? { bg: "#f0fdf4", border: "#bbf7d0", icon: "#16a34a", title: "#15803d" }
     : { bg: "#eff6ff", border: "#bfdbfe", icon: "#2563eb", title: "#1d4ed8" };
 
+  // Full-time packages the lead nurse can't realistically cover solo.
+  const isFullTimePackage =
+    assignment.packageType === "EXTENDED_ASSIST" ||
+    assignment.packageType === "LIVE_IN";
+
+  function finishAccept() {
+    Alert.alert(
+      "Assignment accepted",
+      `You're now the ${roleLabel.toLowerCase()} for ${assignment!.client.name}. Your Care Coordinator and the family have been notified.`,
+      [{ text: "OK", onPress: () => router.back() }],
+    );
+  }
+
+  function promptSecondNurse() {
+    const shareNote =
+      assignment!.sharedPayoutGhs != null
+        ? ` Your pay is then shared equally — GHS ${assignment!.sharedPayoutGhs.toLocaleString()} each per month.`
+        : "";
+    Alert.alert(
+      "Will you need a second nurse?",
+      `Full-time care usually runs on a two-nurse rotation.${shareNote} Would you like a second nurse to share the shifts?`,
+      [
+        { text: "No, I'll manage", onPress: finishAccept },
+        {
+          text: "Yes, I'll need one",
+          onPress: () =>
+            requestAssistant.mutate(assignment!.id, {
+              onSuccess: () =>
+                Alert.alert(
+                  "Second nurse requested",
+                  "Your Care Coordinator will arrange a second nurse to share the rotation with you.",
+                  [{ text: "OK", onPress: () => router.back() }],
+                ),
+              onError: (err: Error) =>
+                Alert.alert("Couldn't send request", err.message, [
+                  { text: "OK", onPress: () => router.back() },
+                ]),
+            }),
+        },
+      ],
+    );
+  }
+
   function handleAccept() {
     accept.mutate(assignment!.id, {
-      onSuccess: () =>
-        Alert.alert(
-          "Assignment accepted",
-          `You're now the ${roleLabel.toLowerCase()} for ${assignment!.client.name}. Your Care Coordinator and the family have been notified.`,
-          [{ text: "OK", onPress: () => router.back() }],
-        ),
+      onSuccess: () => {
+        // Only the lead nurse on a full-time case is asked; an assistant isn't.
+        if (isFullTimePackage && assignment!.role !== "ASSISTANT") {
+          promptSecondNurse();
+        } else {
+          finishAccept();
+        }
+      },
       onError: (err: Error) => Alert.alert("Couldn't accept", err.message),
     });
   }
@@ -206,8 +254,21 @@ export default function AssignmentOfferScreen() {
           />
           <DetailRow
             icon="time-outline"
-            label="Schedule"
-            value={assignment.schedule ?? "—"}
+            label="Each visit"
+            value={
+              assignment.visitDurationHrs != null
+                ? `${assignment.visitDurationHrs} hrs · mornings from 8:00 AM`
+                : "Mornings from 8:00 AM"
+            }
+          />
+          <DetailRow
+            icon="repeat-outline"
+            label="Visits this month"
+            value={
+              assignment.visitsPerCycle != null
+                ? `${assignment.visitsPerCycle} visits`
+                : "—"
+            }
           />
           <DetailRow
             icon="calendar-outline"
@@ -216,6 +277,33 @@ export default function AssignmentOfferScreen() {
             isLast
           />
         </View>
+
+        {/* What's included */}
+        {assignment.inclusions.length > 0 && (
+          <>
+            <SectionLabel title="What's included" />
+            <View
+              className="bg-card rounded-2xl p-4"
+              style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            >
+              {assignment.inclusions.map((inc, i) => (
+                <View
+                  key={inc}
+                  className="flex-row items-start"
+                  style={{ marginTop: i === 0 ? 0 : 10 }}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                  <Text
+                    className="text-foreground flex-1"
+                    style={{ fontSize: 13.5, lineHeight: 19, marginLeft: 8 }}
+                  >
+                    {inc}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Care needs */}
         <SectionLabel title="Care needs" />
@@ -250,6 +338,20 @@ export default function AssignmentOfferScreen() {
         {/* Earnings */}
         <SectionLabel title="Earnings" />
         <AssignmentEarningsCard assignment={assignment} />
+
+        {/* Availability prompt */}
+        <View
+          className="rounded-2xl p-4 mt-5 flex-row"
+          style={{ backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#bbf7d0" }}
+        >
+          <Ionicons name="help-circle-outline" size={20} color="#16a34a" />
+          <Text
+            style={{ color: "#15803d", fontSize: 13, lineHeight: 19, marginLeft: 8, flex: 1 }}
+          >
+            Are you available to take this on? Accepting confirms you can deliver
+            these morning visits for {assignment.client.name}.
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Footer */}

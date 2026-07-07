@@ -5,10 +5,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CaseCard } from "@/components/coordinator/CaseCard";
 import { useCoordinatorCases } from "@/hooks/useCoordinator";
 
+function SectionLabel({ title }: { title: string }) {
+  return (
+    <Text
+      className="text-muted font-semibold"
+      style={{ fontSize: 11, letterSpacing: 1, marginTop: 6, marginBottom: 10 }}
+    >
+      {title.toUpperCase()}
+    </Text>
+  );
+}
+
 export default function CoordinatorCasesScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
   const { data: cases, isLoading } = useCoordinatorCases();
+
+  const list = cases ?? [];
+  const current = list.filter((c) => c.status !== "CANCELLED");
+  const past = list.filter((c) => c.status === "CANCELLED");
 
   return (
     <View className="flex-1 bg-background">
@@ -27,7 +42,7 @@ export default function CoordinatorCasesScreen() {
       >
       {isLoading ? (
         <ActivityIndicator color="#0d9488" style={{ marginVertical: 24 }} />
-      ) : (cases ?? []).length === 0 ? (
+      ) : list.length === 0 ? (
         <View className="items-center" style={{ marginTop: 48 }}>
           <View
             className="w-16 h-16 rounded-full items-center justify-center"
@@ -43,13 +58,33 @@ export default function CoordinatorCasesScreen() {
           </Text>
         </View>
       ) : (
-        (cases ?? []).map((item) => (
-          <CaseCard
-            key={item.id}
-            item={item}
-            onPress={(c) => router.push(`/coordinator-case/${c.id}` as any)}
-          />
-        ))
+        <>
+          {current.length > 0 && (
+            <>
+              {past.length > 0 && <SectionLabel title="Current" />}
+              {current.map((item) => (
+                <CaseCard
+                  key={item.id}
+                  item={item}
+                  onPress={(c) => router.push(`/coordinator-case/${c.id}` as any)}
+                />
+              ))}
+            </>
+          )}
+
+          {past.length > 0 && (
+            <>
+              <SectionLabel title="Past cases" />
+              {past.map((item) => (
+                <CaseCard
+                  key={item.id}
+                  item={item}
+                  onPress={(c) => router.push(`/coordinator-case/${c.id}` as any)}
+                />
+              ))}
+            </>
+          )}
+        </>
       )}
       </ScrollView>
     </View>

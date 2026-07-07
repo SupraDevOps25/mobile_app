@@ -58,9 +58,25 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+}) {
   return (
     <View className="flex-1 items-center">
+      <View
+        className="rounded-full items-center justify-center mb-1.5"
+        style={{ width: 34, height: 34, backgroundColor: `${color}1a` }}
+      >
+        <Ionicons name={icon} size={17} color={color} />
+      </View>
       <Text className="text-foreground font-bold" style={{ fontSize: 18 }}>
         {value}
       </Text>
@@ -177,11 +193,26 @@ export default function AvailabilityScreen() {
             <SectionLabel title="Your standing" />
             <Card>
               <View className="flex-row">
-                <Stat label="Experience" value={`${profile.yearsExperience} yrs`} />
+                <Stat
+                  label="Experience"
+                  value={`${profile.yearsExperience} yrs`}
+                  icon="briefcase-outline"
+                  color="#2563eb"
+                />
                 <View style={{ width: 1, backgroundColor: CARD_BORDER }} />
-                <Stat label="Rating" value={`★ ${profile.rating.toFixed(1)}`} />
+                <Stat
+                  label="Ratings "
+                  value={profile.rating.toFixed(1)}
+                  icon="star"
+                  color="#f59e0b"
+                />
                 <View style={{ width: 1, backgroundColor: CARD_BORDER }} />
-                <Stat label="Reliability" value={`${profile.reliabilityScore}%`} />
+                <Stat
+                  label="Reliability "
+                  value={`${profile.reliabilityScore}%`}
+                  icon="shield-checkmark-outline"
+                  color="#16a34a"
+                />
               </View>
             </Card>
 

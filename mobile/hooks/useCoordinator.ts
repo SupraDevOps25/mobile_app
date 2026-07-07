@@ -1,11 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/lib/query-keys";
 import { coordinatorService } from "@/services/coordinator.service";
+import type { ApiPackageType } from "@/services/package.service";
 
 export function useCoordinatorCases() {
   return useQuery({
     queryKey: qk.coordinatorCases,
     queryFn: () => coordinatorService.cases(),
+  });
+}
+
+export function useCoordinatorCaseDetail(id: string) {
+  return useQuery({
+    queryKey: qk.coordinatorCase(id),
+    queryFn: () => coordinatorService.caseDetail(id),
+    enabled: !!id,
   });
 }
 
@@ -26,6 +35,25 @@ function useCaseMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
   });
 }
 
+export function useSetAssessment() {
+  return useCaseMutation((args: { id: string; assessmentAt: string }) =>
+    coordinatorService.setAssessment(args.id, args.assessmentAt),
+  );
+}
+
+export function useCompleteAssessment() {
+  return useCaseMutation((id: string) =>
+    coordinatorService.completeAssessment(id),
+  );
+}
+
+export function useChangePackage() {
+  return useCaseMutation(
+    (args: { id: string; packageType: ApiPackageType }) =>
+      coordinatorService.changePackage(args.id, args.packageType),
+  );
+}
+
 export function useSetCareStart() {
   return useCaseMutation((args: { id: string; careStartAt: string }) =>
     coordinatorService.setCareStart(args.id, args.careStartAt),
@@ -38,6 +66,16 @@ export function useActivateCase() {
 
 export function useRematchCase() {
   return useCaseMutation((id: string) => coordinatorService.rematch(id));
+}
+
+export function useMatchAssistant() {
+  return useCaseMutation((id: string) => coordinatorService.matchAssistant(id));
+}
+
+export function useCancelAssistant() {
+  return useCaseMutation((id: string) =>
+    coordinatorService.cancelAssistant(id),
+  );
 }
 
 export function useIssueInvoice() {

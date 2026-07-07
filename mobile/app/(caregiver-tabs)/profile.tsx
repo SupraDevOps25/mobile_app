@@ -105,9 +105,20 @@ function Section({ items }: { items: RowItem[] }) {
   );
 }
 
-function StatItem({ value, label }: { value: string; label: string }) {
+function StatItem({
+  value,
+  label,
+  icon,
+  color,
+}: {
+  value: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+}) {
   return (
     <View className="flex-1 items-center">
+      <Ionicons name={icon} size={18} color={color} style={{ marginBottom: 4 }} />
       <Text className="text-foreground font-bold" style={{ fontSize: 20 }}>
         {value}
       </Text>
@@ -372,11 +383,21 @@ export default function CaregiverProfileScreen() {
               className="flex-row w-full mt-5 pt-5"
               style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6" }}
             >
-              <StatItem value={rating} label="Rating " />
+              <StatItem value={rating} label="Ratings " icon="star" color="#f59e0b" />
               <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-              <StatItem value={String(reviews)} label="Reviews" />
+              <StatItem
+                value={String(reviews)}
+                label="Reviews"
+                icon="chatbubble-ellipses-outline"
+                color="#2563eb"
+              />
               <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-              <StatItem value={memberSince} label="Member since " />
+              <StatItem
+                value={memberSince}
+                label="Member since "
+                icon="calendar-outline"
+                color="#16a34a"
+              />
             </View>
           </View>
         </View>

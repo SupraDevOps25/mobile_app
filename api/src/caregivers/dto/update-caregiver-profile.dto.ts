@@ -31,6 +31,12 @@ export class UpdateCaregiverProfileDto {
   @IsISO8601()
   dateOfBirth?: string;
 
+  @ApiPropertyOptional({ example: '12 Boundary Rd, East Legon' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  address?: string;
+
   @ApiPropertyOptional({ example: ['East Legon, Accra'] })
   @IsOptional()
   @IsArray()

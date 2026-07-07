@@ -36,14 +36,34 @@ import type { ApiGender } from "@/services/subscription.service";
 const GREEN = "#16a34a";
 const LANGUAGE_OPTIONS = ["English", "Twi", "Ga", "Hausa", "French", "Ewe"];
 
-function FieldLabel({ children }: { children: string }) {
+function FieldLabel({
+  children,
+  hint,
+}: {
+  children: string;
+  hint?: string;
+}) {
   return (
-    <Text
-      className="text-muted font-semibold"
-      style={{ fontSize: 11, letterSpacing: 1, marginTop: 22, marginBottom: 10 }}
-    >
-      {children.toUpperCase()}
-    </Text>
+    <>
+      <Text
+        className="text-muted font-semibold"
+        style={{
+          fontSize: 11,
+          letterSpacing: 1,
+          marginTop: 22,
+          marginBottom: hint ? 4 : 10,
+        }}
+      >
+        {children.toUpperCase()}
+      </Text>
+      {hint ? (
+        <Text
+          style={{ color: "#6b7280", fontSize: 12.5, lineHeight: 17, marginBottom: 10 }}
+        >
+          {hint}
+        </Text>
+      ) : null}
+    </>
   );
 }
 
@@ -66,6 +86,7 @@ export default function CaregiverPersonalInfoScreen() {
   const [gender, setGender] = useState<ApiGender | null>(null);
   const [dob, setDob] = useState<string | null>(null);
   const [bio, setBio] = useState("");
+  const [address, setAddress] = useState("");
   const [serviceArea, setServiceArea] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [languages, setLanguages] = useState<string[]>([]);
@@ -86,6 +107,7 @@ export default function CaregiverPersonalInfoScreen() {
     setGender(profile.gender);
     setDob(profile.dateOfBirth ? profile.dateOfBirth.slice(0, 10) : null);
     setBio(profile.bio ?? "");
+    setAddress(profile.address ?? "");
     setServiceArea(profile.serviceAreas.join(", "));
     if (profile.lat != null && profile.lng != null) {
       setCoords({ lat: profile.lat, lng: profile.lng });
@@ -156,6 +178,7 @@ export default function CaregiverPersonalInfoScreen() {
         bio: bio.trim(),
         gender: gender ?? undefined,
         dateOfBirth: dob ?? undefined,
+        address: address.trim(),
         serviceAreas: serviceArea
           .split(",")
           .map((s) => s.trim())
@@ -356,6 +379,25 @@ export default function CaregiverPersonalInfoScreen() {
               <FieldLabel>Date of birth</FieldLabel>
               <DateOfBirthField initialIso={dob} onChange={setDob} />
 
+              {/* Home address */}
+              <FieldLabel hint="Where you personally live. Kept private — used for verification only, never shown to families.">
+                Home address
+              </FieldLabel>
+              <View
+                className="flex-row items-center rounded-full px-4"
+                style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb" }}
+              >
+                <Ionicons name="home-outline" size={18} color="#6b7280" />
+                <TextInput
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="House number, street, area where you live"
+                  placeholderTextColor="#9ca3af"
+                  maxFontSizeMultiplier={1.2}
+                  style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+                />
+              </View>
+
               {/* Short bio */}
               <FieldLabel>Short bio</FieldLabel>
               <TextInput
@@ -379,7 +421,9 @@ export default function CaregiverPersonalInfoScreen() {
               />
 
               {/* Service area */}
-              <FieldLabel>Location / service area</FieldLabel>
+              <FieldLabel hint="The area(s) where you want to work. We match you with families living nearby — this doesn't have to be where you live.">
+                Service area
+              </FieldLabel>
               <ServiceAreaField
                 value={serviceArea}
                 onChangeText={setServiceArea}

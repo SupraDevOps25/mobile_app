@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { useDeviceLocation, type ResolvedLocation } from "@/hooks/useDeviceLocation";
 import type { ApiGender } from "@/services/subscription.service";
@@ -84,6 +84,19 @@ export function DateOfBirthField({
   const [day, setDay] = useState(seed.d);
   const [month, setMonth] = useState(seed.m);
   const [year, setYear] = useState(seed.y);
+
+  // The profile often loads a tick after mount, so seed the fields once the
+  // saved value first arrives (without clobbering anything the user has typed).
+  const seededRef = useRef(Boolean(seed.y));
+  useEffect(() => {
+    if (seededRef.current || !initialIso) return;
+    const p = partsFromIso(initialIso);
+    if (!p.y) return;
+    seededRef.current = true;
+    setDay(p.d);
+    setMonth(p.m);
+    setYear(p.y);
+  }, [initialIso]);
 
   function emit(d: string, m: string, y: string) {
     const dn = parseInt(d, 10);

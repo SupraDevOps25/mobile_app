@@ -62,6 +62,7 @@ export class CaregiversService {
         ...(dto.dateOfBirth !== undefined && {
           dateOfBirth: new Date(dto.dateOfBirth),
         }),
+        ...(dto.address !== undefined && { address: dto.address }),
         ...(dto.lat !== undefined && { lat: dto.lat }),
         ...(dto.lng !== undefined && { lng: dto.lng }),
         ...(dto.serviceAreas !== undefined && {
@@ -226,6 +227,7 @@ export class CaregiversService {
       bio: p.bio,
       gender: p.gender,
       dateOfBirth: p.dateOfBirth,
+      address: p.address,
       yearsExperience: p.yearsExperience,
       hasHomecareExp: p.hasHomecareExp,
       languages: p.languages,

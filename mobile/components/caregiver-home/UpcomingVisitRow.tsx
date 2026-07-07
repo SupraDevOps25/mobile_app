@@ -51,14 +51,28 @@ export function UpcomingVisitRow({ visit, onPress }: Props) {
         </Text>
       </View>
 
-      <View
-        className="rounded-full px-2.5 py-1"
-        style={{ backgroundColor: "#eef2ff" }}
-      >
-        <Text style={{ color: "#1e3a8a", fontSize: 11, fontWeight: "600" }}>
-          {KIND_TAGS[visit.kind]}
-        </Text>
-      </View>
+      {visit.status === "IN_PROGRESS" ? (
+        <View
+          className="flex-row items-center rounded-full px-2.5 py-1"
+          style={{ backgroundColor: "#f0fdf4" }}
+        >
+          <View
+            style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#16a34a", marginRight: 5 }}
+          />
+          <Text style={{ color: "#15803d", fontSize: 11, fontWeight: "700" }}>
+            In progress
+          </Text>
+        </View>
+      ) : (
+        <View
+          className="rounded-full px-2.5 py-1"
+          style={{ backgroundColor: "#eef2ff" }}
+        >
+          <Text style={{ color: "#1e3a8a", fontSize: 11, fontWeight: "600" }}>
+            {KIND_TAGS[visit.kind]}
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }

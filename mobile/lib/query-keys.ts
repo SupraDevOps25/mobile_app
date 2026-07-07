@@ -33,6 +33,7 @@ export const qk = {
   paymentMethods: ["family", "payment-methods"] as const,
 
   coordinatorCases: ["coordinator", "cases"] as const,
+  coordinatorCase: (id: string) => ["coordinator", "cases", id] as const,
   coordinatorLogs: ["coordinator", "logs"] as const,
 
   authProfile: ["auth", "profile"] as const,

@@ -43,3 +43,9 @@ export function useAcceptOffer() {
 export function useDeclineOffer() {
   return useOfferMutation((id) => assignmentService.decline(id));
 }
+
+export function useRequestAssistant() {
+  return useMutation({
+    mutationFn: (id: string) => assignmentService.requestAssistant(id),
+  });
+}

@@ -13,9 +13,10 @@ import {
   useCaregiverProfile,
   useSetSchedule,
 } from "@/hooks/useCaregiverProfile";
+import { useCaregiverAssignments } from "@/hooks/useVisits";
 
 const GREEN = "#16a34a";
-const GREEN_LIGHT = "#f0fdf4";
+const GREEN_LIGHT = "#dcfce7";
 const GREEN_TEXT = "#15803d";
 const SCREEN_BG = "#f3f4f6";
 const CARD_BORDER = "#eef2f6";
@@ -37,16 +38,12 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-function minToLabel(min: number) {
-  return `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
-}
-function labelToMin(label: string) {
-  const [h, m] = label.split(":").map(Number);
-  return h * 60 + m;
-}
+// Company policy: care visits run every day from a fixed morning start, and the
+// per-visit length is set by each care package. So a nurse's week is always
+// open and their hours are fixed — the only thing they control is how many
+// short visits they'll take in a day.
+const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];
+const POLICY_START_LABEL = "8:00 AM";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -111,9 +108,10 @@ function Stepper({
   );
 }
 
-// Read-only month grid that highlights which upcoming dates fall on the
-// selected working days — gives the schedule a calendar at a glance.
-function MonthPreview({ workingDays }: { workingDays: number[] }) {
+// Month grid (Monday-first) that marks the days carrying a booked care visit.
+// Laid out as fixed rows of 7 flex cells so every column — including Sunday —
+// stays aligned with the header.
+function MonthPreview({ bookedDays }: { bookedDays: Set<number> }) {
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth();
@@ -127,6 +125,11 @@ function MonthPreview({ workingDays }: { workingDays: number[] }) {
     ...Array.from({ length: leading }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
+  // Pad the tail so the final week is a full row of 7.
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const weeks: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
   return (
     <View>
@@ -140,44 +143,49 @@ function MonthPreview({ workingDays }: { workingDays: number[] }) {
           </Text>
         ))}
       </View>
-      <View className="flex-row flex-wrap">
-        {cells.map((day, idx) => {
-          if (day === null) {
-            return <View key={`b${idx}`} style={{ width: `${100 / 7}%`, height: 38 }} />;
-          }
-          const date = new Date(year, month, day);
-          const isWorking = workingDays.includes(date.getDay());
-          const isPast = day < todayDate;
-          const isToday = day === todayDate;
-          return (
-            <View key={day} style={{ width: `${100 / 7}%`, height: 38, alignItems: "center", justifyContent: "center" }}>
+      {weeks.map((week, wi) => (
+        <View key={wi} className="flex-row">
+          {week.map((day, di) => {
+            if (day === null) {
+              return <View key={di} style={{ flex: 1, height: 44 }} />;
+            }
+            const isBooked = bookedDays.has(day);
+            const isPast = day < todayDate;
+            const isToday = day === todayDate;
+            return (
               <View
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: isWorking && !isPast ? GREEN_LIGHT : "transparent",
-                  borderWidth: isToday ? 1.5 : 0,
-                  borderColor: GREEN,
-                  opacity: isPast ? 0.35 : 1,
-                }}
+                key={di}
+                style={{ flex: 1, height: 40, alignItems: "center", justifyContent: "center" }}
               >
-                <Text
+                <View
                   style={{
-                    fontSize: 13,
-                    fontWeight: isWorking ? "700" : "400",
-                    color: isWorking && !isPast ? GREEN_TEXT : "#374151",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    // Booked days read as a soft green fill — no dot.
+                    backgroundColor: isBooked ? GREEN_LIGHT : "transparent",
+                    borderWidth: isToday ? 1.5 : 0,
+                    borderColor: GREEN,
+                    opacity: isPast && !isBooked ? 0.4 : 1,
                   }}
                 >
-                  {day}
-                </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: isBooked ? "700" : "400",
+                      color: isBooked ? GREEN_TEXT : "#374151",
+                    }}
+                  >
+                    {day}
+                  </Text>
+                </View>
               </View>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -185,60 +193,58 @@ function MonthPreview({ workingDays }: { workingDays: number[] }) {
 export default function ScheduleScreen() {
   const { top, bottom } = useSafeAreaInsets();
   const { data: profile, isLoading } = useCaregiverProfile();
+  const { data: assignments } = useCaregiverAssignments();
   const setSchedule = useSetSchedule();
 
-  const [days, setDays] = useState<number[]>([]);
-  const [startMin, setStartMin] = useState(480); // 08:00
-  const [endMin, setEndMin] = useState(1020); // 17:00
+  // Days and hours are fixed by policy — Max visits/day is the only setting.
   const [maxVisits, setMaxVisits] = useState(3);
 
   useEffect(() => {
     if (!profile) return;
-    setDays(profile.workingDays);
-    setStartMin(labelToMin(profile.workStart));
-    setEndMin(labelToMin(profile.workEnd));
     setMaxVisits(profile.maxVisitsPerDay);
   }, [profile]);
 
-  const dirty = useMemo(() => {
-    if (!profile) return false;
-    const sameDays =
-      profile.workingDays.length === days.length &&
-      [...profile.workingDays].sort().join() === [...days].sort().join();
-    return (
-      !sameDays ||
-      labelToMin(profile.workStart) !== startMin ||
-      labelToMin(profile.workEnd) !== endMin ||
-      profile.maxVisitsPerDay !== maxVisits
-    );
-  }, [profile, days, startMin, endMin, maxVisits]);
-
-  function toggleDay(code: number) {
-    setDays((prev) =>
-      prev.includes(code) ? prev.filter((d) => d !== code) : [...prev, code],
-    );
-  }
+  const dirty = profile ? profile.maxVisitsPerDay !== maxVisits : false;
 
   function handleSave() {
-    if (days.length === 0) {
-      Alert.alert("Pick at least one day", "Select the weekdays you usually work.");
-      return;
-    }
+    if (!profile) return;
     setSchedule.mutate(
       {
-        workingDays: days,
-        workStart: minToLabel(startMin),
-        workEnd: minToLabel(endMin),
+        // Days & hours follow company policy; we send the policy defaults so the
+        // stored record stays consistent, and persist the nurse's daily limit.
+        workingDays: ALL_DAYS,
+        workStart: "08:00",
+        workEnd: profile.workEnd,
         maxVisitsPerDay: maxVisits,
       },
       {
-        onSuccess: () => Alert.alert("Schedule saved", "Your working schedule is updated."),
+        onSuccess: () => Alert.alert("Saved", "Your daily visit limit is updated."),
         onError: (err: Error) => Alert.alert("Couldn't save", err.message),
       },
     );
   }
 
   const today = new Date();
+
+  // Day-of-month numbers in the current month that already have a care visit
+  // booked on them — driven by the nurse's real assignments, so activating a
+  // case immediately lights up the calendar here.
+  const bookedDays = useMemo(() => {
+    const set = new Set<number>();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    for (const a of assignments ?? []) {
+      for (const v of a.visits) {
+        const d = new Date(v.scheduledFor);
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          set.add(d.getDate());
+        }
+      }
+    }
+    return set;
+    // today is recreated each render; key off its date so this recomputes daily.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignments, today.getFullYear(), today.getMonth()]);
 
   return (
     <View className="flex-1" style={{ backgroundColor: SCREEN_BG }}>
@@ -248,7 +254,8 @@ export default function ScheduleScreen() {
           My schedule
         </Text>
         <Text style={{ color: "#6b7280", fontSize: 13, marginTop: 2 }}>
-          Set the days and hours you&apos;re available to work.
+          Care visits follow Supracarer&apos;s schedule. You set how many short
+          visits you can take in a day.
         </Text>
       </View>
 
@@ -262,76 +269,76 @@ export default function ScheduleScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 6 }}
           >
-            {/* Available days */}
+            {/* Policy note */}
+            <View
+              className="flex-row rounded-2xl p-4 mb-4"
+              style={{ backgroundColor: "#eff6ff" }}
+            >
+              <Ionicons name="information-circle-outline" size={18} color="#2563eb" />
+              <Text style={{ color: "#1d4ed8", fontSize: 12, lineHeight: 18, marginLeft: 8, flex: 1 }}>
+                Supracarer schedules care visits every day from {POLICY_START_LABEL}.
+                Your available days and hours follow this policy — you don&apos;t
+                manage them here.
+              </Text>
+            </View>
+
+            {/* Available days (fixed by policy) */}
             <SectionLabel title="Available days" />
             <Card>
               <View className="flex-row" style={{ gap: 6 }}>
-                {WEEKDAYS.map((d) => {
-                  const active = days.includes(d.code);
-                  return (
-                    <Pressable
-                      key={d.code}
-                      onPress={() => toggleDay(d.code)}
-                      className="flex-1 items-center rounded-xl"
-                      style={{
-                        paddingVertical: 12,
-                        backgroundColor: active ? GREEN : "#f3f4f6",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: "700",
-                          color: active ? "#ffffff" : "#6b7280",
-                        }}
-                      >
-                        {d.short}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {WEEKDAYS.map((d) => (
+                  <View
+                    key={d.code}
+                    className="flex-1 items-center rounded-xl"
+                    style={{ paddingVertical: 12, backgroundColor: GREEN }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#ffffff" }}>
+                      {d.short}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              <View className="flex-row items-center" style={{ marginTop: 12 }}>
+                <Ionicons name="lock-closed" size={12} color="#9ca3af" />
+                <Text style={{ color: "#6b7280", fontSize: 12, marginLeft: 6 }}>
+                  Every day — care runs 7 days a week.
+                </Text>
               </View>
             </Card>
 
-            {/* Working hours */}
+            {/* Working hours (fixed by policy) */}
             <SectionLabel title="Working hours" />
             <Card>
-              <View className="flex-row items-center justify-between" style={{ marginBottom: 14 }}>
+              <View className="flex-row items-center justify-between">
                 <Text className="text-foreground" style={{ fontSize: 14, fontWeight: "500" }}>
                   Start time
                 </Text>
-                <Stepper
-                  value={minToLabel(startMin)}
-                  onDec={() => setStartMin((m) => Math.max(0, m - 30))}
-                  onInc={() => setStartMin((m) => Math.min(endMin - 30, m + 30))}
-                  disabledDec={startMin <= 0}
-                  disabledInc={startMin >= endMin - 30}
-                />
+                <View className="flex-row items-center" style={{ gap: 6 }}>
+                  <Text className="text-foreground font-bold" style={{ fontSize: 16 }}>
+                    {POLICY_START_LABEL}
+                  </Text>
+                  <Ionicons name="lock-closed" size={12} color="#9ca3af" />
+                </View>
               </View>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-foreground" style={{ fontSize: 14, fontWeight: "500" }}>
-                  End time
+              <View className="flex-row items-center" style={{ marginTop: 12 }}>
+                <Ionicons name="time-outline" size={12} color="#9ca3af" />
+                <Text style={{ color: "#6b7280", fontSize: 12, marginLeft: 6, flex: 1 }}>
+                  Each visit runs for the hours set by its care package.
                 </Text>
-                <Stepper
-                  value={minToLabel(endMin)}
-                  onDec={() => setEndMin((m) => Math.max(startMin + 30, m - 30))}
-                  onInc={() => setEndMin((m) => Math.min(1410, m + 30))}
-                  disabledDec={endMin <= startMin + 30}
-                  disabledInc={endMin >= 1410}
-                />
               </View>
             </Card>
 
-            {/* Max visits per day */}
+            {/* Max visits per day (the one editable setting) */}
             <SectionLabel title="Max visits per day" />
             <Card>
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
                   <Text className="text-foreground" style={{ fontSize: 14, fontWeight: "500" }}>
-                    Limit daily bookings
+                    Short visits a day
                   </Text>
-                  <Text style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
-                    Avoid overbooking on busy days.
+                  <Text style={{ color: "#6b7280", fontSize: 12, marginTop: 2, lineHeight: 17 }}>
+                    For Wellness &amp; Daily Assist, how many families you can serve
+                    in one day.
                   </Text>
                 </View>
                 <Stepper
@@ -347,13 +354,18 @@ export default function ScheduleScreen() {
             {/* Month preview */}
             <SectionLabel title={`${MONTHS[today.getMonth()]} ${today.getFullYear()}`} />
             <Card>
-              <MonthPreview workingDays={days} />
+              <MonthPreview bookedDays={bookedDays} />
               <View className="flex-row items-center" style={{ marginTop: 10 }}>
                 <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: GREEN_LIGHT }} />
                 <Text style={{ color: "#6b7280", fontSize: 12, marginLeft: 6 }}>
-                  Upcoming working days
+                  Booked care visit
                 </Text>
               </View>
+              {bookedDays.size === 0 && (
+                <Text style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>
+                  No care visits booked this month yet.
+                </Text>
+              )}
             </Card>
           </ScrollView>
 

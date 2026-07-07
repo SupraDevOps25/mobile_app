@@ -53,4 +53,16 @@ export class AssignmentsController {
   decline(@Request() req: { user: { id: string } }, @Param('id') id: string) {
     return this.assignmentsService.decline(req.user.id, id);
   }
+
+  @ApiOperation({
+    summary: 'Nurse: request a second nurse for a full-time case',
+  })
+  @Roles('CAREGIVER')
+  @Post(':id/request-assistant')
+  requestAssistant(
+    @Request() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    return this.assignmentsService.requestAssistant(req.user.id, id);
+  }
 }

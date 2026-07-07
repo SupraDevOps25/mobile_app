@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { PACKAGE_LABELS } from "@/constants/package-presentation";
 import { rosterStatus } from "@/constants/coordinator-presentation";
 import {
@@ -20,12 +21,49 @@ import {
 } from "@/constants/subscription-presentation";
 import {
   useActivateCase,
+  useCancelAssistant,
+  useChangePackage,
+  useCompleteAssessment,
+  useCoordinatorCaseDetail,
   useCoordinatorCases,
   useIssueInvoice,
+  useMatchAssistant,
   useRematchCase,
+  useSetAssessment,
   useSetCareStart,
 } from "@/hooks/useCoordinator";
 import { avatarColor, initialsOf } from "@/lib/avatar";
+import type { ApiCoordinatorCaseVisit } from "@/services/coordinator.service";
+import type { ApiPackageType } from "@/services/package.service";
+import type { ApiVisitKind } from "@/services/visit.service";
+
+const VISIT_KIND_LABEL: Record<ApiVisitKind, string> = {
+  INITIAL_ASSESSMENT: "Home assessment",
+  CARE_VISIT: "Care visit",
+};
+
+// A visit's badge reflects where its log stands in review, or its plain status
+// when there's no nurse log (scheduled, in progress, missed, or the assessment).
+function visitBadge(v: ApiCoordinatorCaseVisit): {
+  label: string;
+  bg: string;
+  color: string;
+} {
+  if (v.status === "MISSED")
+    return { label: "Missed", bg: "#fef2f2", color: "#dc2626" };
+  if (v.hasLog) {
+    if (v.logReviewed)
+      return { label: "Reviewed", bg: "#f0fdf4", color: "#16a34a" };
+    if (v.changesRequested)
+      return { label: "Changes requested", bg: "#fef2f2", color: "#dc2626" };
+    return { label: "Awaiting review", bg: "#fffbeb", color: "#b45309" };
+  }
+  if (v.status === "COMPLETED")
+    return { label: "Completed", bg: "#f3f4f6", color: "#4b5563" };
+  if (v.status === "IN_PROGRESS")
+    return { label: "In progress", bg: "#eff6ff", color: "#2563eb" };
+  return { label: "Scheduled", bg: "#f3f4f6", color: "#6b7280" };
+}
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -38,28 +76,22 @@ function SectionLabel({ title }: { title: string }) {
   );
 }
 
-// 08:00 local time, N days from today, as an ISO string for the backend.
-function atEightAm(daysFromNow: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromNow);
-  d.setHours(8, 0, 0, 0);
-  return d.toISOString();
-}
-
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-const CARE_START_OPTIONS: { label: string; days: number }[] = [
-  { label: "Today", days: 0 },
-  { label: "Tomorrow", days: 1 },
-  { label: "In 2 days", days: 2 },
-  { label: "In 3 days", days: 3 },
+const PACKAGE_TYPES: ApiPackageType[] = [
+  "WELLNESS",
+  "DAILY_ASSIST",
+  "EXTENDED_ASSIST",
+  "LIVE_IN",
 ];
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export default function CoordinatorCaseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -68,13 +100,20 @@ export default function CoordinatorCaseScreen() {
 
   const { data: cases, isLoading } = useCoordinatorCases();
   const item = cases?.find((c) => c.id === id);
+  const { data: detail } = useCoordinatorCaseDetail(id);
+  // "What's included" starts collapsed so a long package list doesn't bury the
+  // rest of the case; the coordinator expands it on demand.
+  const [showIncluded, setShowIncluded] = useState(false);
 
+  const setAssessment = useSetAssessment();
+  const completeAssessment = useCompleteAssessment();
+  const changePackage = useChangePackage();
   const setCareStart = useSetCareStart();
   const activate = useActivateCase();
   const issueInvoice = useIssueInvoice();
   const rematch = useRematchCase();
-  // Which care-start option is currently selected (instant highlight on tap).
-  const [pickedDays, setPickedDays] = useState<number | null>(null);
+  const matchAssistant = useMatchAssistant();
+  const cancelAssistant = useCancelAssistant();
 
   if (isLoading) {
     return (
@@ -93,34 +132,69 @@ export default function CoordinatorCaseScreen() {
   }
 
   const pill = subscriptionStatusPill(item.status);
+  const assessmentDate = item.assessmentAt ? new Date(item.assessmentAt) : null;
+  const careStartDate = item.careStartAt ? new Date(item.careStartAt) : null;
+  const assessmentLabel = item.assessmentAt
+    ? formatDateTime(item.assessmentAt)
+    : null;
   const careStartLabel = item.careStartAt
-    ? new Date(item.careStartAt).toLocaleString([], {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        hour: "numeric",
-        minute: "2-digit",
-      })
+    ? formatDateTime(item.careStartAt)
     : null;
 
-  // Highlight the option matching the saved date, unless one was just tapped.
-  const savedDays = item.careStartAt
-    ? (CARE_START_OPTIONS.find((o) =>
-        sameDay(new Date(atEightAm(o.days)), new Date(item.careStartAt!)),
-      )?.days ?? null)
-    : null;
-  const activeDays = pickedDays ?? savedDays;
-
-  function onSetCareStart(days: number) {
-    setPickedDays(days); // instant active state
-    setCareStart.mutate(
-      { id: item!.id, careStartAt: atEightAm(days) },
+  function onSetAssessment(d: Date) {
+    setAssessment.mutate(
+      { id: item!.id, assessmentAt: d.toISOString() },
       {
-        onError: (err: Error) => {
-          setPickedDays(null); // revert highlight on failure
-          Alert.alert("Couldn't set date", err.message);
-        },
+        onError: (err: Error) =>
+          Alert.alert("Couldn't schedule assessment", err.message),
       },
+    );
+  }
+
+  function onSetCareStart(d: Date) {
+    setCareStart.mutate(
+      { id: item!.id, careStartAt: d.toISOString() },
+      { onError: (err: Error) => Alert.alert("Couldn't set date", err.message) },
+    );
+  }
+
+  function onCompleteAssessment() {
+    Alert.alert(
+      "Mark assessment done",
+      `Confirm the initial home visit for ${item!.recipient.name} has taken place. This lets you activate care.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark done",
+          onPress: () =>
+            completeAssessment.mutate(item!.id, {
+              onError: (err: Error) =>
+                Alert.alert("Couldn't update", err.message),
+            }),
+        },
+      ],
+    );
+  }
+
+  function onChangePackage(type: ApiPackageType) {
+    if (type === item!.packageType) return;
+    Alert.alert(
+      "Change package",
+      `Switch ${item!.recipient.name} to ${PACKAGE_LABELS[type]}? This re-prices the case and keeps the same care team.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Change",
+          onPress: () =>
+            changePackage.mutate(
+              { id: item!.id, packageType: type },
+              {
+                onError: (err: Error) =>
+                  Alert.alert("Couldn't change package", err.message),
+              },
+            ),
+        },
+      ],
     );
   }
 
@@ -180,10 +254,63 @@ export default function CoordinatorCaseScreen() {
     );
   }
 
+  // Second-nurse state, derived from the roster.
+  const assistant = item.roster.find((m) => m.role === "ASSISTANT");
+  const assistantActive =
+    assistant?.status === "ACCEPTED" || assistant?.status === "ACTIVE";
+  const assistantPending = assistant?.status === "OFFERED";
+  const assistantReady = !item.needsAssistant || assistantActive;
+
   const canSetCareStart =
     item.status === "TEAM_ASSIGNED" || item.status === "AWAITING_ACTIVATION";
-  const canActivate = item.status === "AWAITING_ACTIVATION" && !!item.careStartAt;
+  const canActivate =
+    item.status === "AWAITING_ACTIVATION" &&
+    !!item.careStartAt &&
+    item.assessmentDone &&
+    assistantReady;
+  // Ready to activate except the assessment visit hasn't been completed yet.
+  const awaitingAssessment =
+    item.status === "AWAITING_ACTIVATION" &&
+    !!item.careStartAt &&
+    !item.assessmentDone;
+  // Assessment done but the requested second nurse isn't on board yet.
+  const awaitingAssistant =
+    item.status === "AWAITING_ACTIVATION" &&
+    !!item.careStartAt &&
+    item.assessmentDone &&
+    !assistantReady;
   const canInvoice = item.status === "ACTIVE" || item.status === "RENEWING";
+
+  function onMatchAssistant() {
+    matchAssistant.mutate(item!.id, {
+      onSuccess: () =>
+        Alert.alert(
+          "Second nurse offered",
+          "An offer has been sent to an eligible nurse to share this rotation.",
+        ),
+      onError: (err: Error) =>
+        Alert.alert("Couldn't assign", err.message),
+    });
+  }
+
+  function onCancelAssistant() {
+    Alert.alert(
+      "Cancel second-nurse request",
+      `Drop the request for a second nurse on ${item!.recipient.name}'s case? The lead nurse keeps the full pay and covers it solo.`,
+      [
+        { text: "Keep request", style: "cancel" },
+        {
+          text: "Cancel request",
+          style: "destructive",
+          onPress: () =>
+            cancelAssistant.mutate(item!.id, {
+              onError: (err: Error) =>
+                Alert.alert("Couldn't cancel", err.message),
+            }),
+        },
+      ],
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -283,6 +410,57 @@ export default function CoordinatorCaseScreen() {
           </Pressable>
         </View>
 
+        {/* What the care package includes — collapsible to stay out of the way */}
+        {detail && detail.inclusions.length > 0 && (
+          <>
+            <SectionLabel title="What's included" />
+            <View
+              className="bg-card rounded-2xl"
+              style={{ borderWidth: 1, borderColor: "#f3f4f6", overflow: "hidden" }}
+            >
+              <Pressable
+                onPress={() => setShowIncluded((s) => !s)}
+                className="flex-row items-center p-4"
+              >
+                <View className="flex-1">
+                  <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
+                    {detail.packageName ?? "Care package"}
+                  </Text>
+                  <Text className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>
+                    {detail.inclusions.length}{" "}
+                    {detail.inclusions.length === 1 ? "item" : "items"} · GHS{" "}
+                    {detail.priceGhs.toLocaleString()}/mo
+                  </Text>
+                </View>
+                <Ionicons
+                  name={showIncluded ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color="#6b7280"
+                />
+              </Pressable>
+              {showIncluded && (
+                <View className="px-4 pb-4">
+                  {detail.packageTagline && (
+                    <Text className="text-muted" style={{ fontSize: 12.5, marginBottom: 12, lineHeight: 18 }}>
+                      {detail.packageTagline}
+                    </Text>
+                  )}
+                  <View style={{ gap: 9 }}>
+                    {detail.inclusions.map((inc) => (
+                      <View key={inc} className="flex-row" style={{ gap: 8 }}>
+                        <Ionicons name="checkmark-circle" size={17} color="#0d9488" />
+                        <Text className="text-foreground" style={{ fontSize: 13.5, lineHeight: 19, flex: 1 }}>
+                          {inc}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </>
+        )}
+
         {/* Matched nurses (roster) */}
         {item.roster.length > 0 && (
           <>
@@ -347,6 +525,66 @@ export default function CoordinatorCaseScreen() {
           </>
         )}
 
+        {/* Second nurse (full-time cases) */}
+        {item.needsAssistant && (
+          <>
+            <SectionLabel title="Second nurse" />
+            <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+              {assistantActive ? (
+                <View className="flex-row items-center" style={{ gap: 8 }}>
+                  <Ionicons name="people" size={17} color="#15803d" />
+                  <Text style={{ color: "#15803d", fontSize: 13.5, fontWeight: "600", flex: 1 }}>
+                    {assistant?.name} is sharing this rotation as the assistant
+                    nurse.
+                  </Text>
+                </View>
+              ) : assistantPending ? (
+                <View className="flex-row items-center" style={{ gap: 8 }}>
+                  <Ionicons name="time-outline" size={17} color="#b45309" />
+                  <Text style={{ color: "#92400e", fontSize: 13.5, lineHeight: 19, flex: 1 }}>
+                    Offer sent to {assistant?.name} — awaiting their acceptance.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text className="text-foreground" style={{ fontSize: 13.5, lineHeight: 19 }}>
+                    The lead nurse asked for a second nurse to share this
+                    full-time rotation. Assign one to alternate the daily visits.
+                  </Text>
+                  <Pressable
+                    onPress={onMatchAssistant}
+                    disabled={matchAssistant.isPending}
+                    className="rounded-2xl items-center justify-center mt-3 flex-row"
+                    style={{ backgroundColor: matchAssistant.isPending ? "#9ca3af" : "#0d9488", paddingVertical: 13, gap: 8 }}
+                  >
+                    {matchAssistant.isPending && (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    )}
+                    <Ionicons name="person-add-outline" size={16} color="#ffffff" />
+                    <Text className="text-white font-bold" style={{ fontSize: 14 }}>
+                      Assign second nurse
+                    </Text>
+                  </Pressable>
+                </>
+              )}
+
+              {/* Cancel is available until a second nurse has actually joined. */}
+              {!assistantActive && (
+                <Pressable
+                  onPress={onCancelAssistant}
+                  disabled={cancelAssistant.isPending}
+                  className="items-center mt-3"
+                  hitSlop={6}
+                >
+                  <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "600" }}>
+                    Cancel second-nurse request
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </>
+        )}
+
         {/* Actions */}
         <SectionLabel title="Next steps" />
 
@@ -360,51 +598,148 @@ export default function CoordinatorCaseScreen() {
         )}
 
         {canSetCareStart && (
-          <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
-            <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
-              {careStartLabel ? "Care starts" : "Set the care-start date"}
-            </Text>
-            {careStartLabel ? (
-              <Text style={{ color: "#0f766e", fontSize: 14, fontWeight: "600", marginTop: 4 }}>
-                {careStartLabel}
+          <>
+            {/* 1. Initial home visit (assessment) — item 4 */}
+            <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+              <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
+                Initial home visit
               </Text>
-            ) : (
-              <Text className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>
-                Captured at the assessment visit (08:00).
+              <Text className="text-muted" style={{ fontSize: 12, marginTop: 2, lineHeight: 17 }}>
+                Agree a date &amp; time with the nurse for the joint assessment.
+                This first visit isn&apos;t bound by the 8:00 AM policy.
               </Text>
-            )}
-            <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
-              {CARE_START_OPTIONS.map((opt) => {
-                const active = activeDays === opt.days;
-                return (
-                  <Pressable
-                    key={opt.label}
-                    onPress={() => onSetCareStart(opt.days)}
-                    disabled={setCareStart.isPending}
-                    className="rounded-full px-3 py-2 flex-row items-center"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: "#0d9488",
-                      backgroundColor: active ? "#0d9488" : "transparent",
-                      gap: 5,
-                    }}
-                  >
-                    {active && (
-                      <Ionicons name="checkmark" size={13} color="#ffffff" />
-                    )}
-                    <Text
+              {assessmentLabel && (
+                <View className="flex-row items-center mt-2" style={{ gap: 6 }}>
+                  <Ionicons
+                    name={item.assessmentDone ? "checkmark-done-circle" : "calendar-outline"}
+                    size={15}
+                    color="#0f766e"
+                  />
+                  <Text style={{ color: "#0f766e", fontSize: 13, fontWeight: "600" }}>
+                    {item.assessmentDone ? "Completed" : "Scheduled"} · {assessmentLabel}
+                  </Text>
+                </View>
+              )}
+              {!item.assessmentDone && (
+                <View className="mt-3">
+                  <DateTimeField
+                    value={assessmentDate}
+                    onChange={onSetAssessment}
+                    minimumDate={new Date()}
+                    placeholder="Pick assessment date & time"
+                    disabled={setAssessment.isPending}
+                  />
+                </View>
+              )}
+              {item.assessmentAt && !item.assessmentDone && (
+                <Pressable
+                  onPress={onCompleteAssessment}
+                  disabled={completeAssessment.isPending}
+                  className="rounded-2xl items-center justify-center mt-3 flex-row"
+                  style={{ borderWidth: 1, borderColor: "#0d9488", paddingVertical: 12, gap: 8 }}
+                >
+                  {completeAssessment.isPending && (
+                    <ActivityIndicator color="#0d9488" size="small" />
+                  )}
+                  <Ionicons name="checkmark-circle-outline" size={16} color="#0d9488" />
+                  <Text style={{ color: "#0d9488", fontWeight: "700", fontSize: 14 }}>
+                    Mark assessment complete
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            {/* 2. Package recommendation — item 5a */}
+            <View className="bg-card rounded-2xl p-4 mt-3" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+              <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
+                Care package
+              </Text>
+              <Text className="text-muted" style={{ fontSize: 12, marginTop: 2, lineHeight: 17 }}>
+                Recommend a different package if the family&apos;s needs have
+                changed at assessment. This re-prices the case and keeps the team.
+              </Text>
+              <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
+                {PACKAGE_TYPES.map((type) => {
+                  const active = item.packageType === type;
+                  return (
+                    <Pressable
+                      key={type}
+                      onPress={() => onChangePackage(type)}
+                      disabled={changePackage.isPending}
+                      className="rounded-full px-3 py-2 flex-row items-center"
                       style={{
-                        color: active ? "#ffffff" : "#0d9488",
-                        fontSize: 12,
-                        fontWeight: "600",
+                        borderWidth: 1,
+                        borderColor: "#0d9488",
+                        backgroundColor: active ? "#0d9488" : "transparent",
+                        gap: 5,
                       }}
                     >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      {active && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+                      <Text
+                        style={{
+                          color: active ? "#ffffff" : "#0d9488",
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {PACKAGE_LABELS[type]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text className="text-muted" style={{ fontSize: 12, marginTop: 10 }}>
+                Current price: GHS {item.priceGhs.toLocaleString()}/mo
+              </Text>
             </View>
+
+            {/* 3. Care start / commencement — item 5b */}
+            <View className="bg-card rounded-2xl p-4 mt-3" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+              <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
+                Care start date
+              </Text>
+              <Text className="text-muted" style={{ fontSize: 12, marginTop: 2, lineHeight: 17 }}>
+                The day &amp; time regular care begins, agreed with the family.
+                Visits default to 8:00 AM — adjust here if they prefer another time.
+              </Text>
+              {careStartLabel && (
+                <View className="flex-row items-center mt-2" style={{ gap: 6 }}>
+                  <Ionicons name="checkmark-circle" size={15} color="#0f766e" />
+                  <Text style={{ color: "#0f766e", fontSize: 13, fontWeight: "600" }}>
+                    Starts · {careStartLabel}
+                  </Text>
+                </View>
+              )}
+              <View className="mt-3">
+                <DateTimeField
+                  value={careStartDate}
+                  onChange={onSetCareStart}
+                  minimumDate={new Date()}
+                  placeholder="Pick care-start date & time"
+                  disabled={setCareStart.isPending}
+                />
+              </View>
+            </View>
+          </>
+        )}
+
+        {awaitingAssessment && (
+          <View className="flex-row rounded-2xl p-4 mt-3" style={{ backgroundColor: "#fffbeb" }}>
+            <Ionicons name="time-outline" size={17} color="#b45309" />
+            <Text style={{ color: "#92400e", fontSize: 13, lineHeight: 19, marginLeft: 8, flex: 1 }}>
+              Once the initial home visit has taken place, mark the assessment
+              complete above to activate care.
+            </Text>
+          </View>
+        )}
+
+        {awaitingAssistant && (
+          <View className="flex-row rounded-2xl p-4 mt-3" style={{ backgroundColor: "#fffbeb" }}>
+            <Ionicons name="people-outline" size={17} color="#b45309" />
+            <Text style={{ color: "#92400e", fontSize: 13, lineHeight: 19, marginLeft: 8, flex: 1 }}>
+              This case needs a second nurse — assign and confirm one (above)
+              before activating care.
+            </Text>
           </View>
         )}
 
@@ -443,6 +778,81 @@ export default function CoordinatorCaseScreen() {
               Issue month-end invoice
             </Text>
           </Pressable>
+        )}
+
+        {/* Care visits & logs — every visit on the case, active or not */}
+        <SectionLabel title="Care visits & logs" />
+        {!detail ? (
+          <ActivityIndicator color="#0d9488" style={{ marginVertical: 12 }} />
+        ) : detail.visits.length === 0 ? (
+          <View
+            className="bg-card rounded-2xl p-5 items-center"
+            style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+          >
+            <Ionicons name="calendar-clear-outline" size={22} color="#9ca3af" />
+            <Text className="text-muted text-center" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 18 }}>
+              No visits yet. They appear here once care is activated.
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={{ maxHeight: 340 }}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+          >
+            {detail.visits.map((v) => {
+              const badge = visitBadge(v);
+            const isAssessment = v.kind === "INITIAL_ASSESSMENT";
+            const dateLabel = new Date(v.scheduledFor).toLocaleDateString([], {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            });
+            const row = (
+              <View
+                className="flex-row items-center bg-card rounded-2xl p-3 mb-2.5"
+                style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+              >
+                <View
+                  className="w-10 h-10 rounded-full items-center justify-center"
+                  style={{ backgroundColor: isAssessment ? "#eff6ff" : "#f0fdfa" }}
+                >
+                  <Ionicons
+                    name={isAssessment ? "clipboard-outline" : "medkit-outline"}
+                    size={17}
+                    color={isAssessment ? "#2563eb" : "#0d9488"}
+                  />
+                </View>
+                <View className="flex-1 ml-3">
+                  <Text className="text-foreground font-semibold" style={{ fontSize: 13.5 }}>
+                    {VISIT_KIND_LABEL[v.kind]} · {dateLabel}
+                  </Text>
+                  <Text className="text-muted" style={{ fontSize: 11.5, marginTop: 1 }}>
+                    {v.nurseName} · {v.durationHrs} hrs
+                  </Text>
+                </View>
+                <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: badge.bg }}>
+                  <Text style={{ color: badge.color, fontSize: 10, fontWeight: "600" }}>
+                    {badge.label}
+                  </Text>
+                </View>
+                {v.hasLog && (
+                  <Ionicons name="chevron-forward" size={15} color="#c4c9d1" style={{ marginLeft: 4 }} />
+                )}
+              </View>
+            );
+            return v.hasLog ? (
+              <Pressable
+                key={v.id}
+                onPress={() => router.push(`/coordinator-log/${v.id}` as any)}
+              >
+                {row}
+              </Pressable>
+              ) : (
+                <View key={v.id}>{row}</View>
+              );
+            })}
+          </ScrollView>
         )}
       </ScrollView>
     </View>

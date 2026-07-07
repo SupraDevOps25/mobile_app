@@ -2,7 +2,11 @@ import { api } from "@/lib/api";
 import type { ApiGender } from "@/services/subscription.service";
 import type { ApiPackageType } from "@/services/package.service";
 
-export type ApiAssignmentRole = "PRIMARY" | "BACKUP_1" | "BACKUP_2";
+export type ApiAssignmentRole =
+  | "PRIMARY"
+  | "ASSISTANT"
+  | "BACKUP_1"
+  | "BACKUP_2";
 
 export type ApiAssignmentStatus =
   | "OFFERED"
@@ -29,7 +33,15 @@ export interface ApiAssignment {
   packageType: ApiPackageType;
   packageName: string | null;
   schedule: string | null;
+  inclusions: string[];
+  // Daily commitment: hours per visit and how many visits over the month.
+  visitDurationHrs: number | null;
+  visitsPerCycle: number | null;
   payoutGhs: number | null;
+  // What the nurse earns solo (full 60% pool) vs shared equally with a second
+  // nurse (half). Shown so they see both scenarios.
+  soloPayoutGhs: number | null;
+  sharedPayoutGhs: number | null;
   offeredAt: string;
   expiresAt: string | null;
   startDate: string | null;
@@ -48,5 +60,9 @@ export const assignmentService = {
   decline: (id: string) =>
     api.post<{ id: string; status: ApiAssignmentStatus }>(
       `/assignments/${id}/decline`,
+    ),
+  requestAssistant: (id: string) =>
+    api.post<{ subscriptionId: string; needsAssistant: boolean }>(
+      `/assignments/${id}/request-assistant`,
     ),
 };

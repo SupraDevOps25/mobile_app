@@ -17,9 +17,12 @@ import {
   VisitStatus,
 } from '@prisma/client';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { PACKAGE_SCHEDULE } from '../common/package-schedule';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChangePackageDto } from './dto/change-package.dto';
 import { RenewDto } from './dto/renew.dto';
+import { SetAssessmentDto } from './dto/set-assessment.dto';
 import { SetCareStartDto } from './dto/set-care-start.dto';
 import { SubscribeDto } from './dto/subscribe.dto';
 
@@ -35,17 +38,8 @@ function addMonths(date: Date, months: number): Date {
   return d;
 }
 
-// Visit cadence per package — used to auto-generate the month's schedule when
-// the coordinator activates care.
-const PACKAGE_SCHEDULE: Record<
-  PackageType,
-  { count: number; durationHrs: number; intervalDays: number }
-> = {
-  WELLNESS: { count: 4, durationHrs: 2, intervalDays: 7 },
-  DAILY_ASSIST: { count: 26, durationHrs: 8, intervalDays: 1 },
-  EXTENDED_ASSIST: { count: 26, durationHrs: 12, intervalDays: 1 },
-  LIVE_IN: { count: 30, durationHrs: 24, intervalDays: 1 },
-};
+// The joint coordinator + nurse home assessment; a short first visit.
+const ASSESSMENT_DURATION_HRS = 1;
 
 @Injectable()
 export class SubscriptionsService {
@@ -232,6 +226,229 @@ export class SubscriptionsService {
     return subscription;
   }
 
+  /**
+   * Coordinator schedules the initial home visit (assessment) at a time agreed
+   * with the accepted nurse. Creates or reschedules the INITIAL_ASSESSMENT
+   * visit — this first visit is exempt from the 8 AM policy.
+   */
+  async setAssessment(
+    coordinatorUserId: string,
+    subscriptionId: string,
+    dto: SetAssessmentDto,
+  ) {
+    const subscription = await this.requireCoordinatorCase(
+      coordinatorUserId,
+      subscriptionId,
+    );
+    if (
+      subscription.status !== SubscriptionStatus.TEAM_ASSIGNED &&
+      subscription.status !== SubscriptionStatus.AWAITING_ACTIVATION
+    ) {
+      throw new BadRequestException(
+        'The assessment can only be scheduled once a nurse has accepted',
+      );
+    }
+
+    const lead = await this.leadAssignment(subscriptionId);
+    if (!lead) throw new BadRequestException('No nurse has accepted this case');
+
+    const when = new Date(dto.assessmentAt);
+    const existing = await this.prisma.visit.findFirst({
+      where: { subscriptionId, kind: VisitKind.INITIAL_ASSESSMENT },
+      select: { id: true },
+    });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (existing) {
+        await tx.visit.update({
+          where: { id: existing.id },
+          data: {
+            scheduledFor: when,
+            caregiverId: lead.caregiverId,
+            assignmentId: lead.id,
+          },
+        });
+      } else {
+        await tx.visit.create({
+          data: {
+            subscriptionId,
+            caregiverId: lead.caregiverId,
+            assignmentId: lead.id,
+            kind: VisitKind.INITIAL_ASSESSMENT,
+            scheduledFor: when,
+            durationHrs: ASSESSMENT_DURATION_HRS,
+          },
+        });
+      }
+      return tx.subscription.update({
+        where: { id: subscriptionId },
+        data: { assessmentAt: when },
+        include: { careRecipient: true },
+      });
+    });
+
+    const leadProfile = await this.prisma.caregiverProfile.findUnique({
+      where: { id: lead.caregiverId },
+      select: { userId: true },
+    });
+    if (leadProfile) {
+      await this.notifications.notify({
+        userId: leadProfile.userId,
+        type: NotificationType.VISIT_REMINDER,
+        title: 'Assessment visit scheduled',
+        body: `Your initial home visit for ${updated.careRecipient.name} is set for ${when.toLocaleString()}.`,
+      });
+    }
+
+    return this.toResponse(updated);
+  }
+
+  /**
+   * Coordinator marks the initial home visit (assessment) as done. This is a
+   * coordinator-side action — the assessment is not part of the nurse's visit
+   * log — and it's what unlocks activation.
+   */
+  async completeAssessment(coordinatorUserId: string, subscriptionId: string) {
+    await this.requireCoordinatorCase(coordinatorUserId, subscriptionId);
+
+    const assessment = await this.prisma.visit.findFirst({
+      where: { subscriptionId, kind: VisitKind.INITIAL_ASSESSMENT },
+    });
+    if (!assessment) {
+      throw new BadRequestException(
+        'Schedule the initial home visit before marking it done',
+      );
+    }
+    if (assessment.status === VisitStatus.COMPLETED) {
+      throw new BadRequestException('The assessment is already marked done');
+    }
+
+    await this.prisma.visit.update({
+      where: { id: assessment.id },
+      data: { status: VisitStatus.COMPLETED, endedAt: new Date() },
+    });
+
+    const updated = await this.prisma.subscription.findUniqueOrThrow({
+      where: { id: subscriptionId },
+      include: { careRecipient: true },
+    });
+    return this.toResponse(updated);
+  }
+
+  /**
+   * Coordinator re-recommends a different package for the family (typically
+   * after the assessment). Re-prices the case and refreshes offer payouts, but
+   * keeps the same care team and coordinator. Only allowed before activation.
+   */
+  async changePackage(
+    coordinatorUserId: string,
+    subscriptionId: string,
+    dto: ChangePackageDto,
+  ) {
+    const subscription = await this.requireCoordinatorCase(
+      coordinatorUserId,
+      subscriptionId,
+    );
+    if (
+      subscription.status !== SubscriptionStatus.TEAM_ASSIGNED &&
+      subscription.status !== SubscriptionStatus.AWAITING_ACTIVATION
+    ) {
+      throw new BadRequestException(
+        'The package can only be changed before care is activated',
+      );
+    }
+    if (subscription.packageType === dto.packageType) {
+      throw new BadRequestException('That is already the current package');
+    }
+
+    const pkg = await this.prisma.package.findUnique({
+      where: { type: dto.packageType },
+    });
+    if (!pkg) throw new NotFoundException('Package not found');
+
+    const updated = await this.prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: { packageType: dto.packageType, priceGhs: pkg.priceGhs },
+      include: { careRecipient: true, family: true },
+    });
+    // Re-derive each nurse's payout from the new price (respecting any split).
+    await this.assignments.repriceCaseAssignments(subscriptionId);
+
+    await this.notifications.notify({
+      userId: updated.family.userId,
+      type: NotificationType.GENERAL,
+      title: 'Care package updated',
+      body: `Your Care Coordinator updated the care plan for ${updated.careRecipient.name} to ${pkg.name}.`,
+    });
+
+    return this.toResponse(updated);
+  }
+
+  /**
+   * Coordinator cancels a pending second-nurse request (the lead changed their
+   * mind, or none is available). Clears the flag, withdraws any pending
+   * assistant offer, and restores the lead's full payout. Blocked once a second
+   * nurse has already accepted.
+   */
+  async cancelAssistant(coordinatorUserId: string, subscriptionId: string) {
+    const subscription = await this.requireCoordinatorCase(
+      coordinatorUserId,
+      subscriptionId,
+    );
+    if (!subscription.needsAssistant) {
+      throw new BadRequestException(
+        'This case has not requested a second nurse',
+      );
+    }
+
+    const assistant = await this.prisma.assignment.findFirst({
+      where: {
+        subscriptionId,
+        role: AssignmentRole.ASSISTANT,
+        status: {
+          in: [AssignmentStatus.OFFERED, AssignmentStatus.ACCEPTED],
+        },
+      },
+      include: { caregiver: { select: { userId: true } } },
+    });
+    if (assistant?.status === AssignmentStatus.ACCEPTED) {
+      throw new BadRequestException(
+        'A second nurse has already joined this case',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (assistant) {
+        await tx.assignment.update({
+          where: { id: assistant.id },
+          data: { status: AssignmentStatus.REPLACED },
+        });
+      }
+      await tx.subscription.update({
+        where: { id: subscriptionId },
+        data: { needsAssistant: false },
+      });
+    });
+
+    // The lead reverts to the full nurse pool.
+    await this.assignments.repriceCaseAssignments(subscriptionId);
+
+    const refreshed = await this.prisma.subscription.findUniqueOrThrow({
+      where: { id: subscriptionId },
+      include: { careRecipient: true },
+    });
+    if (assistant) {
+      await this.notifications.notify({
+        userId: assistant.caregiver.userId,
+        type: NotificationType.ASSIGNMENT_DECLINED,
+        title: 'Assistant offer withdrawn',
+        body: `The assistant nurse offer for ${refreshed.careRecipient.name} has been withdrawn.`,
+      });
+    }
+
+    return this.toResponse(refreshed);
+  }
+
   /** Coordinator captures the agreed care-start date (at the assessment). */
   async setCareStart(
     coordinatorUserId: string,
@@ -278,14 +495,43 @@ export class SubscriptionsService {
       );
     }
 
+    // Care can't begin until the joint home assessment has actually happened.
+    const assessment = await this.prisma.visit.findFirst({
+      where: { subscriptionId, kind: VisitKind.INITIAL_ASSESSMENT },
+      select: { status: true },
+    });
+    if (!assessment) {
+      throw new BadRequestException(
+        'Schedule the initial home visit (assessment) before activating',
+      );
+    }
+    if (assessment.status !== VisitStatus.COMPLETED) {
+      throw new BadRequestException(
+        'The assessment visit must be completed before activating care',
+      );
+    }
+
     const lead = await this.leadAssignment(subscriptionId);
     if (!lead) throw new BadRequestException('No nurse has accepted this case');
+
+    // A full-time case that asked for a second nurse can't go live until one is
+    // on board — the schedule alternates the two of them.
+    let assistant: { id: string; caregiverId: string } | null = null;
+    if (subscription.needsAssistant) {
+      assistant = await this.acceptedAssistant(subscriptionId);
+      if (!assistant) {
+        throw new BadRequestException(
+          'A second nurse is needed — assign one before activating',
+        );
+      }
+    }
 
     const visits = this.buildVisitSchedule(
       subscriptionId,
       subscription.packageType,
       lead,
       subscription.careStartAt,
+      assistant,
     );
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -338,11 +584,15 @@ export class SubscriptionsService {
     if (!lead) throw new BadRequestException('This case has no assigned nurse');
 
     const periodStart = subscription.renewsAt ?? new Date();
+    const assistant = subscription.needsAssistant
+      ? await this.acceptedAssistant(subscriptionId)
+      : null;
     const visits = this.buildVisitSchedule(
       subscriptionId,
       subscription.packageType,
       lead,
       periodStart,
+      assistant,
     );
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -441,12 +691,11 @@ export class SubscriptionsService {
 
   // ── Coordinator: case list ────────────────────────────────────────────────
 
-  /** Every non-cancelled case this coordinator owns, newest first. */
+  /** Every case this coordinator owns (current and past), newest first. */
   async coordinatingCases(coordinatorUserId: string) {
     const subscriptions = await this.prisma.subscription.findMany({
       where: {
         coordinatorId: coordinatorUserId,
-        status: { not: SubscriptionStatus.CANCELLED },
       },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -458,6 +707,11 @@ export class SubscriptionsService {
             },
           },
         },
+        // The assessment visit, so the coordinator UI knows if it's done yet.
+        visits: {
+          where: { kind: VisitKind.INITIAL_ASSESSMENT },
+          select: { status: true },
+        },
       },
     });
 
@@ -467,12 +721,18 @@ export class SubscriptionsService {
           this.buildCareTeam(s),
           this.buildRoster(s.id),
         ]);
+        const assessmentDone = s.visits.some(
+          (v) => v.status === VisitStatus.COMPLETED,
+        );
         return {
           id: s.id,
           packageType: s.packageType,
           status: s.status,
           priceGhs: s.priceGhs.toNumber(),
+          assessmentDone,
+          needsAssistant: s.needsAssistant,
           createdAt: s.createdAt,
+          assessmentAt: s.assessmentAt,
           careStartAt: s.careStartAt,
           activatedAt: s.activatedAt,
           renewsAt: s.renewsAt,
@@ -498,13 +758,63 @@ export class SubscriptionsService {
     );
   }
 
+  /**
+   * Coordinator's deep view of one of their cases: what the care package
+   * includes, plus every visit on the case with its log status — so they can
+   * see what's been delivered and open any submitted log, active case or not.
+   */
+  async coordinatorCaseDetail(
+    coordinatorUserId: string,
+    subscriptionId: string,
+  ) {
+    const subscription = await this.requireCoordinatorCase(
+      coordinatorUserId,
+      subscriptionId,
+    );
+
+    const [pkg, visits] = await Promise.all([
+      this.prisma.package.findUnique({
+        where: { type: subscription.packageType },
+      }),
+      this.prisma.visit.findMany({
+        where: { subscriptionId },
+        orderBy: { scheduledFor: 'desc' },
+        include: {
+          caregiver: {
+            include: { user: { select: { firstName: true, lastName: true } } },
+          },
+          log: { select: { reviewedAt: true, changesRequested: true } },
+        },
+      }),
+    ]);
+
+    return {
+      packageName: pkg?.name ?? null,
+      packageTagline: pkg?.tagline ?? null,
+      inclusions: pkg?.inclusions ?? [],
+      priceGhs: subscription.priceGhs.toNumber(),
+      visits: visits.map((v) => ({
+        id: v.id,
+        kind: v.kind,
+        status: v.status,
+        scheduledFor: v.scheduledFor,
+        durationHrs: v.durationHrs,
+        nurseName: `${v.caregiver.user.firstName} ${v.caregiver.user.lastName}`,
+        hasLog: v.log !== null,
+        logReviewed: v.log?.reviewedAt != null,
+        changesRequested: v.log?.changesRequested ?? false,
+      })),
+    };
+  }
+
   // ── Shared helpers ────────────────────────────────────────────────────────
 
   // Ordering for the care-team list: lead nurse first, then backups.
   private static readonly ROLE_WEIGHT: Record<AssignmentRole, number> = {
     PRIMARY: 0,
-    BACKUP_1: 1,
-    BACKUP_2: 2,
+    ASSISTANT: 1,
+    BACKUP_1: 2,
+    BACKUP_2: 3,
   };
 
   /** The coordinator + accepted nurses the family can see for a subscription. */
@@ -661,25 +971,53 @@ export class SubscriptionsService {
 
   private async leadAssignment(subscriptionId: string) {
     return this.prisma.assignment.findFirst({
-      where: { subscriptionId, status: AssignmentStatus.ACCEPTED },
+      where: {
+        subscriptionId,
+        status: AssignmentStatus.ACCEPTED,
+        // The assistant is also ACCEPTED — the lead is never the assistant.
+        role: { not: AssignmentRole.ASSISTANT },
+      },
       select: { id: true, caregiverId: true },
     });
   }
 
+  /** The accepted second nurse on a case, if one has been assigned. */
+  private async acceptedAssistant(subscriptionId: string) {
+    return this.prisma.assignment.findFirst({
+      where: {
+        subscriptionId,
+        role: AssignmentRole.ASSISTANT,
+        status: AssignmentStatus.ACCEPTED,
+      },
+      select: { id: true, caregiverId: true },
+    });
+  }
+
+  /**
+   * Generate the month's care visits from the package cadence. Per company
+   * policy every care visit runs from a fixed morning start (the time carried
+   * on `startDate` — 8:00 AM by default, or whatever the family agreed with the
+   * coordinator) for the package's allotted hours. Nurse availability days /
+   * working hours are deliberately NOT consulted here.
+   */
   private buildVisitSchedule(
     subscriptionId: string,
     packageType: PackageType,
     lead: { id: string; caregiverId: string },
     startDate: Date,
+    assistant: { id: string; caregiverId: string } | null = null,
   ) {
     const schedule = PACKAGE_SCHEDULE[packageType];
     return Array.from({ length: schedule.count }, (_, i) => {
       const scheduledFor = new Date(startDate);
       scheduledFor.setDate(scheduledFor.getDate() + i * schedule.intervalDays);
+      // With a second nurse, the two alternate whole days (lead on even days,
+      // assistant on odd) so they share the full-time rotation.
+      const owner = assistant && i % 2 === 1 ? assistant : lead;
       return {
         subscriptionId,
-        caregiverId: lead.caregiverId,
-        assignmentId: lead.id,
+        caregiverId: owner.caregiverId,
+        assignmentId: owner.id,
         kind: VisitKind.CARE_VISIT,
         scheduledFor,
         durationHrs: schedule.durationHrs,
@@ -698,6 +1036,7 @@ export class SubscriptionsService {
       priceGhs: s.priceGhs.toNumber(),
       startedAt: s.startedAt,
       renewsAt: s.renewsAt,
+      assessmentAt: s.assessmentAt,
       careStartAt: s.careStartAt,
       activatedAt: s.activatedAt,
       careTeam,

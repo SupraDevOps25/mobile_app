@@ -256,10 +256,22 @@ export default function CareReportScreen() {
                   Changes requested
                 </Text>
               </View>
-              <Text style={{ color: "#b91c1c", fontSize: 13, marginTop: 6, lineHeight: 19 }}>
-                {visit.log.reviewNote ??
-                  "Your Care Coordinator asked you to revise this report."}
-              </Text>
+              {visit.log.reviewNotes.length > 0 ? (
+                visit.log.reviewNotes.map((n, i) => (
+                  <View key={i} className="flex-row mt-1.5" style={{ gap: 6 }}>
+                    <Text style={{ color: "#dc2626", fontSize: 13, fontWeight: "700" }}>
+                      {i + 1}.
+                    </Text>
+                    <Text style={{ color: "#b91c1c", fontSize: 13, lineHeight: 19, flex: 1 }}>
+                      {n}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={{ color: "#b91c1c", fontSize: 13, marginTop: 6, lineHeight: 19 }}>
+                  Your Care Coordinator asked you to revise this report.
+                </Text>
+              )}
             </View>
           )}
 

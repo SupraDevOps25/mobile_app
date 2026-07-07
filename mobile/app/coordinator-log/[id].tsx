@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -120,7 +122,10 @@ export default function CoordinatorLogScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       {/* Header */}
       <View className="flex-row items-center px-5 pb-3" style={{ paddingTop: top + 8 }}>
         <Pressable
@@ -172,12 +177,22 @@ export default function CoordinatorLogScreen() {
           Submitted by {log.nurseName} on {new Date(log.submittedAt).toLocaleString()}
         </Text>
 
-        {log.changesRequested && (
+        {(log.changesRequested || log.reviewNotes.length > 0) && (
           <View className="rounded-2xl p-3 mt-3" style={{ backgroundColor: "#fffbeb" }}>
-            <Text style={{ color: "#92400e", fontSize: 12.5, lineHeight: 18 }}>
-              Changes requested{log.reviewNote ? `: "${log.reviewNote}"` : ""}. Awaiting the
-              nurse&apos;s revision.
+            <Text style={{ color: "#92400e", fontSize: 12.5, fontWeight: "700" }}>
+              Change requests ({log.reviewNotes.length})
+              {log.changesRequested ? " · awaiting revision" : ""}
             </Text>
+            {log.reviewNotes.map((n, i) => (
+              <View key={i} className="flex-row mt-2" style={{ gap: 6 }}>
+                <Text style={{ color: "#b45309", fontSize: 12.5, fontWeight: "700" }}>
+                  {i + 1}.
+                </Text>
+                <Text style={{ color: "#92400e", fontSize: 12.5, lineHeight: 18, flex: 1 }}>
+                  {n}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
 
@@ -354,6 +369,6 @@ export default function CoordinatorLogScreen() {
           </View>
         )}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

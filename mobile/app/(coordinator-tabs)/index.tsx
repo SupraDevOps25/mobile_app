@@ -82,7 +82,9 @@ export default function CoordinatorHomeScreen() {
 
   const attention = list.filter((c) => caseAction(c.status) !== "NONE");
   const attentionIds = new Set(attention.map((c) => c.id));
-  const recent = list.filter((c) => !attentionIds.has(c.id)).slice(0, 4);
+  const recent = list
+    .filter((c) => !attentionIds.has(c.id) && c.status !== "CANCELLED")
+    .slice(0, 4);
 
   return (
     <View className="flex-1 bg-background">

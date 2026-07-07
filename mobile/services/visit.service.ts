@@ -38,7 +38,7 @@ export interface ApiVisitLog {
   followUpRecommended: boolean;
   escalationNeeded: boolean;
   changesRequested: boolean;
-  reviewNote: string | null;
+  reviewNotes: string[];
   submittedAt: string;
   reviewedAt: string | null;
 }

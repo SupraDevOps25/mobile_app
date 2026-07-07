@@ -116,6 +116,8 @@ export class VisitsService {
       where: {
         caregiverId,
         status: { in: [VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS] },
+        // The assessment is a coordinator-run visit, not part of the nurse's log.
+        kind: { not: VisitKind.INITIAL_ASSESSMENT },
       },
       include: { subscription: { include: { careRecipient: true } } },
       orderBy: { scheduledFor: 'asc' },
@@ -130,6 +132,7 @@ export class VisitsService {
       where: {
         caregiverId,
         status: { in: [VisitStatus.COMPLETED, VisitStatus.MISSED] },
+        kind: { not: VisitKind.INITIAL_ASSESSMENT },
       },
       include: {
         subscription: { include: { careRecipient: true } },
@@ -166,7 +169,11 @@ export class VisitsService {
           },
         },
         visits: {
-          include: { log: { select: { reviewedAt: true, changesRequested: true } } },
+          // Care visits only — the assessment is handled by the coordinator.
+          where: { kind: { not: VisitKind.INITIAL_ASSESSMENT } },
+          include: {
+            log: { select: { reviewedAt: true, changesRequested: true } },
+          },
           orderBy: { scheduledFor: 'asc' },
         },
       },
@@ -191,7 +198,13 @@ export class VisitsService {
         changesRequested: v.log?.changesRequested ?? false,
       }));
 
-      const counts = { total: rows.length, reviewed: 0, submitted: 0, pending: 0, missed: 0 };
+      const counts = {
+        total: rows.length,
+        reviewed: 0,
+        submitted: 0,
+        pending: 0,
+        missed: 0,
+      };
       for (const v of rows) {
         if (v.logReviewed) counts.reviewed += 1;
         else if (v.hasLog) counts.submitted += 1;
@@ -200,7 +213,9 @@ export class VisitsService {
       }
 
       const upcoming = rows.filter(
-        (v) => v.status === VisitStatus.SCHEDULED || v.status === VisitStatus.IN_PROGRESS,
+        (v) =>
+          v.status === VisitStatus.SCHEDULED ||
+          v.status === VisitStatus.IN_PROGRESS,
       );
 
       return {
@@ -258,6 +273,11 @@ export class VisitsService {
     if (visit.caregiverId !== caregiverId) {
       throw new ForbiddenException('This visit is not yours');
     }
+    if (visit.kind === VisitKind.INITIAL_ASSESSMENT) {
+      throw new BadRequestException(
+        'The assessment visit is managed by your coordinator',
+      );
+    }
     if (visit.status !== VisitStatus.SCHEDULED) {
       throw new BadRequestException('This visit cannot be started');
     }
@@ -286,6 +306,11 @@ export class VisitsService {
     if (!visit) throw new NotFoundException('Visit not found');
     if (visit.caregiverId !== caregiverId) {
       throw new ForbiddenException('This visit is not yours');
+    }
+    if (visit.kind === VisitKind.INITIAL_ASSESSMENT) {
+      throw new BadRequestException(
+        'The assessment visit is managed by your coordinator',
+      );
     }
     if (visit.status === VisitStatus.COMPLETED || visit.log) {
       throw new BadRequestException('This visit has already been logged');
@@ -463,9 +488,14 @@ export class VisitsService {
       throw new BadRequestException('A reviewed log can no longer be changed');
     }
 
+    const trimmed = note?.trim();
     const updated = await this.prisma.visitLog.update({
       where: { visitId },
-      data: { changesRequested: true, reviewNote: note ?? null },
+      data: {
+        changesRequested: true,
+        // Append to the thread so earlier requests aren't lost.
+        ...(trimmed ? { reviewNotes: { push: trimmed } } : {}),
+      },
     });
 
     await this.notifications.notify({
@@ -480,7 +510,7 @@ export class VisitsService {
     return {
       visitId,
       changesRequested: updated.changesRequested,
-      reviewNote: updated.reviewNote,
+      reviewNotes: updated.reviewNotes,
     };
   }
 
@@ -564,7 +594,7 @@ export class VisitsService {
       followUpRecommended: log.followUpRecommended,
       escalationNeeded: log.escalationNeeded,
       changesRequested: log.changesRequested,
-      reviewNote: log.reviewNote,
+      reviewNotes: log.reviewNotes,
       submittedAt: log.submittedAt,
       reviewedAt: log.reviewedAt,
     };
