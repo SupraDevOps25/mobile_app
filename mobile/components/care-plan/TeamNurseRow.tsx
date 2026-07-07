@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
 import { avatarColor } from "@/lib/avatar";
 import type { ApiTeamNurse } from "@/services/subscription.service";
@@ -21,14 +21,21 @@ export function TeamNurseRow({ nurse, onPress }: Props) {
         borderColor: isLead ? "#bbf7d0" : "#f3f4f6",
       }}
     >
-      <View
-        className="w-11 h-11 rounded-full items-center justify-center"
-        style={{ backgroundColor: avatarColor(nurse.name) }}
-      >
-        <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-          {nurse.initials}
-        </Text>
-      </View>
+      {nurse.photoUrl ? (
+        <Image
+          source={{ uri: nurse.photoUrl }}
+          style={{ width: 44, height: 44, borderRadius: 22 }}
+        />
+      ) : (
+        <View
+          className="w-11 h-11 rounded-full items-center justify-center"
+          style={{ backgroundColor: avatarColor(nurse.name) }}
+        >
+          <Text className="text-white font-bold" style={{ fontSize: 14 }}>
+            {nurse.initials}
+          </Text>
+        </View>
+      )}
 
       <View className="flex-1 ml-3">
         <View className="flex-row items-center">

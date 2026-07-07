@@ -107,14 +107,21 @@ export default function CaregiverHomeScreen() {
         </View>
         <View className="flex-row items-center gap-3">
           <NotificationBell />
-          <View
-            className="w-9 h-9 rounded-full items-center justify-center"
-            style={{ backgroundColor: "#1e3a8a" }}
-          >
-            <Text className="text-white font-bold" style={{ fontSize: 13 }}>
-              {initials}
-            </Text>
-          </View>
+          {profile?.photoUrl ? (
+            <Image
+              source={{ uri: profile.photoUrl }}
+              style={{ width: 36, height: 36, borderRadius: 18 }}
+            />
+          ) : (
+            <View
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: "#1e3a8a" }}
+            >
+              <Text className="text-white font-bold" style={{ fontSize: 13 }}>
+                {initials}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -131,6 +138,7 @@ export default function CaregiverHomeScreen() {
           initials={initials}
           dateLabel={getDateLabel()}
           offerCount={offerCount}
+          photoUrl={profile?.photoUrl}
         />
       </View>
 

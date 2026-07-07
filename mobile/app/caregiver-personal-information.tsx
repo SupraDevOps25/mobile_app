@@ -310,7 +310,7 @@ export default function CaregiverPersonalInfoScreen() {
                     borderRadius: 9999,
                     paddingVertical: 14,
                     paddingHorizontal: 18,
-                    fontSize: 14,
+                    fontSize: 16,
                     color: "#111827",
                   }}
                 />
@@ -329,7 +329,7 @@ export default function CaregiverPersonalInfoScreen() {
                     borderRadius: 9999,
                     paddingVertical: 14,
                     paddingHorizontal: 18,
-                    fontSize: 14,
+                    fontSize: 16,
                     color: "#111827",
                   }}
                 />
@@ -351,7 +351,7 @@ export default function CaregiverPersonalInfoScreen() {
                   placeholderTextColor="#9ca3af"
                   keyboardType="phone-pad"
                   maxFontSizeMultiplier={1.2}
-                  style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+                  style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
                 />
               </View>
               {account?.email ? (
@@ -362,7 +362,7 @@ export default function CaregiverPersonalInfoScreen() {
                   <Ionicons name="mail-outline" size={18} color="#9ca3af" />
                   <Text
                     className="flex-1 text-muted"
-                    style={{ paddingVertical: 14, marginLeft: 8, fontSize: 14 }}
+                    style={{ paddingVertical: 14, marginLeft: 8, fontSize: 16 }}
                     numberOfLines={1}
                   >
                     {account.email}
@@ -394,7 +394,7 @@ export default function CaregiverPersonalInfoScreen() {
                   placeholder="House number, street, area where you live"
                   placeholderTextColor="#9ca3af"
                   maxFontSizeMultiplier={1.2}
-                  style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+                  style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
                 />
               </View>
 
@@ -414,7 +414,7 @@ export default function CaregiverPersonalInfoScreen() {
                   backgroundColor: "#f9fafb",
                   borderRadius: 16,
                   padding: 14,
-                  fontSize: 14,
+                  fontSize: 16,
                   color: "#111827",
                   textAlignVertical: "top",
                 }}
@@ -468,7 +468,7 @@ export default function CaregiverPersonalInfoScreen() {
 
               {/* Homecare experience (competency) */}
               <FieldLabel>Experience</FieldLabel>
-              <Text className="text-foreground" style={{ fontSize: 14, marginBottom: 10 }}>
+              <Text className="text-foreground" style={{ fontSize: 16, marginBottom: 10 }}>
                 Have you worked as a homecare nurse before?
               </Text>
               <View className="flex-row" style={{ gap: 10 }}>
@@ -491,7 +491,7 @@ export default function CaregiverPersonalInfoScreen() {
                     >
                       <Text
                         style={{
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: "700",
                           color: active ? "#15803d" : "#6b7280",
                         }}
@@ -518,7 +518,7 @@ export default function CaregiverPersonalInfoScreen() {
                       placeholderTextColor="#9ca3af"
                       keyboardType="number-pad"
                       maxFontSizeMultiplier={1.2}
-                      style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+                      style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
                     />
                     <Text className="text-muted" style={{ fontSize: 13 }}>
                       years

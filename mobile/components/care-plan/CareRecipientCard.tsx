@@ -1,24 +1,39 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import { initialsOf } from "@/lib/avatar";
 import type { ApiCareRecipient } from "@/services/subscription.service";
 
-export function CareRecipientCard({ client }: { client: ApiCareRecipient }) {
+export function CareRecipientCard({
+  client,
+  photoUrl,
+}: {
+  client: ApiCareRecipient;
+  // The account holder's photo, shown only when the recipient is themselves.
+  photoUrl?: string | null;
+}) {
   const genderLabel = client.gender === "MALE" ? "Male" : "Female";
+  const showPhoto = photoUrl && client.bookingFor === "SELF";
   return (
     <View
       className="bg-card rounded-2xl p-4"
       style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
     >
       <View className="flex-row items-center">
-        <View
-          className="w-12 h-12 rounded-full items-center justify-center"
-          style={{ backgroundColor: "#4f46e5" }}
-        >
-          <Text className="text-white font-bold" style={{ fontSize: 15 }}>
-            {initialsOf(client.name)}
-          </Text>
-        </View>
+        {showPhoto ? (
+          <Image
+            source={{ uri: photoUrl }}
+            style={{ width: 48, height: 48, borderRadius: 24 }}
+          />
+        ) : (
+          <View
+            className="w-12 h-12 rounded-full items-center justify-center"
+            style={{ backgroundColor: "#4f46e5" }}
+          >
+            <Text className="text-white font-bold" style={{ fontSize: 15 }}>
+              {initialsOf(client.name)}
+            </Text>
+          </View>
+        )}
         <View className="flex-1 ml-3">
           <Text className="text-foreground font-bold" style={{ fontSize: 16 }}>
             {client.name}

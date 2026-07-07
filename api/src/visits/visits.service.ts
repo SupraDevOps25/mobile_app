@@ -23,7 +23,15 @@ type VisitRowPayload = Prisma.VisitGetPayload<{
 }>;
 
 type VisitDetailPayload = Prisma.VisitGetPayload<{
-  include: { subscription: { include: { careRecipient: true } }; log: true };
+  include: {
+    subscription: {
+      include: {
+        careRecipient: true;
+        family: { select: { photoUrl: true } };
+      };
+    };
+    log: true;
+  };
 }>;
 
 function initialsOf(name: string): string {
@@ -91,7 +99,12 @@ export class VisitsService {
         durationHrs: dto.durationHrs,
       },
       include: {
-        subscription: { include: { careRecipient: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            family: { select: { photoUrl: true } },
+          },
+        },
         log: true,
       },
     });
@@ -166,6 +179,7 @@ export class VisitsService {
           include: {
             careRecipient: true,
             coordinator: { select: { firstName: true, lastName: true } },
+            family: { select: { photoUrl: true } },
           },
         },
         visits: {
@@ -239,6 +253,8 @@ export class VisitsService {
           address: c.address,
           conditions: c.conditions,
           basicCareNeeds: c.basicCareNeeds,
+          // The family account holder's photo, for the case avatar.
+          photoUrl: sub.family.photoUrl,
         },
         counts,
         nextVisitAt: upcoming.length ? upcoming[0].scheduledFor : null,
@@ -253,7 +269,12 @@ export class VisitsService {
     const visit = await this.prisma.visit.findUnique({
       where: { id: visitId },
       include: {
-        subscription: { include: { careRecipient: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            family: { select: { photoUrl: true } },
+          },
+        },
         log: true,
       },
     });
@@ -299,7 +320,12 @@ export class VisitsService {
     const visit = await this.prisma.visit.findUnique({
       where: { id: visitId },
       include: {
-        subscription: { include: { careRecipient: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            family: { select: { photoUrl: true } },
+          },
+        },
         log: true,
       },
     });
@@ -363,7 +389,12 @@ export class VisitsService {
     const visit = await this.prisma.visit.findUnique({
       where: { id: visitId },
       include: {
-        subscription: { include: { careRecipient: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            family: { select: { photoUrl: true } },
+          },
+        },
         log: true,
       },
     });
@@ -574,6 +605,8 @@ export class VisitsService {
         address: c.address,
         conditions: c.conditions,
         basicCareNeeds: c.basicCareNeeds,
+        // The family account holder's photo, for the visit avatar.
+        photoUrl: v.subscription.family.photoUrl,
       },
       log: v.log ? this.toLogResponse(v.log) : null,
     };

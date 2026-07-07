@@ -2,10 +2,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,23 +16,36 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  DateOfBirthField,
+  GenderPicker,
+  ServiceAreaField,
+} from "@/components/caregiver/profile-fields";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
-import { useFamilyProfile, useUpdateFamilyProfile } from "@/hooks/useFamily";
+import {
+  useFamilyProfile,
+  useUpdateFamilyProfile,
+  useUploadFamilyPhoto,
+} from "@/hooks/useFamily";
 import { initialsOf } from "@/lib/avatar";
+import { pickImageFromLibrary, takePhoto } from "@/lib/pick";
 import {
   personalInfoSchema,
   toE164Phone,
   toLocalPhone,
   type PersonalInfoFormValues,
 } from "@/schemas/profile.schemas";
+import type { ApiGender } from "@/services/subscription.service";
+
+const NAVY = "#1e3a8a";
 
 function FieldLabel({ children }: { children: string }) {
   return (
     <Text
       className="text-foreground font-semibold mb-2 ml-1"
-      style={{ fontSize: 13 }}
+      style={{ fontSize: 15, marginTop: 18 }}
     >
       {children}
     </Text>
@@ -44,12 +59,32 @@ export default function PersonalInformationScreen() {
 
   const { data: profile, isLoading } = useFamilyProfile();
   const update = useUpdateFamilyProfile();
+  const uploadPhoto = useUploadFamilyPhoto();
+
+  // Profile-only fields (gender / DOB / home location) live outside react-hook-
+  // form, seeded once the profile loads.
+  const [gender, setGender] = useState<ApiGender | null>(null);
+  const [dob, setDob] = useState<string | null>(null);
+  const [address, setAddress] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!profile) return;
+    setGender(profile.gender);
+    setDob(profile.dateOfBirth ? profile.dateOfBirth.slice(0, 10) : null);
+    setAddress(profile.address ?? "");
+    if (profile.lat != null && profile.lng != null) {
+      setCoords({ lat: profile.lat, lng: profile.lng });
+    }
+  }, [profile]);
 
   const {
     control,
     handleSubmit,
     setError,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm<PersonalInfoFormValues>({
     resolver: zodResolver(personalInfoSchema),
     values: profile
@@ -61,12 +96,42 @@ export default function PersonalInformationScreen() {
       : undefined,
   });
 
+  function changePhoto() {
+    Alert.alert("Profile photo", "Choose a source", [
+      {
+        text: "Take photo",
+        onPress: async () => {
+          const file = await takePhoto();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      {
+        text: "Choose from library",
+        onPress: async () => {
+          const file = await pickImageFromLibrary();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   function onSubmit(values: PersonalInfoFormValues) {
     update.mutate(
       {
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         phone: toE164Phone(values.phone),
+        gender: gender ?? undefined,
+        dateOfBirth: dob ?? undefined,
+        address: address.trim(),
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       },
       {
         onSuccess: (updated) => {
@@ -89,6 +154,7 @@ export default function PersonalInformationScreen() {
   const fullName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
     : "";
+  const photoUrl = profile?.photoUrl ?? null;
 
   return (
     <KeyboardAvoidingView
@@ -118,7 +184,7 @@ export default function PersonalInformationScreen() {
 
         {isLoading || !profile ? (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color="#1e3a8a" />
+            <ActivityIndicator color={NAVY} />
           </View>
         ) : (
           <>
@@ -127,24 +193,46 @@ export default function PersonalInformationScreen() {
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
               keyboardShouldPersistTaps="handled"
             >
-              {/* Identity summary */}
-              <View className="items-center mt-2 mb-6">
-                <View
-                  className="w-20 h-20 rounded-full items-center justify-center"
-                  style={{ backgroundColor: "#1e3a8a" }}
-                >
-                  <Text className="text-white font-bold" style={{ fontSize: 26 }}>
-                    {initialsOf(fullName || profile.email)}
-                  </Text>
-                </View>
-                <Text
-                  className="text-foreground font-bold"
-                  style={{ fontSize: 18, marginTop: 12 }}
-                >
-                  {fullName || "Your name"}
-                </Text>
-                <Text className="text-muted text-center" style={{ fontSize: 13, marginTop: 2 }}>
-                  Family account holder
+              {/* Profile photo */}
+              <View className="items-center mt-2 mb-4">
+                <Pressable onPress={changePhoto}>
+                  {photoUrl ? (
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={{ width: 96, height: 96, borderRadius: 48 }}
+                    />
+                  ) : (
+                    <View
+                      className="items-center justify-center"
+                      style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: NAVY }}
+                    >
+                      <Text className="text-white font-bold" style={{ fontSize: 30 }}>
+                        {initialsOf(fullName || profile.email)}
+                      </Text>
+                    </View>
+                  )}
+                  <View
+                    className="absolute items-center justify-center"
+                    style={{
+                      right: -2,
+                      bottom: -2,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 15,
+                      backgroundColor: NAVY,
+                      borderWidth: 2,
+                      borderColor: "#ffffff",
+                    }}
+                  >
+                    {uploadPhoto.isPending ? (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    ) : (
+                      <Ionicons name="camera" size={15} color="#ffffff" />
+                    )}
+                  </View>
+                </Pressable>
+                <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                  Tap to {photoUrl ? "change" : "add a"} profile photo
                 </Text>
               </View>
 
@@ -197,6 +285,31 @@ export default function PersonalInformationScreen() {
                 )}
               />
 
+              {/* Gender */}
+              <FieldLabel>Gender</FieldLabel>
+              <GenderPicker value={gender} onChange={setGender} />
+
+              {/* Date of birth — shows age; used when you book care for yourself */}
+              <FieldLabel>Date of birth</FieldLabel>
+              <DateOfBirthField initialIso={dob} onChange={setDob} />
+              <Text className="text-muted ml-1" style={{ fontSize: 12, marginTop: 6, lineHeight: 17 }}>
+                Used to pre-fill your age when you book care for yourself.
+              </Text>
+
+              {/* Home location */}
+              <FieldLabel>Home area</FieldLabel>
+              <ServiceAreaField
+                value={address}
+                onChangeText={setAddress}
+                onLocated={(loc) => {
+                  setAddress(
+                    [loc.area, loc.city].filter(Boolean).join(", ") ||
+                      loc.address,
+                  );
+                  setCoords({ lat: loc.lat, lng: loc.lng });
+                }}
+              />
+
               {/* Read-only email */}
               <FieldLabel>Email address</FieldLabel>
               <View
@@ -205,7 +318,7 @@ export default function PersonalInformationScreen() {
               >
                 <Text
                   className="flex-1 py-4 text-muted"
-                  style={{ fontSize: 14 }}
+                  style={{ fontSize: 15 }}
                   numberOfLines={1}
                 >
                   {profile.email}
@@ -236,7 +349,6 @@ export default function PersonalInformationScreen() {
                 title="Save changes"
                 variant="navy"
                 loading={update.isPending}
-                disabled={!isDirty}
                 onPress={handleSubmit(onSubmit)}
               />
             </View>

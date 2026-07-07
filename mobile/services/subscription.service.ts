@@ -27,6 +27,13 @@ export interface ApiTeamNurse {
   rating: number;
   reliabilityScore: number;
   serviceAreas: string[];
+  gender: ApiGender | null;
+  bio: string | null;
+  languages: string[];
+  hasHomecareExp: boolean;
+  totalReviews: number;
+  photoUrl: string | null;
+  licenseVerified: boolean;
 }
 
 export interface ApiCareTeam {

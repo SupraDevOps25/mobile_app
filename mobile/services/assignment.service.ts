@@ -26,6 +26,12 @@ export interface ApiAssignmentClient {
   basicCareNeeds: string;
 }
 
+export interface ApiAssignmentFamily {
+  name: string;
+  phone: string;
+  photoUrl: string | null;
+}
+
 export interface ApiAssignment {
   id: string;
   role: ApiAssignmentRole;
@@ -46,6 +52,7 @@ export interface ApiAssignment {
   expiresAt: string | null;
   startDate: string | null;
   coordinatorName: string | null;
+  family: ApiAssignmentFamily;
   client: ApiAssignmentClient;
 }
 

@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Avatar } from "@/components/ui/Avatar";
 import { useCaregiverAssignments } from "@/hooks/useVisits";
-import { avatarColor } from "@/lib/avatar";
 import type { ApiCaregiverAssignment } from "@/services/visit.service";
 import type { ApiSubscriptionStatus } from "@/services/subscription.service";
 
@@ -59,6 +59,10 @@ function AssignmentCard({
       ? `Last visit ${new Date(item.lastVisitAt).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })}`
       : "No visits recorded";
 
+  const done = item.counts.reviewed + item.counts.submitted;
+  const pct =
+    item.counts.total > 0 ? Math.round((done / item.counts.total) * 100) : 0;
+
   return (
     <Pressable
       onPress={() => onPress(item)}
@@ -66,19 +70,17 @@ function AssignmentCard({
       style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
     >
       <View className="flex-row items-center">
-        <View
-          className="w-11 h-11 rounded-full items-center justify-center"
-          style={{ backgroundColor: avatarColor(item.client.name) }}
-        >
-          <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-            {item.client.initials}
-          </Text>
-        </View>
+        <Avatar
+          name={item.client.name}
+          initials={item.client.initials}
+          photoUrl={item.client.photoUrl}
+          size={48}
+        />
         <View className="flex-1 ml-3">
-          <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
+          <Text className="text-foreground font-bold" style={{ fontSize: 15.5 }}>
             {item.client.name}
           </Text>
-          <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
+          <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 2 }}>
             {item.packageName ?? "Care package"} · {ROLE_LABEL[item.role]}
           </Text>
         </View>
@@ -93,6 +95,27 @@ function AssignmentCard({
           </Text>
         </View>
       </View>
+
+      {/* Progress toward completing the month's visits */}
+      {item.counts.total > 0 && (
+        <View style={{ marginTop: 14 }}>
+          <View className="flex-row items-center justify-between" style={{ marginBottom: 6 }}>
+            <Text className="text-muted" style={{ fontSize: 11.5 }}>
+              {done} of {item.counts.total} visits logged
+            </Text>
+            <Text style={{ color: "#16a34a", fontSize: 11.5, fontWeight: "700" }}>
+              {pct}%
+            </Text>
+          </View>
+          <View
+            style={{ height: 6, borderRadius: 3, backgroundColor: "#f1f5f9", overflow: "hidden" }}
+          >
+            <View
+              style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: "#16a34a" }}
+            />
+          </View>
+        </View>
+      )}
 
       {/* Visit breakdown */}
       <View className="flex-row flex-wrap items-center mt-3" style={{ gap: 6 }}>
@@ -119,9 +142,9 @@ function AssignmentCard({
         </View>
         <View className="flex-row items-center">
           <Text style={{ color: "#16a34a", fontSize: 12, fontWeight: "600" }}>
-            {item.counts.total} {item.counts.total === 1 ? "visit" : "visits"}
+            View
           </Text>
-          <Ionicons name="chevron-forward" size={15} color="#c4c9d1" />
+          <Ionicons name="chevron-forward" size={15} color="#16a34a" />
         </View>
       </View>
     </Pressable>

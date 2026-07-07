@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { PickedFile } from "@/lib/pick";
 import { qk } from "@/lib/query-keys";
 import {
   familyService,
+  type ApiFamilyProfile,
   type SaveAddressPayload,
   type UpdateFamilyPayload,
 } from "@/services/family.service";
@@ -33,6 +35,16 @@ export function useUpdateFamilyProfile() {
     onSuccess: (profile) => {
       qc.setQueryData(qk.familyProfile, profile);
       qc.invalidateQueries({ queryKey: qk.familyStats });
+    },
+  });
+}
+
+export function useUploadFamilyPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: PickedFile) => familyService.uploadPhoto(file),
+    onSuccess: (profile: ApiFamilyProfile) => {
+      qc.setQueryData(qk.familyProfile, profile);
     },
   });
 }

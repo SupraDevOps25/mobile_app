@@ -79,6 +79,7 @@ export interface ApiCaregiverAssignment {
     address: string;
     conditions: string[];
     basicCareNeeds: string;
+    photoUrl: string | null;
   };
   counts: {
     total: number;
@@ -110,6 +111,7 @@ export interface ApiVisitDetail {
     address: string;
     conditions: string[];
     basicCareNeeds: string;
+    photoUrl: string | null;
   };
   log: ApiVisitLog | null;
 }

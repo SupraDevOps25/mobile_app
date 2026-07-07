@@ -54,7 +54,13 @@ const ROLE_LABEL: Record<AssignmentRole, string> = {
 
 type OfferAssignment = Prisma.AssignmentGetPayload<{
   include: {
-    subscription: { include: { careRecipient: true; coordinator: true } };
+    subscription: {
+      include: {
+        careRecipient: true;
+        coordinator: true;
+        family: { include: { user: true } };
+      };
+    };
   };
 }>;
 
@@ -391,7 +397,13 @@ export class AssignmentsService {
         expiresAt: { gt: new Date() },
       },
       include: {
-        subscription: { include: { careRecipient: true, coordinator: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            coordinator: true,
+            family: { include: { user: true } },
+          },
+        },
       },
       orderBy: { offeredAt: 'desc' },
     });
@@ -406,7 +418,13 @@ export class AssignmentsService {
         status: { in: [AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE] },
       },
       include: {
-        subscription: { include: { careRecipient: true, coordinator: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            coordinator: true,
+            family: { include: { user: true } },
+          },
+        },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -418,7 +436,13 @@ export class AssignmentsService {
     const assignment = await this.prisma.assignment.findUnique({
       where: { id: assignmentId },
       include: {
-        subscription: { include: { careRecipient: true, coordinator: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            coordinator: true,
+            family: { include: { user: true } },
+          },
+        },
       },
     });
     if (!assignment) throw new NotFoundException('Assignment not found');
@@ -734,6 +758,12 @@ export class AssignmentsService {
       coordinatorName: sub.coordinator
         ? `${sub.coordinator.firstName} ${sub.coordinator.lastName}`
         : null,
+      // The family (account holder) the nurse will be serving.
+      family: {
+        name: `${sub.family.user.firstName} ${sub.family.user.lastName}`,
+        phone: sub.family.user.phone,
+        photoUrl: sub.family.photoUrl,
+      },
       client: {
         name: client.name,
         initials: initialsOf(client.name),

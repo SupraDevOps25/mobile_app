@@ -9,21 +9,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CareRecipientCard } from "@/components/care-plan/CareRecipientCard";
-import { CoordinatorCard } from "@/components/care-plan/CoordinatorCard";
-import { MatchingView } from "@/components/care-plan/MatchingView";
 import { PastCareCard } from "@/components/care-plan/PastCareCard";
-import { RenewalCard } from "@/components/care-plan/RenewalCard";
-import { SubscriptionHeaderCard } from "@/components/care-plan/SubscriptionHeaderCard";
-import { TeamNurseRow } from "@/components/care-plan/TeamNurseRow";
-import { VisitRow } from "@/components/care-plan/VisitRow";
-import { toPackageView } from "@/constants/package-presentation";
-import { usePackage } from "@/hooks/usePackages";
+import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
 import {
   useActiveSubscription,
   useSubscriptionHistory,
 } from "@/hooks/useSubscription";
-import { useCarePlan } from "@/hooks/useVisits";
 import type { ApiPastCare } from "@/services/subscription.service";
 
 function PreviousCareSection({
@@ -93,8 +84,6 @@ export default function CarePlanScreen() {
   const router = useRouter();
 
   const { data: subscription, isLoading } = useActiveSubscription();
-  const { data: pkgData } = usePackage(subscription?.packageType);
-  const { data: visits } = useCarePlan();
   const { data: pastCare } = useSubscriptionHistory();
   const history = pastCare ?? [];
 
@@ -157,18 +146,6 @@ export default function CarePlanScreen() {
     );
   }
 
-  const pkg = pkgData ? toPackageView(pkgData) : undefined;
-  const team = subscription.careTeam;
-  const hasTeam = team.nurses.length > 0;
-  const isMatching = subscription.status === "MATCHING" || !hasTeam;
-
-  const upcoming = (visits ?? []).filter(
-    (v) => v.status === "SCHEDULED" || v.status === "IN_PROGRESS",
-  );
-  const recent = (visits ?? []).filter(
-    (v) => v.status === "COMPLETED" || v.status === "MISSED",
-  );
-
   return (
     <View className="flex-1 bg-background">
       <StatusBar style="dark" />
@@ -196,69 +173,20 @@ export default function CarePlanScreen() {
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
-      <View className="px-5">
-        {pkg && (
-          <SubscriptionHeaderCard pkg={pkg} subscription={subscription} />
-        )}
+        <View className="px-5">
+          {/* Active care — tap to open the full plan and its visits */}
+          <SectionLabel title="Active care" />
+          <ActiveCarePlanCard
+            subscription={subscription}
+            onPress={() => router.push(`/past-care/${subscription.id}` as any)}
+          />
 
-        {subscription.status === "RENEWING" && (
-          <RenewalCard subscription={subscription} />
-        )}
-
-        {isMatching ? (
-          <MatchingView />
-        ) : (
-          <>
-            {/* Care recipient */}
-            <SectionLabel title="Care recipient" />
-            <CareRecipientCard client={subscription.careRecipient} />
-
-            {/* Coordinator */}
-            {team.coordinator && (
-              <>
-                <SectionLabel title="Your Care Coordinator" />
-                <CoordinatorCard coordinator={team.coordinator} />
-              </>
-            )}
-
-            {/* Care team */}
-            <SectionLabel title="Care team" />
-            {team.nurses.map((nurse) => (
-              <TeamNurseRow
-                key={nurse.assignmentId}
-                nurse={nurse}
-                onPress={(n) => router.push(`/nurse/${n.assignmentId}` as any)}
-              />
-            ))}
-
-            {/* Upcoming visits */}
-            {upcoming.length > 0 && (
-              <>
-                <SectionLabel title="Upcoming visits" />
-                {upcoming.map((visit) => (
-                  <VisitRow key={visit.id} visit={visit} />
-                ))}
-              </>
-            )}
-
-            {/* Recent visits */}
-            {recent.length > 0 && (
-              <>
-                <SectionLabel title="Recent visits" />
-                {recent.map((visit) => (
-                  <VisitRow key={visit.id} visit={visit} />
-                ))}
-              </>
-            )}
-          </>
-        )}
-
-        {/* Previous care received across past engagements */}
-        <PreviousCareSection
-          items={history}
-          onOpen={(id) => router.push(`/past-care/${id}` as any)}
-        />
-      </View>
+          {/* Previous care received across past engagements */}
+          <PreviousCareSection
+            items={history}
+            onOpen={(id) => router.push(`/past-care/${id}` as any)}
+          />
+        </View>
       </ScrollView>
     </View>
   );

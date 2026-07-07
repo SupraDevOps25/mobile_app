@@ -49,7 +49,7 @@ export function GenderPicker({
             }}
           >
             <Text
-              style={{ fontSize: 14, fontWeight: "700", color: active ? "#15803d" : "#6b7280" }}
+              style={{ fontSize: 15, fontWeight: "700", color: active ? "#15803d" : "#6b7280" }}
             >
               {g === "MALE" ? "Male" : "Female"}
             </Text>
@@ -128,7 +128,7 @@ export function DateOfBirthField({
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    fontSize: 14,
+    fontSize: 16,
     color: "#111827",
     textAlign: "center" as const,
   };
@@ -241,7 +241,7 @@ export function ServiceAreaField({
           placeholder="e.g. East Legon, Accra"
           placeholderTextColor="#9ca3af"
           maxFontSizeMultiplier={1.2}
-          style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+          style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
         />
       </View>
     </View>

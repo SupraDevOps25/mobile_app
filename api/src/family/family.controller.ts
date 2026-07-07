@@ -7,15 +7,26 @@ import {
   Patch,
   Post,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CreateAddressDto, UpdateAddressDto } from './dto/save-address.dto';
 import { UpdateFamilyDto } from './dto/update-family.dto';
-import { FamilyService } from './family.service';
+import {
+  FamilyService,
+  type UploadedFile as MulterFile,
+} from './family.service';
 
 @ApiBearerAuth()
 @ApiTags('Family')
@@ -46,6 +57,18 @@ export class FamilyController {
     @Body() dto: UpdateFamilyDto,
   ) {
     return this.familyService.updateMe(req.user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Family: upload / replace my profile photo' })
+  @ApiConsumes('multipart/form-data')
+  @Roles('FAMILY')
+  @Post('me/photo')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadPhoto(
+    @Request() req: { user: { id: string } },
+    @UploadedFile() file: MulterFile,
+  ) {
+    return this.familyService.uploadPhoto(req.user.id, file);
   }
 
   @ApiOperation({ summary: 'Family: permanently delete my account and data' })

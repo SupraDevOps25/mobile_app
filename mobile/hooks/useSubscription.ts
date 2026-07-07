@@ -50,6 +50,8 @@ export function useRenewSubscription() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.activeSubscription });
       qc.invalidateQueries({ queryKey: qk.carePlan });
+      // Prefix-invalidates the history list and every per-case detail.
+      qc.invalidateQueries({ queryKey: qk.subscriptionHistory });
     },
   });
 }
@@ -60,6 +62,7 @@ export function useCancelSubscription() {
     mutationFn: (id: string) => subscriptionService.cancel(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.activeSubscription });
+      qc.invalidateQueries({ queryKey: qk.subscriptionHistory });
     },
   });
 }

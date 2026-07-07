@@ -861,6 +861,14 @@ export class SubscriptionsService {
           rating: a.caregiver.rating.toNumber(),
           reliabilityScore: a.caregiver.reliabilityScore,
           serviceAreas: a.caregiver.serviceAreas,
+          // Extra profile the family sees when they open a nurse.
+          gender: a.caregiver.gender,
+          bio: a.caregiver.bio,
+          languages: a.caregiver.languages,
+          hasHomecareExp: a.caregiver.hasHomecareExp,
+          totalReviews: a.caregiver.totalReviews,
+          photoUrl: a.caregiver.photoUrl,
+          licenseVerified: a.caregiver.licenseVerified,
         };
       })
       .sort(

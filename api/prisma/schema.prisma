@@ -256,14 +256,18 @@ model CaregiverDocument {
 // ─── Family Profile ───────────────────────────────────────────────────────────
 
 model FamilyProfile {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  address   String?
-  lat       Float?
-  lng       Float?
-  fcmToken  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  address       String?
+  lat           Float?
+  lng           Float?
+  gender        Gender?
+  dateOfBirth   DateTime? // shows the account holder's age (e.g. when booking for self)
+  photoUrl      String? // Cloudinary secure URL
+  photoPublicId String? // Cloudinary public id (for replace/delete)
+  fcmToken      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   careRecipients CareRecipient[]

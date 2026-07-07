@@ -15,7 +15,7 @@ export function Input({ error, rightIcon, style, ...props }: InputProps) {
         }`}
       >
         <TextInput
-          className="flex-1 py-4 text-foreground text-sm"
+          className="flex-1 py-4 text-foreground text-base"
           placeholderTextColor="#9CA3AF"
           style={style}
           {...props}

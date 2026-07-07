@@ -1,6 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
 import {
@@ -86,19 +93,28 @@ export default function NurseProfileScreen() {
       >
         {/* Hero */}
         <View className="items-center" style={{ marginTop: 8 }}>
-          <View
-            className="w-20 h-20 rounded-full items-center justify-center"
-            style={{ backgroundColor: avatarColor(nurse.name) }}
-          >
-            <Text className="text-white font-bold" style={{ fontSize: 24 }}>
-              {nurse.initials}
-            </Text>
-          </View>
+          {nurse.photoUrl ? (
+            <Image
+              source={{ uri: nurse.photoUrl }}
+              style={{ width: 80, height: 80, borderRadius: 40 }}
+            />
+          ) : (
+            <View
+              className="w-20 h-20 rounded-full items-center justify-center"
+              style={{ backgroundColor: avatarColor(nurse.name) }}
+            >
+              <Text className="text-white font-bold" style={{ fontSize: 24 }}>
+                {nurse.initials}
+              </Text>
+            </View>
+          )}
           <View className="flex-row items-center" style={{ marginTop: 12 }}>
             <Text className="text-foreground font-bold" style={{ fontSize: 20 }}>
               {nurse.name}
             </Text>
-            <Ionicons name="checkmark-circle" size={18} color="#2563eb" style={{ marginLeft: 5 }} />
+            {nurse.licenseVerified && (
+              <Ionicons name="checkmark-circle" size={18} color="#2563eb" style={{ marginLeft: 5 }} />
+            )}
           </View>
           <Text className="text-muted" style={{ fontSize: 13, marginTop: 2 }}>
             {nurse.qualification ?? "Nurse"}
@@ -126,10 +142,99 @@ export default function NurseProfileScreen() {
         >
           <Stat value={`${nurse.yearsExperience} yrs`} label="Experience" />
           <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-          <Stat value={`★ ${nurse.rating.toFixed(1)}`} label="Rating " />
+          <Stat
+            value={`★ ${nurse.rating.toFixed(1)}`}
+            label={
+              nurse.totalReviews > 0
+                ? `${nurse.totalReviews} ${nurse.totalReviews === 1 ? "review" : "reviews"}`
+                : "Rating"
+            }
+          />
           <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
           <Stat value={`${nurse.reliabilityScore}%`} label="Reliability " />
         </View>
+
+        {/* About the nurse */}
+        {nurse.bio && nurse.bio.trim().length > 0 && (
+          <>
+            <SectionLabel title="About" />
+            <View
+              className="bg-card rounded-2xl p-4"
+              style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            >
+              <Text className="text-foreground" style={{ fontSize: 13.5, lineHeight: 20 }}>
+                {nurse.bio}
+              </Text>
+            </View>
+          </>
+        )}
+
+        {/* Languages spoken — matters for comfort and communication */}
+        {nurse.languages.length > 0 && (
+          <>
+            <SectionLabel title="Speaks" />
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {nurse.languages.map((lang) => (
+                <View
+                  key={lang}
+                  className="flex-row items-center rounded-full px-3 py-1.5"
+                  style={{ backgroundColor: "#f3f4f6" }}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={13} color="#6b7280" />
+                  <Text style={{ color: "#374151", fontSize: 12, marginLeft: 4 }}>
+                    {lang}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* Good to know — gender, homecare experience, verification */}
+        {(nurse.gender || nurse.hasHomecareExp || nurse.licenseVerified) && (
+          <>
+            <SectionLabel title="Good to know" />
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {nurse.gender && (
+            <View
+              className="flex-row items-center rounded-full px-3 py-1.5"
+              style={{ backgroundColor: "#eff6ff" }}
+            >
+              <Ionicons
+                name={nurse.gender === "FEMALE" ? "female-outline" : "male-outline"}
+                size={13}
+                color="#2563eb"
+              />
+              <Text style={{ color: "#1d4ed8", fontSize: 12, marginLeft: 4, fontWeight: "500" }}>
+                {nurse.gender === "FEMALE" ? "Female" : "Male"}
+              </Text>
+            </View>
+          )}
+          {nurse.hasHomecareExp && (
+            <View
+              className="flex-row items-center rounded-full px-3 py-1.5"
+              style={{ backgroundColor: "#f0fdf4" }}
+            >
+              <Ionicons name="home-outline" size={13} color="#16a34a" />
+              <Text style={{ color: "#15803d", fontSize: 12, marginLeft: 4, fontWeight: "500" }}>
+                Homecare experienced
+              </Text>
+            </View>
+          )}
+          {nurse.licenseVerified && (
+            <View
+              className="flex-row items-center rounded-full px-3 py-1.5"
+              style={{ backgroundColor: "#eff6ff" }}
+            >
+              <Ionicons name="shield-checkmark-outline" size={13} color="#2563eb" />
+              <Text style={{ color: "#1d4ed8", fontSize: 12, marginLeft: 4, fontWeight: "500" }}>
+                Licence verified
+              </Text>
+            </View>
+          )}
+            </View>
+          </>
+        )}
 
         {/* Service areas (proximity) */}
         {nurse.serviceAreas.length > 0 && (

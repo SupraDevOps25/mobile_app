@@ -22,6 +22,7 @@ import {
   useSubscriptionHistory,
 } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
+import { useFamilyProfile } from "@/hooks/useFamily";
 
 // How many packages to preview on the home screen (full list is on /packages).
 const HOME_PACKAGE_LIMIT = 2;
@@ -41,8 +42,10 @@ export default function HomeScreen() {
   const { data: subscription } = useActiveSubscription();
   const { data: packages, isLoading: packagesLoading } = usePackages();
   const { data: pastCare } = useSubscriptionHistory();
+  const { data: familyProfile } = useFamilyProfile();
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
+  const photoUrl = familyProfile?.photoUrl ?? null;
 
   return (
     <View className="flex-1 bg-background">
@@ -60,14 +63,21 @@ export default function HomeScreen() {
         />
         <View className="flex-row items-center gap-3">
           <NotificationBell />
-          <View
-            className="w-9 h-9 rounded-full items-center justify-center"
-            style={{ backgroundColor: "#1e3a8a" }}
-          >
-            <Text className="text-white font-bold" style={{ fontSize: 13 }}>
-              {initials}
-            </Text>
-          </View>
+          {photoUrl ? (
+            <Image
+              source={{ uri: photoUrl }}
+              style={{ width: 36, height: 36, borderRadius: 18 }}
+            />
+          ) : (
+            <View
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: "#1e3a8a" }}
+            >
+              <Text className="text-white font-bold" style={{ fontSize: 13 }}>
+                {initials}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 

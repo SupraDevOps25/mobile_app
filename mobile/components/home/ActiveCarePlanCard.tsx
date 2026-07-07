@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { PACKAGE_LABELS } from "@/constants/package-presentation";
 import {
   SUBSCRIPTION_STATUS_LABELS,
@@ -9,12 +9,15 @@ import {
 import { avatarColor } from "@/lib/avatar";
 import type { ApiSubscription } from "@/services/subscription.service";
 
-// Compact summary of the family's active subscription, shown on the home screen
-// when they're subscribed. Taps through to the full care plan (Care tab).
+// Compact summary of the family's active subscription. On the home screen it
+// taps through to the Care tab; on the Care tab a custom `onPress` opens the
+// full care-plan detail.
 export function ActiveCarePlanCard({
   subscription,
+  onPress,
 }: {
   subscription: ApiSubscription;
+  onPress?: () => void;
 }) {
   const router = useRouter();
   const lead =
@@ -24,7 +27,7 @@ export function ActiveCarePlanCard({
 
   return (
     <Pressable
-      onPress={() => router.push("/(tabs)/bookings" as any)}
+      onPress={onPress ?? (() => router.push("/(tabs)/bookings" as any))}
       className="rounded-2xl p-5"
       style={{ backgroundColor: "#0f2461" }}
     >
@@ -45,14 +48,21 @@ export function ActiveCarePlanCard({
 
       {lead ? (
         <View className="flex-row items-center" style={{ marginTop: 10 }}>
-          <View
-            className="w-7 h-7 rounded-full items-center justify-center"
-            style={{ backgroundColor: avatarColor(lead.name) }}
-          >
-            <Text className="text-white font-bold" style={{ fontSize: 11 }}>
-              {lead.initials}
-            </Text>
-          </View>
+          {lead.photoUrl ? (
+            <Image
+              source={{ uri: lead.photoUrl }}
+              style={{ width: 28, height: 28, borderRadius: 14 }}
+            />
+          ) : (
+            <View
+              className="w-7 h-7 rounded-full items-center justify-center"
+              style={{ backgroundColor: avatarColor(lead.name) }}
+            >
+              <Text className="text-white font-bold" style={{ fontSize: 11 }}>
+                {lead.initials}
+              </Text>
+            </View>
+          )}
           <Text style={{ color: "#cbd5e1", fontSize: 13, marginLeft: 8 }}>
             {lead.name} · Lead nurse
           </Text>

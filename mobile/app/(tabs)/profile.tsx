@@ -1,14 +1,25 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { pickImageFromLibrary, takePhoto } from "@/lib/pick";
 import { rateApp } from "@/lib/rate";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useAddresses,
+  useFamilyProfile,
   useFamilyStats,
   usePaymentMethods,
+  useUploadFamilyPhoto,
 } from "@/hooks/useFamily";
 
 type RowItem = {
@@ -102,10 +113,28 @@ function Section({ items }: { items: RowItem[] }) {
   );
 }
 
-function StatItem({ value, label }: { value: string; label: string }) {
+function StatItem({
+  value,
+  label,
+  icon,
+  tint,
+  bg,
+}: {
+  value: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  bg: string;
+}) {
   return (
     <View className="flex-1 items-center">
-      <Text className="text-foreground font-bold" style={{ fontSize: 20 }}>
+      <View
+        className="w-9 h-9 rounded-full items-center justify-center mb-2"
+        style={{ backgroundColor: bg }}
+      >
+        <Ionicons name={icon} size={18} color={tint} />
+      </View>
+      <Text className="text-foreground font-bold" style={{ fontSize: 19 }}>
         {value}
       </Text>
       <Text className="text-muted text-center" style={{ fontSize: 11, marginTop: 2 }}>
@@ -121,11 +150,40 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   const { data: stats } = useFamilyStats();
+  const { data: profile } = useFamilyProfile();
   const { data: addresses } = useAddresses();
   const { data: paymentMethods } = usePaymentMethods();
+  const uploadPhoto = useUploadFamilyPhoto();
 
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
+  const photoUrl = profile?.photoUrl ?? null;
+
+  function changePhoto() {
+    Alert.alert("Profile photo", "Choose a source", [
+      {
+        text: "Take photo",
+        onPress: async () => {
+          const file = await takePhoto();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      {
+        text: "Choose from library",
+        onPress: async () => {
+          const file = await pickImageFromLibrary();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
 
   const memberSince = stats?.memberSince
     ? new Date(stats.memberSince).toLocaleDateString("en-US", {
@@ -306,34 +364,40 @@ export default function ProfileScreen() {
           className="bg-card rounded-3xl items-center px-5 pt-6 pb-5"
           style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
         >
-          {/* Avatar with edit badge */}
-          <View>
-            <View
-              className="w-20 h-20 rounded-full items-center justify-center"
-              style={{ backgroundColor: "#1e3a8a" }}
-            >
-              <Text className="text-white font-bold" style={{ fontSize: 26 }}>
-                {initials}
-              </Text>
-            </View>
+          {/* Avatar with edit badge — tap to change the profile photo */}
+          <Pressable onPress={changePhoto}>
+            {photoUrl ? (
+              <Image
+                source={{ uri: photoUrl }}
+                style={{ width: 80, height: 80, borderRadius: 40 }}
+              />
+            ) : (
+              <View
+                className="w-20 h-20 rounded-full items-center justify-center"
+                style={{ backgroundColor: "#1e3a8a" }}
+              >
+                <Text className="text-white font-bold" style={{ fontSize: 26 }}>
+                  {initials}
+                </Text>
+              </View>
+            )}
             <View
               className="absolute w-7 h-7 rounded-full items-center justify-center"
               style={{
                 bottom: -2,
                 right: -2,
-                backgroundColor: "#ffffff",
+                backgroundColor: "#eef2ff",
                 borderWidth: 2,
                 borderColor: "#ffffff",
               }}
             >
-              <View
-                className="w-7 h-7 rounded-full items-center justify-center"
-                style={{ backgroundColor: "#eef2ff" }}
-              >
-                <Ionicons name="pencil" size={12} color="#4f46e5" />
-              </View>
+              {uploadPhoto.isPending ? (
+                <ActivityIndicator color="#4f46e5" size="small" />
+              ) : (
+                <Ionicons name="camera" size={13} color="#4f46e5" />
+              )}
             </View>
-          </View>
+          </Pressable>
 
           <Text className="text-foreground font-bold" style={{ fontSize: 20, marginTop: 12 }}>
             {firstName}
@@ -359,11 +423,29 @@ export default function ProfileScreen() {
             className="flex-row w-full mt-5 pt-5"
             style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6" }}
           >
-            <StatItem value={String(stats?.carePlans ?? 0)} label="Total bookings" />
+            <StatItem
+              value={String(stats?.carePlans ?? 0)}
+              label="Total bookings"
+              icon="briefcase"
+              tint="#1e3a8a"
+              bg="#eef2ff"
+            />
             <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-            <StatItem value={String(stats?.caregivers ?? 0)} label="Caregivers used" />
+            <StatItem
+              value={String(stats?.caregivers ?? 0)}
+              label="Caregivers used"
+              icon="people"
+              tint="#16a34a"
+              bg="#f0fdf4"
+            />
             <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-            <StatItem value={memberSince} label="Member since" />
+            <StatItem
+              value={memberSince}
+              label="Member since "
+              icon="ribbon"
+              tint="#d97706"
+              bg="#fffbeb"
+            />
           </View>
         </View>
       </View>

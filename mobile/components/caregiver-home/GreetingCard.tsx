@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 
 type Props = {
   greeting: string;
@@ -6,6 +6,7 @@ type Props = {
   initials: string;
   dateLabel: string;
   offerCount: number;
+  photoUrl?: string | null;
 };
 
 export function GreetingCard({
@@ -14,6 +15,7 @@ export function GreetingCard({
   initials,
   dateLabel,
   offerCount,
+  photoUrl,
 }: Props) {
   return (
     <View
@@ -29,14 +31,21 @@ export function GreetingCard({
             {dateLabel}
           </Text>
         </View>
-        <View
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{ backgroundColor: "#16a34a" }}
-        >
-          <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-            {initials}
-          </Text>
-        </View>
+        {photoUrl ? (
+          <Image
+            source={{ uri: photoUrl }}
+            style={{ width: 40, height: 40, borderRadius: 20 }}
+          />
+        ) : (
+          <View
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: "#16a34a" }}
+          >
+            <Text className="text-white font-bold" style={{ fontSize: 14 }}>
+              {initials}
+            </Text>
+          </View>
+        )}
       </View>
 
       {offerCount > 0 && (

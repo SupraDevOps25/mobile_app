@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   AssignmentStatus,
+  FamilyProfile,
   PaymentMethod,
   PaymentStatus,
   Prisma,
@@ -15,14 +16,27 @@ import {
 } from '@prisma/client';
 import { PaystackService } from '../billing/paystack.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../storage/cloudinary.service';
 import { CreateAddressDto, UpdateAddressDto } from './dto/save-address.dto';
 import { UpdateFamilyDto } from './dto/update-family.dto';
+
+// Minimal shape of a multer-uploaded file (avoids depending on @types/multer).
+export interface UploadedFile {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+}
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 
 @Injectable()
 export class FamilyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackService,
+    private readonly storage: CloudinaryService,
   ) {}
 
   /** The family's own personal details. */
@@ -32,11 +46,12 @@ export class FamilyService {
       include: { user: true },
     });
     if (!family) throw new NotFoundException('Family profile not found');
-    return this.toProfile(family.user, family.createdAt);
+    return this.toProfile(family.user, family);
   }
 
-  /** Update editable personal details (name + phone). Email is the login
-   * identity and stays read-only here. */
+  /** Update editable personal details. Name + phone live on the User; the
+   * account holder's own gender, date of birth and home location live on the
+   * FamilyProfile. Email is the login identity and stays read-only here. */
   async updateMe(userId: string, dto: UpdateFamilyDto) {
     const family = await this.prisma.familyProfile.findUnique({
       where: { userId },
@@ -52,7 +67,29 @@ export class FamilyService {
           ...(dto.phone !== undefined && { phone: dto.phone }),
         },
       });
-      return this.toProfile(user, family.createdAt);
+
+      const touchesProfile =
+        dto.gender !== undefined ||
+        dto.dateOfBirth !== undefined ||
+        dto.address !== undefined ||
+        dto.lat !== undefined ||
+        dto.lng !== undefined;
+      const profile = touchesProfile
+        ? await this.prisma.familyProfile.update({
+            where: { userId },
+            data: {
+              ...(dto.gender !== undefined && { gender: dto.gender }),
+              ...(dto.dateOfBirth !== undefined && {
+                dateOfBirth: new Date(dto.dateOfBirth),
+              }),
+              ...(dto.address !== undefined && { address: dto.address }),
+              ...(dto.lat !== undefined && { lat: dto.lat }),
+              ...(dto.lng !== undefined && { lng: dto.lng }),
+            },
+          })
+        : family;
+
+      return this.toProfile(user, profile);
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -63,6 +100,38 @@ export class FamilyService {
         );
       }
       throw err;
+    }
+  }
+
+  /** Upload / replace the family account holder's profile photo. */
+  async uploadPhoto(userId: string, file: UploadedFile) {
+    const family = await this.prisma.familyProfile.findUnique({
+      where: { userId },
+      include: { user: true },
+    });
+    if (!family) throw new NotFoundException('Family profile not found');
+    this.assertImage(file);
+
+    const stored = await this.storage.upload(file, {
+      folder: `supracarer/families/${family.id}`,
+      publicId: 'photo',
+      resourceType: 'image',
+    });
+
+    const updated = await this.prisma.familyProfile.update({
+      where: { userId },
+      data: { photoUrl: stored.url, photoPublicId: stored.publicId },
+    });
+    return this.toProfile(family.user, updated);
+  }
+
+  private assertImage(file: UploadedFile | undefined) {
+    if (!file) throw new BadRequestException('No file was uploaded.');
+    if (file.size > MAX_PHOTO_BYTES) {
+      throw new BadRequestException('Image is too large (max 5 MB).');
+    }
+    if (!ALLOWED_IMAGE.includes(file.mimetype)) {
+      throw new BadRequestException('Upload a JPG, PNG or WebP image.');
     }
   }
 
@@ -118,14 +187,20 @@ export class FamilyService {
     return { deleted: true };
   }
 
-  private toProfile(user: User, memberSince: Date) {
+  private toProfile(user: User, family: FamilyProfile) {
     return {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
       emailVerified: user.emailVerified,
-      memberSince,
+      memberSince: family.createdAt,
+      gender: family.gender,
+      dateOfBirth: family.dateOfBirth,
+      address: family.address,
+      lat: family.lat,
+      lng: family.lng,
+      photoUrl: family.photoUrl,
     };
   }
 

@@ -1,4 +1,6 @@
 import { api } from "@/lib/api";
+import { fileForm, type PickedFile } from "@/lib/pick";
+import type { ApiGender } from "@/services/subscription.service";
 
 export interface ApiFamilyStats {
   memberSince: string;
@@ -13,12 +15,23 @@ export interface ApiFamilyProfile {
   phone: string;
   emailVerified: boolean;
   memberSince: string;
+  gender: ApiGender | null;
+  dateOfBirth: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  photoUrl: string | null;
 }
 
 export interface UpdateFamilyPayload {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  gender?: ApiGender;
+  dateOfBirth?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface ApiSavedAddress {
@@ -58,6 +71,8 @@ export const familyService = {
   me: () => api.get<ApiFamilyProfile>("/family/me"),
   updateMe: (payload: UpdateFamilyPayload) =>
     api.patch<ApiFamilyProfile>("/family/me", payload),
+  uploadPhoto: (file: PickedFile) =>
+    api.upload<ApiFamilyProfile>("/family/me/photo", fileForm(file)),
   deleteAccount: () => api.delete<{ deleted: boolean }>("/family/me"),
 
   addresses: () => api.get<ApiSavedAddress[]>("/family/addresses"),
