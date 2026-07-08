@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { QuickLogGrid, QUICK_LOG_ITEMS } from "@/components/active-visit/QuickLogGrid";
 import { TimerCard } from "@/components/active-visit/TimerCard";
-import { avatarColor } from "@/lib/avatar";
+import { Avatar } from "@/components/ui/Avatar";
 import { useStartVisit, useVisit } from "@/hooks/useVisits";
 
 function SectionLabel({ title }: { title: string }) {
@@ -171,42 +171,57 @@ export default function ActiveVisitScreen() {
           </View>
         )}
 
-        {/* Patient card */}
+        {/* Family card */}
         <View
           className="bg-card rounded-2xl p-4 mt-4"
           style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
         >
           <View className="flex-row items-center">
-            <View
-              className="w-11 h-11 rounded-full items-center justify-center"
-              style={{ backgroundColor: avatarColor(client.name) }}
-            >
-              <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-                {client.initials}
-              </Text>
-            </View>
+            <Avatar
+              name={client.name}
+              initials={client.initials}
+              photoUrl={client.photoUrl}
+              size={52}
+            />
             <View className="flex-1 ml-3">
-              <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
+              <Text className="text-foreground font-bold" style={{ fontSize: 16 }}>
                 {client.name}
               </Text>
-              <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
-                {client.age} yrs · {client.area}
+              <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 2 }}>
+                {client.age} yrs · {client.gender === "MALE" ? "Male" : "Female"}
               </Text>
             </View>
           </View>
-          <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
-            {client.conditions.map((c) => (
-              <View
-                key={c}
-                className="rounded-full px-3 py-1"
-                style={{ backgroundColor: "#f3f4f6" }}
-              >
-                <Text style={{ color: "#374151", fontSize: 11, fontWeight: "600" }}>
-                  {c}
-                </Text>
-              </View>
-            ))}
+
+          {/* Visit address */}
+          <View
+            className="flex-row items-center rounded-xl p-3 mt-3"
+            style={{ backgroundColor: "#f8fafc" }}
+          >
+            <Ionicons name="location" size={16} color="#2563eb" />
+            <Text
+              className="text-foreground flex-1"
+              style={{ fontSize: 13, lineHeight: 18, marginLeft: 8 }}
+            >
+              {[client.address, client.area, client.city].filter(Boolean).join(", ")}
+            </Text>
           </View>
+
+          {client.conditions.length > 0 && (
+            <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
+              {client.conditions.map((c) => (
+                <View
+                  key={c}
+                  className="rounded-full px-3 py-1"
+                  style={{ backgroundColor: "#f3f4f6" }}
+                >
+                  <Text style={{ color: "#374151", fontSize: 11, fontWeight: "600" }}>
+                    {c}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Quick log + care notes — only once the visit has started */}

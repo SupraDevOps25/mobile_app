@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MoodSelector, type Mood } from "@/components/care-report/MoodSelector";
 import { ToggleRow } from "@/components/care-report/ToggleRow";
 import { VitalsGrid, type Vitals } from "@/components/care-report/VitalsGrid";
-import { avatarColor } from "@/lib/avatar";
+import { Avatar } from "@/components/ui/Avatar";
 import { useEditLog, useSubmitLog, useVisit } from "@/hooks/useVisits";
 import type { ApiPatientMood } from "@/services/visit.service";
 
@@ -280,14 +280,12 @@ export default function CareReportScreen() {
             className="flex-row items-center rounded-2xl p-4"
             style={{ backgroundColor: "#0f2461" }}
           >
-            <View
-              className="w-11 h-11 rounded-full items-center justify-center"
-              style={{ backgroundColor: avatarColor(client.name) }}
-            >
-              <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-                {client.initials}
-              </Text>
-            </View>
+            <Avatar
+              name={client.name}
+              initials={client.initials}
+              photoUrl={client.photoUrl}
+              size={44}
+            />
             <View className="flex-1 ml-3">
               <Text className="text-white font-bold" style={{ fontSize: 15 }}>
                 {client.name}

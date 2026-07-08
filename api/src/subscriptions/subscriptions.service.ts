@@ -20,6 +20,7 @@ import { AssignmentsService } from '../assignments/assignments.service';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReviewsService } from '../reviews/reviews.service';
 import { ChangePackageDto } from './dto/change-package.dto';
 import { RenewDto } from './dto/renew.dto';
 import { SetAssessmentDto } from './dto/set-assessment.dto';
@@ -49,6 +50,7 @@ export class SubscriptionsService {
     private readonly prisma: PrismaService,
     private readonly assignments: AssignmentsService,
     private readonly notifications: NotificationsService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   /** Resolve the FamilyProfile id for an authenticated user. */
@@ -574,6 +576,13 @@ export class SubscriptionsService {
     }
     if (subscription.status !== SubscriptionStatus.RENEWING) {
       throw new BadRequestException('Subscription is not awaiting renewal');
+    }
+
+    // Rating the nurse at cycle-end is mandatory — it feeds future matching.
+    if (await this.reviews.isPending(subscriptionId)) {
+      throw new BadRequestException(
+        'Please rate your nurse before continuing your care package',
+      );
     }
 
     if (dto.rematch) {

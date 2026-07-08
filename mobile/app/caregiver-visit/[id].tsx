@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { avatarColor } from "@/lib/avatar";
+import { Avatar } from "@/components/ui/Avatar";
 import { useVisit } from "@/hooks/useVisits";
 import type { ApiPatientMood, ApiVisitKind } from "@/services/visit.service";
 
@@ -117,14 +117,12 @@ export default function CaregiverVisitScreen() {
       >
         {/* Patient banner */}
         <View className="flex-row items-center rounded-2xl p-4" style={{ backgroundColor: "#0f2461" }}>
-          <View
-            className="w-12 h-12 rounded-full items-center justify-center"
-            style={{ backgroundColor: avatarColor(client.name) }}
-          >
-            <Text className="text-white font-bold" style={{ fontSize: 15 }}>
-              {client.initials}
-            </Text>
-          </View>
+          <Avatar
+            name={client.name}
+            initials={client.initials}
+            photoUrl={client.photoUrl}
+            size={48}
+          />
           <View className="flex-1 ml-3">
             <Text className="text-white font-bold" style={{ fontSize: 16 }}>
               {client.name}

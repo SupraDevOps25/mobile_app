@@ -11,11 +11,48 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PastCareCard } from "@/components/care-plan/PastCareCard";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
+import { usePendingReview } from "@/hooks/useReviews";
 import {
   useActiveSubscription,
   useSubscriptionHistory,
 } from "@/hooks/useSubscription";
 import type { ApiPastCare } from "@/services/subscription.service";
+import type { ApiPendingReview } from "@/services/review.service";
+
+function ReviewDueBanner({
+  pending,
+  onPress,
+}: {
+  pending: ApiPendingReview;
+  onPress: () => void;
+}) {
+  const nurses = pending.caregivers;
+  const title =
+    nurses.length === 1 ? `Rate ${nurses[0].name}` : "Rate your care team";
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-center rounded-2xl p-4 mb-2"
+      style={{ backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fde68a" }}
+    >
+      <View
+        className="w-10 h-10 rounded-full items-center justify-center"
+        style={{ backgroundColor: "#fef3c7" }}
+      >
+        <Ionicons name="star" size={18} color="#b45309" />
+      </View>
+      <View className="flex-1 ml-3">
+        <Text style={{ color: "#92400e", fontSize: 14, fontWeight: "700" }}>
+          {title}
+        </Text>
+        <Text style={{ color: "#92400e", fontSize: 12, marginTop: 1 }}>
+          Required before you can renew your care
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#b45309" />
+    </Pressable>
+  );
+}
 
 function PreviousCareSection({
   items,
@@ -85,6 +122,7 @@ export default function CarePlanScreen() {
 
   const { data: subscription, isLoading } = useActiveSubscription();
   const { data: pastCare } = useSubscriptionHistory();
+  const { data: pendingReview } = usePendingReview();
   const history = pastCare ?? [];
 
   if (isLoading) {
@@ -174,6 +212,16 @@ export default function CarePlanScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5">
+          {/* Mandatory nurse review, if a cycle just wrapped up */}
+          {pendingReview && (
+            <ReviewDueBanner
+              pending={pendingReview}
+              onPress={() =>
+                router.push(`/past-care/${pendingReview.subscriptionId}` as any)
+              }
+            />
+          )}
+
           {/* Active care — tap to open the full plan and its visits */}
           <SectionLabel title="Active care" />
           <ActiveCarePlanCard

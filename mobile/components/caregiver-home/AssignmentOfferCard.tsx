@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
+import { Avatar } from "@/components/ui/Avatar";
 import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
-import { avatarColor } from "@/lib/avatar";
 import type { ApiAssignment } from "@/services/assignment.service";
 
 type Props = {
@@ -32,14 +32,12 @@ export function AssignmentOfferCard({ assignment, onPress }: Props) {
     >
       {/* Client + role */}
       <View className="flex-row items-center">
-        <View
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{ backgroundColor: avatarColor(assignment.client.name) }}
-        >
-          <Text className="text-white font-bold" style={{ fontSize: 13 }}>
-            {assignment.client.initials}
-          </Text>
-        </View>
+        <Avatar
+          name={assignment.client.name}
+          initials={assignment.client.initials}
+          photoUrl={assignment.family.photoUrl}
+          size={40}
+        />
         <View className="flex-1 ml-3">
           <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
             {assignment.client.name}

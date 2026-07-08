@@ -11,6 +11,7 @@ import { FamilyModule } from './family/family.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PackagesModule } from './packages/packages.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { StorageModule } from './storage/storage.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { VisitsModule } from './visits/visits.module';
@@ -30,6 +31,7 @@ import { VisitsModule } from './visits/visits.module';
     VisitsModule,
     BillingModule,
     FamilyModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

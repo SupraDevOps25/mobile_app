@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CareRecipientCard } from "@/components/care-plan/CareRecipientCard";
 import { CoordinatorCard } from "@/components/care-plan/CoordinatorCard";
+import { NurseReviewCard } from "@/components/care-plan/NurseReviewCard";
 import { RenewalCard } from "@/components/care-plan/RenewalCard";
 import { TeamNurseRow } from "@/components/care-plan/TeamNurseRow";
 import { VisitRow } from "@/components/care-plan/VisitRow";
@@ -20,6 +21,7 @@ import {
   subscriptionStatusPill,
 } from "@/constants/subscription-presentation";
 import { useFamilyProfile } from "@/hooks/useFamily";
+import { usePendingReview } from "@/hooks/useReviews";
 import { usePastCareDetail } from "@/hooks/useSubscription";
 import type {
   ApiPastCareDetail,
@@ -94,9 +96,13 @@ function Stat({ value, label }: { value: string; label: string }) {
 function LoadedDetail({ detail }: { detail: ApiPastCareDetail }) {
   const router = useRouter();
   const { data: family } = useFamilyProfile();
+  const { data: pendingReview } = usePendingReview();
   const ended = detail.status === "CANCELLED";
   const chip = statusChip(detail.status);
   const visits = sortVisits(detail.visits);
+  // A mandatory nurse review is due when this engagement's cycle is complete.
+  const reviewDue =
+    !!pendingReview && pendingReview.subscriptionId === detail.id;
 
   return (
     <ScrollView
@@ -134,8 +140,22 @@ function LoadedDetail({ detail }: { detail: ApiPastCareDetail }) {
         </View>
       </View>
 
-      {/* Renewal decision, when the period has ended and awaits the family */}
-      {detail.status === "RENEWING" && <RenewalCard subscription={detail} />}
+      {/* Mandatory nurse review(s) once the cycle is complete — lead + assistant */}
+      {reviewDue &&
+        pendingReview &&
+        pendingReview.caregivers.map((cg) => (
+          <NurseReviewCard
+            key={cg.caregiverId}
+            subscriptionId={pendingReview.subscriptionId}
+            packageName={pendingReview.packageName}
+            caregiver={cg}
+          />
+        ))}
+
+      {/* Renewal decision — unlocked only after the nurse has been rated */}
+      {detail.status === "RENEWING" && !reviewDue && (
+        <RenewalCard subscription={detail} />
+      )}
 
       {/* Care recipient */}
       <SectionLabel title="Care recipient" />

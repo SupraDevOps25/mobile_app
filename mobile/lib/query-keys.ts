@@ -8,6 +8,8 @@ export const qk = {
   subscriptionHistory: ["subscription", "history"] as const,
   pastCare: (id: string) => ["subscription", "history", id] as const,
 
+  pendingReview: ["reviews", "pending"] as const,
+
   offers: ["assignments", "offers"] as const,
   myAssignments: ["assignments", "mine"] as const,
   assignment: (id: string) => ["assignments", id] as const,

@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Avatar } from "@/components/ui/Avatar";
 import { useCaregiverAssignments } from "@/hooks/useVisits";
-import { avatarColor } from "@/lib/avatar";
 import type {
   ApiAssignmentVisit,
   ApiCaregiverAssignment,
@@ -55,6 +55,22 @@ function SectionLabel({ title }: { title: string }) {
     >
       {title.toUpperCase()}
     </Text>
+  );
+}
+
+// A labelled stat inside the dark navy family banner.
+function BannerStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-1 items-center">
+      <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
+        {label}
+      </Text>
+      <Text
+        style={{ color: "#ffffff", fontSize: 14, fontWeight: "700", marginTop: 3, textAlign: "center" }}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -197,55 +213,76 @@ export default function CaregiverAssignmentScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottom + 24 }}
       >
-        {/* Case banner */}
-        <View className="rounded-2xl p-4" style={{ backgroundColor: "#0f2461" }}>
+        {/* Family banner */}
+        <View className="rounded-2xl p-5" style={{ backgroundColor: "#0f2461" }}>
           <View className="flex-row items-center">
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center"
-              style={{ backgroundColor: avatarColor(c.name) }}
-            >
-              <Text className="text-white font-bold" style={{ fontSize: 15 }}>
-                {c.initials}
-              </Text>
-            </View>
-            <View className="flex-1 ml-3">
-              <Text className="text-white font-bold" style={{ fontSize: 16 }}>
-                {c.name}
-              </Text>
-              <Text style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>
-                {c.age} yrs · {c.gender === "MALE" ? "Male" : "Female"} · {ROLE_LABEL[item.role]}
-              </Text>
-            </View>
-          </View>
-          <View className="flex-row items-center mt-3" style={{ gap: 14 }}>
-            <View className="flex-row items-center">
-              <Ionicons name="cube-outline" size={14} color="#94a3b8" />
-              <Text style={{ color: "#cbd5e1", fontSize: 12, marginLeft: 5 }}>
-                {item.packageName ?? item.packageType}
-              </Text>
-            </View>
-            {item.coordinatorName && (
-              <View className="flex-row items-center">
-                <Ionicons name="person-outline" size={14} color="#94a3b8" />
-                <Text style={{ color: "#cbd5e1", fontSize: 12, marginLeft: 5 }}>
-                  {item.coordinatorName}
+            <Avatar
+              name={c.name}
+              initials={c.initials}
+              photoUrl={c.photoUrl}
+              size={56}
+            />
+            <View className="flex-1" style={{ marginLeft: 14 }}>
+              <View className="flex-row items-center" style={{ gap: 5 }}>
+                <Ionicons name="people" size={12} color="#93c5fd" />
+                <Text style={{ color: "#93c5fd", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 }}>
+                  FAMILY
                 </Text>
               </View>
-            )}
+              <Text className="text-white font-bold" style={{ fontSize: 18, marginTop: 2 }}>
+                {c.name}
+              </Text>
+            </View>
+            <View
+              className="rounded-full px-2.5 py-1"
+              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+            >
+              <Text style={{ color: "#e2e8f0", fontSize: 10, fontWeight: "700" }}>
+                {ROLE_LABEL[item.role]}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {/* Location */}
-        <View className="flex-row items-center mt-4">
-          <Ionicons name="location-outline" size={16} color="#6b7280" />
-          <Text className="text-foreground" style={{ fontSize: 14, marginLeft: 6, flex: 1 }}>
-            {[c.address, c.area, c.city].filter(Boolean).join(", ")}
-          </Text>
+          {/* Gender · age · package */}
+          <View
+            className="flex-row items-center rounded-2xl p-3.5 mt-4"
+            style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+          >
+            <BannerStat label="GENDER" value={c.gender === "MALE" ? "Male" : "Female"} />
+            <View style={{ width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.15)" }} />
+            <BannerStat label="AGE" value={`${c.age} yrs`} />
+            <View style={{ width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.15)" }} />
+            <BannerStat label="PACKAGE" value={item.packageName ?? item.packageType} />
+          </View>
+
+          {/* Visit address */}
+          <View className="flex-row items-center mt-3">
+            <Ionicons name="location" size={15} color="#93c5fd" />
+            <Text style={{ color: "#cbd5e1", fontSize: 12.5, lineHeight: 18, marginLeft: 7, flex: 1 }}>
+              {[c.address, c.area, c.city].filter(Boolean).join(", ")}
+            </Text>
+          </View>
+
+          {/* Care coordinator */}
+          {item.coordinatorName && (
+            <View
+              className="flex-row items-center mt-3 pt-3"
+              style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.12)" }}
+            >
+              <Ionicons name="shield-checkmark" size={16} color="#93c5fd" />
+              <Text style={{ color: "#94a3b8", fontSize: 12, marginLeft: 7 }}>
+                Care Coordinator
+              </Text>
+              <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "800", marginLeft: 6, flex: 1 }}>
+                {item.coordinatorName}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Conditions */}
         {c.conditions.length > 0 && (
-          <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
+          <View className="flex-row flex-wrap mt-4" style={{ gap: 8 }}>
             {c.conditions.map((cond) => (
               <View key={cond} className="rounded-full px-3 py-1.5" style={{ backgroundColor: "#f3f4f6" }}>
                 <Text style={{ color: "#374151", fontSize: 12, fontWeight: "500" }}>{cond}</Text>

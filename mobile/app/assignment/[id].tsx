@@ -237,8 +237,8 @@ export default function AssignmentOfferScreen() {
           </Text>
         </View>
 
-        {/* Client */}
-        <SectionLabel title="Client" />
+        {/* Family */}
+        <SectionLabel title="Family" />
         <AssignmentClientCard assignment={assignment} />
 
         {/* Package & schedule */}
@@ -316,23 +316,29 @@ export default function AssignmentOfferScreen() {
           </Text>
         </View>
 
-        {/* Details */}
-        <SectionLabel title="Details" />
+        {/* Family contact */}
+        <SectionLabel title="Family contact" />
         <View
-          className="bg-card rounded-2xl px-4"
+          className="flex-row items-center bg-card rounded-2xl p-4"
           style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
         >
-          <DetailRow
-            icon="location-outline"
-            label="Location"
-            value={`${assignment.client.area}, ${assignment.client.city}`}
-          />
-          <DetailRow
-            icon="person-outline"
-            label="Care Coordinator"
-            value={assignment.coordinatorName ?? "To be assigned"}
-            isLast
-          />
+          <View
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: "#eff6ff" }}
+          >
+            <Ionicons name="call" size={18} color="#2563eb" />
+          </View>
+          <View className="flex-1 ml-3">
+            <Text className="text-muted" style={{ fontSize: 12 }}>
+              {assignment.family.name}
+            </Text>
+            <Text
+              className="text-foreground font-bold"
+              style={{ fontSize: 15, marginTop: 1 }}
+            >
+              {assignment.family.phone}
+            </Text>
+          </View>
         </View>
 
         {/* Earnings */}

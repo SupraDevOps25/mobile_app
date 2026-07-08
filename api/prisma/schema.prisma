@@ -226,6 +226,7 @@ model CaregiverProfile {
   assignments Assignment[]
   visits      Visit[]
   documents   CaregiverDocument[]
+  reviews     Review[]
 
   @@map("caregiver_profiles")
 }
@@ -275,6 +276,7 @@ model FamilyProfile {
   payments       Payment[]
   savedAddresses SavedAddress[]
   paymentMethods PaymentMethod[]
+  reviews        Review[]
 
   @@map("family_profiles")
 }
@@ -384,8 +386,29 @@ model Subscription {
   assignments   Assignment[]
   visits        Visit[]
   payments      Payment[]
+  reviews       Review[]
 
   @@map("subscriptions")
+}
+
+// ─── Review (family rates the nurse at the end of a care cycle) ────────────────
+// Mandatory month-end feedback: one review per nurse per subscription. Feeds the
+// caregiver's aggregate rating, which the matching engine uses.
+model Review {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  caregiverId    String
+  familyId       String
+  rating         Int // 1..5 stars
+  comment        String?
+  createdAt      DateTime @default(now())
+
+  subscription Subscription     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  caregiver    CaregiverProfile @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+  family       FamilyProfile    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, caregiverId])
+  @@map("reviews")
 }
 
 // ─── Assignment (a nurse on a case, as primary or backup) ─────────────────────
