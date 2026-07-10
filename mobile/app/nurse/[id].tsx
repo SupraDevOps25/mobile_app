@@ -4,12 +4,14 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
+import { useRefresh } from "@/hooks/useRefresh";
 import {
   useActiveSubscription,
   usePastCareDetail,
@@ -37,10 +39,22 @@ function Stat({
       >
         <Ionicons name={icon} size={16} color={color} />
       </View>
-      <Text className="text-foreground font-bold" style={{ fontSize: 18 }}>
+      <Text
+        className="text-foreground font-bold"
+        style={{ fontSize: 18, lineHeight: 23 }}
+      >
         {value}
       </Text>
-      <Text className="text-muted" style={{ fontSize: 11, marginTop: 2 }}>
+      <Text
+        className="text-muted text-center"
+        style={{
+          fontSize: 11,
+          lineHeight: 15,
+          marginTop: 2,
+          minWidth: 0,
+          width: "100%",
+        }}
+      >
         {label}
       </Text>
     </View>
@@ -85,10 +99,12 @@ function GoodToKnowItem({
       <Text
         style={{
           color,
+          flexShrink: 1,
           fontSize: 12,
           fontWeight: "600",
           lineHeight: 18,
           marginLeft: 6,
+          minWidth: 0,
         }}
       >
         {label}
@@ -104,8 +120,11 @@ export default function NurseProfileScreen() {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
 
-  const { data: subscription, isLoading } = useActiveSubscription();
-  const { data: pastDetail, isLoading: pastLoading } = usePastCareDetail(sub);
+  const { data: subscription, isLoading, refetch: refetchSub } =
+    useActiveSubscription();
+  const { data: pastDetail, isLoading: pastLoading, refetch: refetchPast } =
+    usePastCareDetail(sub);
+  const { refreshing, onRefresh } = useRefresh([refetchSub, refetchPast]);
   const nurse =
     subscription?.careTeam.nurses.find((n) => n.assignmentId === id) ??
     pastDetail?.careTeam.nurses.find((n) => n.assignmentId === id);
@@ -147,6 +166,14 @@ export default function NurseProfileScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#1e3a8a"
+            colors={["#1e3a8a"]}
+          />
+        }
       >
         {/* Hero */}
         <View className="items-center" style={{ marginTop: 8 }}>
@@ -259,11 +286,34 @@ export default function NurseProfileScreen() {
               {nurse.languages.map((lang) => (
                 <View
                   key={lang}
-                  className="flex-row items-center rounded-full px-3 py-1.5"
-                  style={{ backgroundColor: "#f3f4f6" }}
+                  className="flex-row items-center rounded-full"
+                  style={{
+                    alignSelf: "flex-start",
+                    backgroundColor: "#f3f4f6",
+                    flexShrink: 0,
+                    minHeight: 34,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                  }}
                 >
-                  <Ionicons name="chatbubble-ellipses-outline" size={13} color="#6b7280" />
-                  <Text style={{ color: "#374151", fontSize: 12, marginLeft: 4 }}>
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={13}
+                    color="#6b7280"
+                    style={{ marginTop: 1 }}
+                  />
+                  <Text
+                    style={{
+                      color: "#374151",
+                      flexShrink: 0,
+                      fontSize: 12,
+                      includeFontPadding: true,
+                      lineHeight: 20,
+                      marginLeft: 4,
+                      minWidth: 0,
+                      paddingRight: 3,
+                    }}
+                  >
                     {lang}
                   </Text>
                 </View>
@@ -313,11 +363,34 @@ export default function NurseProfileScreen() {
               {nurse.serviceAreas.map((area) => (
                 <View
                   key={area}
-                  className="flex-row items-center rounded-full px-3 py-1.5"
-                  style={{ backgroundColor: "#f3f4f6" }}
+                  className="flex-row items-center rounded-full"
+                  style={{
+                    alignSelf: "flex-start",
+                    backgroundColor: "#f3f4f6",
+                    flexShrink: 0,
+                    minHeight: 34,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                  }}
                 >
-                  <Ionicons name="location-outline" size={13} color="#6b7280" />
-                  <Text style={{ color: "#374151", fontSize: 12, marginLeft: 4 }}>
+                  <Ionicons
+                    name="location-outline"
+                    size={13}
+                    color="#6b7280"
+                    style={{ marginTop: 1 }}
+                  />
+                  <Text
+                    style={{
+                      color: "#374151",
+                      flexShrink: 0,
+                      fontSize: 12,
+                      includeFontPadding: true,
+                      lineHeight: 20,
+                      marginLeft: 4,
+                      minWidth: 0,
+                      paddingRight: 3,
+                    }}
+                  >
                     {area}
                   </Text>
                 </View>

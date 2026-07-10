@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -11,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PastCareCard } from "@/components/care-plan/PastCareCard";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
+import { useRefresh } from "@/hooks/useRefresh";
 import { usePendingReview } from "@/hooks/useReviews";
 import {
   useActiveSubscription,
@@ -120,9 +122,15 @@ export default function CarePlanScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data: subscription, isLoading } = useActiveSubscription();
-  const { data: pastCare } = useSubscriptionHistory();
-  const { data: pendingReview } = usePendingReview();
+  const { data: subscription, isLoading, refetch: refetchSub } =
+    useActiveSubscription();
+  const { data: pastCare, refetch: refetchPast } = useSubscriptionHistory();
+  const { data: pendingReview, refetch: refetchReview } = usePendingReview();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchSub,
+    refetchPast,
+    refetchReview,
+  ]);
   const history = pastCare ?? [];
 
   if (isLoading) {
@@ -152,6 +160,14 @@ export default function CarePlanScreen() {
           className="flex-1"
           contentContainerStyle={{ paddingTop: 4, paddingBottom: 32 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#1e3a8a"
+              colors={["#1e3a8a"]}
+            />
+          }
         >
         <View className="px-5">
           <View
@@ -210,6 +226,14 @@ export default function CarePlanScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#1e3a8a"
+            colors={["#1e3a8a"]}
+          />
+        }
       >
         <View className="px-5">
           {/* Mandatory nurse review, if a cycle just wrapped up */}

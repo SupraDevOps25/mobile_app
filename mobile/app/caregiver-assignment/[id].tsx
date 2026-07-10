@@ -1,8 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/ui/Avatar";
+import { useRefresh } from "@/hooks/useRefresh";
 import { useCaregiverAssignments } from "@/hooks/useVisits";
 import type {
   ApiAssignmentVisit,
@@ -156,7 +164,8 @@ export default function CaregiverAssignmentScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const { data: assignments, isLoading } = useCaregiverAssignments();
+  const { data: assignments, isLoading, refetch } = useCaregiverAssignments();
+  const { refreshing, onRefresh } = useRefresh(refetch);
   const item = assignments?.find((a) => a.assignmentId === id);
 
   if (isLoading) {
@@ -212,6 +221,14 @@ export default function CaregiverAssignmentScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottom + 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16a34a"
+            colors={["#16a34a"]}
+          />
+        }
       >
         {/* Family banner */}
         <View className="rounded-2xl p-5" style={{ backgroundColor: "#0f2461" }}>

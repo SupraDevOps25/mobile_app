@@ -17,6 +17,7 @@ import {
   VisitStatus,
 } from '@prisma/client';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { coordinatorFeeGhs } from '../common/economics';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -738,6 +739,7 @@ export class SubscriptionsService {
           packageType: s.packageType,
           status: s.status,
           priceGhs: s.priceGhs.toNumber(),
+          coordinatorFeeGhs: coordinatorFeeGhs(s.priceGhs.toNumber()),
           assessmentDone,
           needsAssistant: s.needsAssistant,
           createdAt: s.createdAt,
@@ -803,6 +805,7 @@ export class SubscriptionsService {
       packageTagline: pkg?.tagline ?? null,
       inclusions: pkg?.inclusions ?? [],
       priceGhs: subscription.priceGhs.toNumber(),
+      coordinatorFeeGhs: coordinatorFeeGhs(subscription.priceGhs.toNumber()),
       visits: visits.map((v) => ({
         id: v.id,
         kind: v.kind,

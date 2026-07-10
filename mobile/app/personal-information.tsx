@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -71,6 +72,7 @@ export default function PersonalInformationScreen() {
     null,
   );
   const [addressFieldY, setAddressFieldY] = useState(0);
+  const [keyboardSpacer, setKeyboardSpacer] = useState(0);
 
   useEffect(() => {
     if (!profile) return;
@@ -82,13 +84,41 @@ export default function PersonalInformationScreen() {
     }
   }, [profile]);
 
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      const keyboardHeight = event.endCoordinates.height;
+      setKeyboardSpacer(
+        Platform.OS === "android"
+          ? Math.min(220, Math.max(140, keyboardHeight - bottom))
+          : 0,
+      );
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardSpacer(0));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [bottom]);
+
   function scrollToAddressField() {
     setTimeout(() => {
       scrollRef.current?.scrollTo({
-        y: Math.max(addressFieldY - 140, 0),
+        y: Math.max(addressFieldY - 100, 0),
         animated: true,
       });
-    }, 160);
+    }, Platform.OS === "android" ? 260 : 160);
+  }
+
+  function scrollToLowerFields() {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, Platform.OS === "android" ? 260 : 160);
   }
 
   const {
@@ -191,8 +221,7 @@ export default function PersonalInformationScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : top + 56}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View className="flex-1 bg-background">
         <StatusBar style="dark" />
@@ -226,9 +255,9 @@ export default function PersonalInformationScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
                 paddingHorizontal: 20,
-                paddingBottom: bottom + 72,
+                paddingBottom: bottom + 96 + keyboardSpacer,
               }}
-              keyboardDismissMode="interactive"
+              keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
             >
               {/* Profile photo */}
@@ -318,6 +347,7 @@ export default function PersonalInformationScreen() {
                     onBlur={onBlur}
                     placeholder="0244123456"
                     keyboardType="phone-pad"
+                    onFocus={scrollToLowerFields}
                     error={errors.phone?.message}
                   />
                 )}

@@ -2,12 +2,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Switch,
   Text,
@@ -19,6 +20,7 @@ import { AssignmentOfferCard } from "@/components/caregiver-home/AssignmentOffer
 import { GreetingCard } from "@/components/caregiver-home/GreetingCard";
 import { StatCard } from "@/components/caregiver-home/StatCard";
 import { UpcomingVisitRow } from "@/components/caregiver-home/UpcomingVisitRow";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { verificationMeta } from "@/constants/verification";
 import { useOffers } from "@/hooks/useAssignments";
 import {
@@ -27,6 +29,7 @@ import {
 } from "@/hooks/useCaregiverProfile";
 import { useUpcomingVisits, useVisitHistory } from "@/hooks/useVisits";
 import { useAuth } from "@/hooks/useAuth";
+import { useRefresh } from "@/hooks/useRefresh";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -52,11 +55,22 @@ export default function CaregiverHomeScreen() {
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
 
-  const { data: offers, isLoading: offersLoading } = useOffers();
-  const { data: upcoming, isLoading: visitsLoading } = useUpcomingVisits();
-  const { data: past } = useVisitHistory();
-  const { data: profile } = useCaregiverProfile();
+  const { data: offers, isLoading: offersLoading, refetch: refetchOffers } =
+    useOffers();
+  const {
+    data: upcoming,
+    isLoading: visitsLoading,
+    refetch: refetchUpcoming,
+  } = useUpcomingVisits();
+  const { data: past, refetch: refetchPast } = useVisitHistory();
+  const { data: profile, refetch: refetchProfile } = useCaregiverProfile();
   const setAvailability = useSetAvailability();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchOffers,
+    refetchUpcoming,
+    refetchPast,
+    refetchProfile,
+  ]);
   const offerCount = offers?.length ?? 0;
   const available = profile?.isAvailable ?? false;
 
@@ -71,6 +85,19 @@ export default function CaregiverHomeScreen() {
     ? verificationMeta(profile.verificationStatus)
     : null;
   const previewVisits = upcomingList.slice(0, 3);
+
+  // Dashboard quick search — find a visit by patient name or area across the
+  // nurse's upcoming and past visits.
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const searchResults = searching
+    ? [...upcomingList, ...pastList].filter(
+        (v) =>
+          v.clientName.toLowerCase().includes(q) ||
+          v.area.toLowerCase().includes(q),
+      )
+    : [];
 
   // First-run: send a brand-new caregiver (no credentials submitted yet) into
   // the onboarding wizard. The "seen" flag means we only auto-redirect once —
@@ -127,6 +154,14 @@ export default function CaregiverHomeScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16a34a"
+            colors={["#16a34a"]}
+          />
+        }
       >
       {/* Greeting card */}
       <View className="px-5 mb-4">
@@ -140,6 +175,48 @@ export default function CaregiverHomeScreen() {
         />
       </View>
 
+      {/* Quick search */}
+      <View className="px-5 mb-4">
+        <SearchInput
+          value={query}
+          onChangeText={setQuery}
+          accent="#16a34a"
+          placeholder="Search visits by patient or area"
+        />
+      </View>
+
+      {searching ? (
+        /* Search results — matching visits */
+        <View className="px-5">
+          {searchResults.length === 0 ? (
+            <View className="items-center" style={{ paddingVertical: 36 }}>
+              <Ionicons name="search-outline" size={28} color="#9ca3af" />
+              <Text className="text-muted text-center" style={{ fontSize: 14, marginTop: 10 }}>
+                No visits match “{query.trim()}”.
+              </Text>
+            </View>
+          ) : (
+            searchResults.map((visit) => (
+              <UpcomingVisitRow
+                key={visit.id}
+                visit={visit}
+                onPress={(v) =>
+                  v.status === "SCHEDULED" || v.status === "IN_PROGRESS"
+                    ? router.push({
+                        pathname: "/(caregiver-tabs)/active-visit" as any,
+                        params: { id: v.id },
+                      })
+                    : router.push({
+                        pathname: "/caregiver-visit/[id]" as any,
+                        params: { id: v.id },
+                      })
+                }
+              />
+            ))
+          )}
+        </View>
+      ) : (
+        <>
       {/* Verification banner — until the account is verified */}
       {verification && profile && profile.verificationStatus !== "VERIFIED" && (
         <Pressable
@@ -337,6 +414,8 @@ export default function CaregiverHomeScreen() {
           </>
         )}
       </View>
+        </>
+      )}
       </ScrollView>
     </View>
   );

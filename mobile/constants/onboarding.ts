@@ -27,3 +27,30 @@ export const FEATURES = [
     icon: "🗓",
   },
 ] as const;
+
+export const SCHEDULE_TAGS = [
+  {
+    label: "Flexible schedule",
+    icon: "calendar-outline",
+    bg: "#DCFCE7",
+    color: "#15803d",
+  },
+  {
+    label: "Verified & secure",
+    icon: "heart-outline",
+    bg: "#FEF3C7",
+    color: "#b45309",
+  },
+  {
+    label: "Work nearby",
+    icon: "location-outline",
+    bg: "#DBEAFE",
+    color: "#1d4ed8",
+  },
+] as const;
+
+export const SCHEDULE_PROTECTIONS = [
+  "You control your availability",
+  "Set max visits per day to manage workload",
+  "Get Verified before being matched with a family",
+] as const;

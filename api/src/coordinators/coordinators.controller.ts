@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Patch,
+  Post,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -35,5 +36,21 @@ export class CoordinatorsController {
     @Body() dto: UpdateCoordinatorDto,
   ) {
     return this.coordinators.updateMe(req.user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Coordinator: my earnings (8% fee per paid month)' })
+  @Roles('CARE_COORDINATOR')
+  @Get('me/earnings')
+  earnings(@Request() req: { user: { id: string } }) {
+    return this.coordinators.earnings(req.user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Coordinator: request payout for available months',
+  })
+  @Roles('CARE_COORDINATOR')
+  @Post('me/payouts')
+  requestPayout(@Request() req: { user: { id: string } }) {
+    return this.coordinators.requestPayout(req.user.id);
   }
 }

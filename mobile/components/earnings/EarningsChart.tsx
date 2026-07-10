@@ -5,9 +5,17 @@ const MAX_BAR_HEIGHT = 80;
 
 type Props = {
   bars: ChartBar[];
+  /** Tallest-bar colour; defaults to the family/nurse navy. */
+  accent?: string;
+  /** Colour of the shorter bars; defaults to a light blue. */
+  accentMuted?: string;
 };
 
-export function EarningsChart({ bars }: Props) {
+export function EarningsChart({
+  bars,
+  accent = "#1e3a8a",
+  accentMuted = "#bfdbfe",
+}: Props) {
   const max = Math.max(...bars.map((b) => b.amountGhs), 1);
 
   return (
@@ -22,7 +30,7 @@ export function EarningsChart({ bars }: Props) {
               className="w-full rounded-t-lg"
               style={{
                 height,
-                backgroundColor: isTop ? "#1e3a8a" : "#bfdbfe",
+                backgroundColor: isTop ? accent : accentMuted,
               }}
             />
             <Text className="text-muted" style={{ fontSize: 10, marginTop: 6 }}>

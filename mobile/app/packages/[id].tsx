@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -10,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toPackageView } from "@/constants/package-presentation";
 import { usePackage } from "@/hooks/usePackages";
+import { useRefresh } from "@/hooks/useRefresh";
 import type { ApiPackageType } from "@/services/package.service";
 
 export default function PackageDetailScreen() {
@@ -17,7 +19,10 @@ export default function PackageDetailScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const { data, isLoading, isError } = usePackage(id as ApiPackageType);
+  const { data, isLoading, isError, refetch } = usePackage(
+    id as ApiPackageType,
+  );
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   if (isLoading) {
     return (
@@ -60,6 +65,14 @@ export default function PackageDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#1e3a8a"
+            colors={["#1e3a8a"]}
+          />
+        }
       >
         {/* Hero */}
         <View

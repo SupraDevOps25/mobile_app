@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,24 @@ export default function ActiveVisitScreen() {
 
   const [logged, setLogged] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+
+  // Track whether the scheduled visit time has elapsed. This stays true after
+  // the auto-end alert is dismissed, so a nurse who navigates away and returns
+  // still has a clear way to proceed to the care report.
+  const [timeOver, setTimeOver] = useState(false);
+  useEffect(() => {
+    const isStarted = visit?.status === "IN_PROGRESS";
+    if (!isStarted || !visit?.startedAt) {
+      setTimeOver(false);
+      return;
+    }
+    const endMs =
+      new Date(visit.startedAt).getTime() + visit.durationHrs * 3600 * 1000;
+    const check = () => setTimeOver(Date.now() >= endMs);
+    check();
+    const timer = setInterval(check, 1000);
+    return () => clearInterval(timer);
+  }, [visit?.status, visit?.startedAt, visit?.durationHrs]);
 
   if (isLoading) {
     return (
@@ -128,8 +146,9 @@ export default function ActiveVisitScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 220 }}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         {started ? (
           <TimerCard
@@ -250,6 +269,34 @@ export default function ActiveVisitScreen() {
                 />
               </View>
             </View>
+
+            {/* Once the scheduled time is up, a persistent way to finish — so a
+                nurse returning to this screen doesn't have to tap "End visit". */}
+            {timeOver && (
+              <View className="mt-5">
+                <View
+                  className="flex-row items-center rounded-xl px-4 py-3 mb-3"
+                  style={{ backgroundColor: "#f0fdf4" }}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                  <Text
+                    style={{ color: "#15803d", fontSize: 12.5, marginLeft: 8, flex: 1, lineHeight: 18 }}
+                  >
+                    Visit time is complete. Finish by filling in the care report.
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={goToReport}
+                  className="rounded-2xl items-center justify-center flex-row"
+                  style={{ backgroundColor: "#16a34a", paddingVertical: 16, gap: 8 }}
+                >
+                  <Ionicons name="clipboard-outline" size={18} color="#ffffff" />
+                  <Text className="text-white font-bold" style={{ fontSize: 16 }}>
+                    Complete care report
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </>
         )}
 

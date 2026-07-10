@@ -106,7 +106,10 @@ export class AuthService {
       },
     });
 
-    await this.mail.sendVerificationEmail(user.email, verification.token);
+    await this.mail.sendVerificationEmail(user.email, verification.token, {
+      firstName: user.firstName,
+      role: user.role,
+    });
 
     return { message: `Verification email sent to ${user.email}` };
   }
@@ -159,7 +162,10 @@ export class AuthService {
       },
     });
 
-    await this.mail.sendVerificationEmail(user.email, verification.token);
+    await this.mail.sendVerificationEmail(user.email, verification.token, {
+      firstName: user.firstName,
+      role: user.role,
+    });
 
     return { message: 'Verification email resent.' };
   }

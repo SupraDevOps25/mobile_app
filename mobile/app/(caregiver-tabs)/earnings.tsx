@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -24,6 +25,7 @@ import {
   useCaregiverEarnings,
   useRequestPayout,
 } from "@/hooks/useCaregiverProfile";
+import { useRefresh } from "@/hooks/useRefresh";
 import type { ApiEarningsTransaction } from "@/services/caregiver.service";
 
 const MONTHS_UP = [
@@ -87,8 +89,9 @@ export default function EarningsScreen() {
   const isFocused = useIsFocused();
   const [periodId, setPeriodId] = useState<EarningsPeriodId>("month");
 
-  const { data: earnings, isLoading } = useCaregiverEarnings();
+  const { data: earnings, isLoading, refetch } = useCaregiverEarnings();
   const requestPayout = useRequestPayout();
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   const period = earnings?.periods.find((p) => p.id === periodId) ?? null;
   const meta = PERIOD_META[periodId];
@@ -216,6 +219,14 @@ export default function EarningsScreen() {
             className="flex-1"
             contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#16a34a"
+                colors={["#16a34a"]}
+              />
+            }
           >
             <PeriodTabs
               periods={PERIOD_ORDER.map((id) => ({

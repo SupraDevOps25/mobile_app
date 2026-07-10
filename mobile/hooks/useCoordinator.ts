@@ -45,6 +45,23 @@ export function useUpdateCoordinatorProfile() {
   });
 }
 
+export function useCoordinatorEarnings() {
+  return useQuery({
+    queryKey: qk.coordinatorEarnings,
+    queryFn: () => coordinatorService.earnings(),
+  });
+}
+
+export function useRequestCoordinatorPayout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => coordinatorService.requestPayout(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.coordinatorEarnings });
+    },
+  });
+}
+
 function useCaseMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
   const qc = useQueryClient();
   return useMutation({

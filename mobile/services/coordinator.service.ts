@@ -4,6 +4,11 @@ import type {
   ApiAssignmentStatus,
 } from "@/services/assignment.service";
 import type { ApiInvoice } from "@/services/billing.service";
+import type {
+  ApiEarningsPeriod,
+  ApiEarningsTransaction,
+  ApiPayoutResult,
+} from "@/services/caregiver.service";
 import type { ApiPackageType } from "@/services/package.service";
 import type {
   ApiBookingFor,
@@ -47,6 +52,7 @@ export interface ApiCoordinatorCase {
   packageType: ApiPackageType;
   status: ApiSubscriptionStatus;
   priceGhs: number;
+  coordinatorFeeGhs: number; // the coordinator's 8% fee for one billing month
   createdAt: string;
   assessmentAt: string | null;
   assessmentDone: boolean;
@@ -108,6 +114,7 @@ export interface ApiCoordinatorCaseDetail {
   packageTagline: string | null;
   inclusions: string[];
   priceGhs: number;
+  coordinatorFeeGhs: number; // the coordinator's 8% fee for one billing month
   visits: ApiCoordinatorCaseVisit[];
 }
 
@@ -144,9 +151,23 @@ export interface UpdateCoordinatorPayload {
   workplace?: string;
 }
 
+// The coordinator's earnings (their 8% fee per paid subscription month).
+export interface ApiCoordinatorEarnings {
+  availableGhs: number; // withdrawable now
+  requestedGhs: number; // awaiting admin disbursement
+  paidOutGhs: number; // disbursed all-time
+  activeCases: number;
+  periods: ApiEarningsPeriod[];
+  recentTransactions: ApiEarningsTransaction[];
+}
+
 export const coordinatorService = {
   cases: () => api.get<ApiCoordinatorCase[]>("/subscriptions/coordinating"),
   me: () => api.get<ApiCoordinatorProfile>("/coordinators/me"),
+  earnings: () =>
+    api.get<ApiCoordinatorEarnings>("/coordinators/me/earnings"),
+  requestPayout: () =>
+    api.post<ApiPayoutResult>("/coordinators/me/payouts"),
   updateMe: (payload: UpdateCoordinatorPayload) =>
     api.patch<ApiCoordinatorProfile>("/coordinators/me", payload),
   caseDetail: (id: string) =>

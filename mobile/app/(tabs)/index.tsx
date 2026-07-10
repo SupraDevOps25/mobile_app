@@ -1,9 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -15,6 +17,7 @@ import { CTABanner } from "@/components/home/CTABanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { PastCareCard } from "@/components/care-plan/PastCareCard";
 import { PackageCard } from "@/components/packages/PackageCard";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { toPackageView } from "@/constants/package-presentation";
 import { usePackages } from "@/hooks/usePackages";
 import {
@@ -23,6 +26,7 @@ import {
 } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamilyProfile } from "@/hooks/useFamily";
+import { useRefresh } from "@/hooks/useRefresh";
 
 // How many packages to preview on the home screen (full list is on /packages).
 const HOME_PACKAGE_LIMIT = 2;
@@ -39,13 +43,34 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const { data: subscription } = useActiveSubscription();
-  const { data: packages, isLoading: packagesLoading } = usePackages();
-  const { data: pastCare } = useSubscriptionHistory();
-  const { data: familyProfile } = useFamilyProfile();
+  const { data: subscription, refetch: refetchSub } = useActiveSubscription();
+  const { data: packages, isLoading: packagesLoading, refetch: refetchPackages } =
+    usePackages();
+  const { data: pastCare, refetch: refetchPast } = useSubscriptionHistory();
+  const { data: familyProfile, refetch: refetchProfile } = useFamilyProfile();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchSub,
+    refetchPackages,
+    refetchPast,
+    refetchProfile,
+  ]);
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
   const photoUrl = familyProfile?.photoUrl ?? null;
+
+  // Dashboard quick search — filter care packages by name, tagline or fit.
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const packageViews = (packages ?? []).map(toPackageView);
+  const filteredPackages = searching
+    ? packageViews.filter(
+        (v) =>
+          v.name.toLowerCase().includes(q) ||
+          v.tagline.toLowerCase().includes(q) ||
+          v.idealFor.toLowerCase().includes(q),
+      )
+    : [];
 
   return (
     <View className="flex-1 bg-background">
@@ -85,6 +110,14 @@ export default function HomeScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#1e3a8a"
+            colors={["#1e3a8a"]}
+          />
+        }
       >
       {/* Greeting */}
       <View className="px-5 mb-5">
@@ -98,69 +131,103 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* Active plan summary, or the get-started CTA */}
-      <View className="px-5 mb-6">
-        {subscription ? (
-          <ActiveCarePlanCard subscription={subscription} />
-        ) : (
-          <CTABanner />
-        )}
+      {/* Quick search */}
+      <View className="px-5 mb-5">
+        <SearchInput
+          value={query}
+          onChangeText={setQuery}
+          accent="#1e3a8a"
+          placeholder="Search care packages"
+        />
       </View>
 
-      {/* Packages */}
-      <View className="px-5">
-        <SectionHeader
-          title="Our care packages"
-          onSeeAll={() => router.push("/packages" as any)}
-        />
-        {packagesLoading ? (
-          <ActivityIndicator color="#1e3a8a" style={{ marginVertical: 24 }} />
-        ) : (
-          (packages ?? []).slice(0, HOME_PACKAGE_LIMIT).map((pkg) => {
-            const view = toPackageView(pkg);
-            return (
+      {searching ? (
+        /* Search results — matching care packages */
+        <View className="px-5">
+          {filteredPackages.length === 0 ? (
+            <View className="items-center" style={{ paddingVertical: 36 }}>
+              <Ionicons name="search-outline" size={28} color="#9ca3af" />
+              <Text className="text-muted text-center" style={{ fontSize: 14, marginTop: 10 }}>
+                No care packages match “{query.trim()}”.
+              </Text>
+            </View>
+          ) : (
+            filteredPackages.map((view) => (
               <PackageCard
                 key={view.type}
                 pkg={view}
                 onPress={(p) => router.push(`/packages/${p.type}` as any)}
               />
-            );
-          })
-        )}
-      </View>
+            ))
+          )}
+        </View>
+      ) : (
+        <>
+          {/* Active plan summary, or the get-started CTA */}
+          <View className="px-5 mb-6">
+            {subscription ? (
+              <ActiveCarePlanCard subscription={subscription} />
+            ) : (
+              <CTABanner />
+            )}
+          </View>
 
-      {/* Previous care received — a record of past engagements */}
-      {(pastCare ?? []).length > 0 && (
-        <View className="px-5 mt-6">
-          <SectionHeader
-            title="Previous care"
-            onSeeAll={() => router.push("/(tabs)/bookings" as any)}
-          />
-          {(pastCare ?? []).slice(0, 2).map((item) => (
-            <PastCareCard
-              key={item.id}
-              item={item}
-              onPress={(p) => router.push(`/past-care/${p.id}` as any)}
+          {/* Packages */}
+          <View className="px-5">
+            <SectionHeader
+              title="Our care packages"
+              onSeeAll={() => router.push("/packages" as any)}
             />
-          ))}
-        </View>
-      )}
+            {packagesLoading ? (
+              <ActivityIndicator color="#1e3a8a" style={{ marginVertical: 24 }} />
+            ) : (
+              (packages ?? []).slice(0, HOME_PACKAGE_LIMIT).map((pkg) => {
+                const view = toPackageView(pkg);
+                return (
+                  <PackageCard
+                    key={view.type}
+                    pkg={view}
+                    onPress={(p) => router.push(`/packages/${p.type}` as any)}
+                  />
+                );
+              })
+            )}
+          </View>
 
-      {/* How it works */}
-      <View className="px-5 mt-2">
-        <View
-          className="flex-row rounded-2xl p-4"
-          style={{ backgroundColor: "#eff6ff" }}
-        >
-          <Ionicons name="shield-checkmark-outline" size={18} color="#2563eb" />
-          <Text
-            style={{ color: "#1d4ed8", fontSize: 12, lineHeight: 18, marginLeft: 8, flex: 1 }}
-          >
-            You choose a package — Supracarer assigns and coordinates a dedicated
-            care team, including a Care Coordinator and backup nurses.
-          </Text>
-        </View>
-      </View>
+          {/* Previous care received — a record of past engagements */}
+          {(pastCare ?? []).length > 0 && (
+            <View className="px-5 mt-6">
+              <SectionHeader
+                title="Previous care"
+                onSeeAll={() => router.push("/(tabs)/bookings" as any)}
+              />
+              {(pastCare ?? []).slice(0, 2).map((item) => (
+                <PastCareCard
+                  key={item.id}
+                  item={item}
+                  onPress={(p) => router.push(`/past-care/${p.id}` as any)}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* How it works */}
+          <View className="px-5 mt-2">
+            <View
+              className="flex-row rounded-2xl p-4"
+              style={{ backgroundColor: "#eff6ff" }}
+            >
+              <Ionicons name="shield-checkmark-outline" size={18} color="#2563eb" />
+              <Text
+                style={{ color: "#1d4ed8", fontSize: 12, lineHeight: 18, marginLeft: 8, flex: 1 }}
+              >
+                You choose a package — Supracarer assigns and coordinates a dedicated
+                care team, including a Care Coordinator and backup nurses.
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
       </ScrollView>
     </View>
   );

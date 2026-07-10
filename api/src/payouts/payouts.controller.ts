@@ -38,4 +38,24 @@ export class PayoutsController {
   markPaid(@Param('id') id: string) {
     return this.payouts.markPaid(id);
   }
+
+  @ApiOperation({
+    summary: 'Admin: list coordinator payout requests (optionally by status)',
+  })
+  @Get('coordinators')
+  listCoordinator(@Query('status') status?: PayoutStatus) {
+    const valid =
+      status === PayoutStatus.PENDING || status === PayoutStatus.PAID
+        ? status
+        : undefined;
+    return this.payouts.listCoordinator(valid);
+  }
+
+  @ApiOperation({
+    summary: 'Admin: mark a coordinator payout as paid (disbursed)',
+  })
+  @Patch('coordinators/:id/paid')
+  markCoordinatorPaid(@Param('id') id: string) {
+    return this.payouts.markCoordinatorPaid(id);
+  }
 }

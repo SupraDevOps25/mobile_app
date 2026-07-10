@@ -27,6 +27,19 @@ import {
 } from "@/schemas/subscribe.schemas";
 import type { ApiPackageType } from "@/services/package.service";
 
+// Derive a whole-number age from a stored date of birth. Returns null when
+// there's no DOB on file so we know to ask for the age instead.
+function computeAge(dob: string | null | undefined): number | null {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age >= 0 ? age : null;
+}
+
 function SectionLabel({ title }: { title: string }) {
   return (
     <Text
@@ -76,15 +89,26 @@ export default function SubscribeScreen() {
   const accountName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
     : "";
+  // When booking for self we reuse the age already on the account profile; only
+  // ask for it if the profile has no date of birth on file.
+  const profileAge = computeAge(profile?.dateOfBirth);
+  const showAgeInput = bookingFor === "LOVED_ONE" || profileAge == null;
 
   // Keep the self-booking name in sync once the account profile resolves
   // (it may load after the user has already tapped "Myself").
   useEffect(() => {
-    if (bookingFor === "SELF" && accountName) {
+    if (bookingFor !== "SELF") return;
+    if (accountName) {
       setValue("name", accountName, { shouldValidate: true });
       setValue("relationToAccount", "Self", { shouldValidate: true });
     }
-  }, [bookingFor, accountName, setValue]);
+    if (profileAge != null) {
+      setValue("age", String(profileAge), { shouldValidate: true });
+    }
+    if (profile?.gender) {
+      setValue("gender", profile.gender);
+    }
+  }, [bookingFor, accountName, profileAge, profile?.gender, setValue]);
 
   // When booking for self, use the account holder's own details; when for a
   // loved one, let the family fill their name and relationship fresh.
@@ -93,9 +117,14 @@ export default function SubscribeScreen() {
     if (value === "SELF") {
       setValue("name", accountName, { shouldValidate: true });
       setValue("relationToAccount", "Self", { shouldValidate: true });
+      if (profileAge != null) {
+        setValue("age", String(profileAge), { shouldValidate: true });
+      }
+      if (profile?.gender) setValue("gender", profile.gender);
     } else {
       setValue("name", "");
       setValue("relationToAccount", "");
+      setValue("age", "");
     }
   }
 
@@ -191,7 +220,8 @@ export default function SubscribeScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+          automaticallyAdjustKeyboardInsets
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 220 }}
         >
           <View style={{ marginTop: 4 }}>
             <PackageSummaryCard pkg={pkg} />
@@ -260,8 +290,11 @@ export default function SubscribeScreen() {
                 style={{ color: "#166534", fontSize: 13, marginLeft: 8, flex: 1 }}
               >
                 Booking for yourself
-                {accountName ? ` — ${accountName}` : ""}. Just add your age and
-                care details below.
+                {accountName ? ` — ${accountName}` : ""}
+                {profileAge != null ? ` (${profileAge})` : ""}.{" "}
+                {profileAge != null
+                  ? "Just add the care details below."
+                  : "Just add your age and care details below."}
               </Text>
             </View>
           ) : (
@@ -281,23 +314,25 @@ export default function SubscribeScreen() {
           )}
 
           <View className="flex-row" style={{ gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Controller
-                control={control}
-                name="age"
-                render={({ field: { value, onChange, onBlur } }) => (
-                  <Input
-                    placeholder="Age"
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    keyboardType="number-pad"
-                    error={errors.age?.message}
-                  />
-                )}
-              />
-            </View>
-            <View style={{ flex: 1.4 }}>
+            {showAgeInput && (
+              <View style={{ flex: 1 }}>
+                <Controller
+                  control={control}
+                  name="age"
+                  render={({ field: { value, onChange, onBlur } }) => (
+                    <Input
+                      placeholder="Age"
+                      value={value}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      keyboardType="number-pad"
+                      error={errors.age?.message}
+                    />
+                  )}
+                />
+              </View>
+            )}
+            <View style={{ flex: showAgeInput ? 1.4 : 1 }}>
               <Controller
                 control={control}
                 name="gender"
@@ -334,6 +369,24 @@ export default function SubscribeScreen() {
               />
             </View>
           </View>
+
+          {/* Nudge self-bookers to save their DOB so we can reuse it next time */}
+          {bookingFor === "SELF" && profileAge == null && (
+            <Pressable
+              onPress={() => router.push("/personal-information" as any)}
+              className="flex-row items-center rounded-2xl px-4 py-3 mb-4"
+              style={{ backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fde68a" }}
+            >
+              <Ionicons name="calendar-outline" size={18} color="#b45309" />
+              <Text
+                style={{ color: "#92400e", fontSize: 12.5, marginLeft: 8, flex: 1, lineHeight: 18 }}
+              >
+                Add your date of birth to your profile and we&apos;ll fill your age
+                in automatically next time.
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color="#b45309" />
+            </Pressable>
+          )}
 
           {bookingFor === "LOVED_ONE" && (
             <Controller

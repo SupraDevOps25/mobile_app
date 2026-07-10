@@ -1,10 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -14,13 +16,16 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { CaseCard } from "@/components/coordinator/CaseCard";
 import { CoordinatorLogRow } from "@/components/coordinator/CoordinatorLogRow";
 import { Avatar } from "@/components/ui/Avatar";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { caseAction } from "@/constants/coordinator-presentation";
 import {
   useCoordinatorCases,
+  useCoordinatorEarnings,
   useCoordinatorLogs,
   useCoordinatorProfile,
 } from "@/hooks/useCoordinator";
 import { useAuth } from "@/hooks/useAuth";
+import { useRefresh } from "@/hooks/useRefresh";
 import { initialsOf } from "@/lib/avatar";
 
 // True when an ISO timestamp falls in the current calendar month.
@@ -68,11 +73,11 @@ function StatTile({
       style={({ pressed }) => ({
         width: "48%",
         backgroundColor: bg,
-        borderRadius: 18,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: border,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
         opacity: pressed ? 0.9 : 1,
         transform: [{ scale: pressed ? 0.98 : 1 }],
         shadowColor: "#0f172a",
@@ -84,23 +89,23 @@ function StatTile({
     >
       <View className="flex-row items-start justify-between">
         <View
-          className="w-9 h-9 rounded-xl items-center justify-center"
+          className="w-8 h-8 rounded-xl items-center justify-center"
           style={{ backgroundColor: "rgba(255,255,255,0.7)" }}
         >
-          <Ionicons name={icon} size={19} color={tint} />
+          <Ionicons name={icon} size={17} color={tint} />
         </View>
         <Ionicons
           name="arrow-forward"
-          size={15}
+          size={14}
           color={tint}
           style={{ opacity: 0.45, marginTop: 2 }}
         />
       </View>
-      <Text style={{ color: tint, fontSize: 26, fontWeight: "800", marginTop: 8 }}>
+      <Text style={{ color: tint, fontSize: 22, fontWeight: "800", marginTop: 6 }}>
         {value}
       </Text>
       <Text
-        style={{ color: tint, fontSize: 12, marginTop: 1, fontWeight: "700", opacity: 0.85 }}
+        style={{ color: tint, fontSize: 11.5, marginTop: 1, fontWeight: "700", opacity: 0.85 }}
       >
         {label}
       </Text>
@@ -109,20 +114,20 @@ function StatTile({
       <View
         className="flex-row items-center"
         style={{
-          marginTop: 9,
-          paddingTop: 8,
+          marginTop: 7,
+          paddingTop: 6,
           borderTopWidth: 1,
           borderTopColor: border,
         }}
       >
         <View
           className="rounded-full items-center justify-center"
-          style={{ width: 17, height: 17, backgroundColor: "rgba(255,255,255,0.7)" }}
+          style={{ width: 16, height: 16, backgroundColor: "rgba(255,255,255,0.7)" }}
         >
-          <Ionicons name="trending-up" size={11} color={tint} />
+          <Ionicons name="trending-up" size={10} color={tint} />
         </View>
         <Text
-          style={{ color: tint, fontSize: 10.5, fontWeight: "700", marginLeft: 6, opacity: 0.9 }}
+          style={{ color: tint, fontSize: 10, fontWeight: "700", marginLeft: 5, opacity: 0.9 }}
           numberOfLines={1}
         >
           {monthValue} {monthLabel}
@@ -137,9 +142,19 @@ export default function CoordinatorHomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const { data: cases, isLoading } = useCoordinatorCases();
-  const { data: logs } = useCoordinatorLogs();
-  const { data: profile } = useCoordinatorProfile();
+  const { data: cases, isLoading, refetch: refetchCases } = useCoordinatorCases();
+  const { data: logs, refetch: refetchLogs } = useCoordinatorLogs();
+  const { data: profile, refetch: refetchProfile } = useCoordinatorProfile();
+  const { data: earnings, refetch: refetchEarnings } = useCoordinatorEarnings();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchCases,
+    refetchLogs,
+    refetchProfile,
+    refetchEarnings,
+  ]);
+  const monthEarnings =
+    earnings?.periods.find((p) => p.id === "month")?.totalGhs ?? 0;
+  const availableEarnings = earnings?.availableGhs ?? 0;
 
   const fullName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
@@ -175,6 +190,20 @@ export default function CoordinatorHomeScreen() {
   const recent = list
     .filter((c) => !attentionIds.has(c.id) && c.status !== "CANCELLED")
     .slice(0, 4);
+
+  // Dashboard quick search — find a case by patient, family or location.
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const searchResults = searching
+    ? list.filter(
+        (c) =>
+          c.recipient.name.toLowerCase().includes(q) ||
+          c.family.name.toLowerCase().includes(q) ||
+          c.recipient.city.toLowerCase().includes(q) ||
+          c.recipient.area.toLowerCase().includes(q),
+      )
+    : [];
 
   return (
     <View className="flex-1 bg-background">
@@ -226,9 +255,83 @@ export default function CoordinatorHomeScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0d9488"
+            colors={["#0d9488"]}
+          />
+        }
       >
+      {/* Earnings summary — always on top; tap for the full breakdown */}
+      <View className="px-5 mb-4">
+        <Pressable
+          onPress={() => router.push("/coordinator-earnings" as any)}
+          className="flex-row items-center rounded-2xl p-4"
+          style={{ backgroundColor: "#134e4a" }}
+        >
+          <View
+            className="w-11 h-11 rounded-full items-center justify-center"
+            style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+          >
+            <Ionicons name="wallet-outline" size={20} color="#5eead4" />
+          </View>
+          <View className="flex-1 ml-3">
+            <Text style={{ color: "#99f6e4", fontSize: 11, letterSpacing: 0.5, fontWeight: "700" }}>
+              EARNINGS · THIS MONTH
+            </Text>
+            <Text className="text-white font-bold" style={{ fontSize: 20, marginTop: 1 }}>
+              GH₵ {monthEarnings.toLocaleString()}
+            </Text>
+          </View>
+          {availableEarnings > 0 ? (
+            <View
+              className="rounded-full px-3 py-1.5 mr-1"
+              style={{ backgroundColor: "#ccfbf1" }}
+            >
+              <Text style={{ color: "#0f766e", fontSize: 11, fontWeight: "700" }}>
+                GH₵ {availableEarnings.toLocaleString()} ready
+              </Text>
+            </View>
+          ) : (
+            <Ionicons name="chevron-forward" size={18} color="#5eead4" />
+          )}
+        </Pressable>
+      </View>
+
+      {/* Quick search */}
+      <View className="px-5 mb-4">
+        <SearchInput
+          value={query}
+          onChangeText={setQuery}
+          accent="#0d9488"
+          placeholder="Search cases by patient, family or area"
+        />
+      </View>
+
       {isLoading ? (
         <ActivityIndicator color="#0d9488" style={{ marginTop: 40 }} />
+      ) : searching ? (
+        /* Search results — matching cases */
+        <View className="px-5">
+          {searchResults.length === 0 ? (
+            <View className="items-center" style={{ paddingVertical: 40 }}>
+              <Ionicons name="search-outline" size={28} color="#9ca3af" />
+              <Text className="text-muted text-center" style={{ fontSize: 14, marginTop: 10 }}>
+                No cases match “{query.trim()}”.
+              </Text>
+            </View>
+          ) : (
+            searchResults.map((item) => (
+              <CaseCard
+                key={item.id}
+                item={item}
+                onPress={(c) => router.push(`/coordinator-case/${c.id}` as any)}
+              />
+            ))
+          )}
+        </View>
       ) : (
         <>
           {/* Stat tiles */}

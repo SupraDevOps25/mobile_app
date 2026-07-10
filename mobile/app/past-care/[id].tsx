@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -21,6 +22,7 @@ import {
   subscriptionStatusPill,
 } from "@/constants/subscription-presentation";
 import { useFamilyProfile } from "@/hooks/useFamily";
+import { useRefresh } from "@/hooks/useRefresh";
 import { usePendingReview } from "@/hooks/useReviews";
 import { usePastCareDetail } from "@/hooks/useSubscription";
 import type {
@@ -93,10 +95,21 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function LoadedDetail({ detail }: { detail: ApiPastCareDetail }) {
+function LoadedDetail({
+  detail,
+  refetchDetail,
+}: {
+  detail: ApiPastCareDetail;
+  refetchDetail: () => Promise<unknown>;
+}) {
   const router = useRouter();
-  const { data: family } = useFamilyProfile();
-  const { data: pendingReview } = usePendingReview();
+  const { data: family, refetch: refetchFamily } = useFamilyProfile();
+  const { data: pendingReview, refetch: refetchReview } = usePendingReview();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchDetail,
+    refetchFamily,
+    refetchReview,
+  ]);
   const ended = detail.status === "CANCELLED";
   const chip = statusChip(detail.status);
   const visits = sortVisits(detail.visits);
@@ -108,6 +121,14 @@ function LoadedDetail({ detail }: { detail: ApiPastCareDetail }) {
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#1e3a8a"
+          colors={["#1e3a8a"]}
+        />
+      }
     >
       {/* Summary */}
       <View className="rounded-2xl p-5" style={{ backgroundColor: "#0f2461" }}>
@@ -213,7 +234,7 @@ export default function PastCareDetailScreen() {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
 
-  const { data: detail, isLoading } = usePastCareDetail(id);
+  const { data: detail, isLoading, refetch } = usePastCareDetail(id);
   const title =
     detail && detail.status !== "CANCELLED" ? "Care plan" : "Care history";
 
@@ -251,7 +272,7 @@ export default function PastCareDetailScreen() {
           </Text>
         </View>
       ) : (
-        <LoadedDetail detail={detail} />
+        <LoadedDetail detail={detail} refetchDetail={refetch} />
       )}
     </View>
   );

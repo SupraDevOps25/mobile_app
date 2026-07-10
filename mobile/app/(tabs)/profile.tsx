@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -21,6 +22,7 @@ import {
   usePaymentMethods,
   useUploadFamilyPhoto,
 } from "@/hooks/useFamily";
+import { useRefresh } from "@/hooks/useRefresh";
 
 type RowItem = {
   key: string;
@@ -189,11 +191,17 @@ export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const { data: stats } = useFamilyStats();
-  const { data: profile } = useFamilyProfile();
-  const { data: addresses } = useAddresses();
-  const { data: paymentMethods } = usePaymentMethods();
+  const { data: stats, refetch: refetchStats } = useFamilyStats();
+  const { data: profile, refetch: refetchProfile } = useFamilyProfile();
+  const { data: addresses, refetch: refetchAddresses } = useAddresses();
+  const { data: paymentMethods, refetch: refetchMethods } = usePaymentMethods();
   const uploadPhoto = useUploadFamilyPhoto();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchStats,
+    refetchProfile,
+    refetchAddresses,
+    refetchMethods,
+  ]);
 
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
@@ -397,6 +405,14 @@ export default function ProfileScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#1e3a8a"
+            colors={["#1e3a8a"]}
+          />
+        }
       >
       {/* Profile card */}
       <View className="mx-5">

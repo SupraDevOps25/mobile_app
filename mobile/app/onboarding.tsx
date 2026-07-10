@@ -1,18 +1,26 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CARE_TAGS, FEATURES } from "@/constants/onboarding";
+import {
+  CARE_TAGS,
+  FEATURES,
+  SCHEDULE_PROTECTIONS,
+  SCHEDULE_TAGS,
+} from "@/constants/onboarding";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CTA_LABELS = ["Get Started", "Next", "Let's Go"] as const;
+const CTA_LABELS = ["Get Started", "Next", "Next", "Let's Go"] as const;
+const SLIDES = CTA_LABELS.map((_, index) => index);
+const LAST_SLIDE_INDEX = CTA_LABELS.length - 1;
 
 // Dynamic bg kept in style (not className) to avoid NativeWind variable warning.
-const SLIDE_BTN_BG = ["#2563eb", "#1e3a8a", "#1e3a8a"] as const;
+const SLIDE_BTN_BG = ["#2563eb", "#1e3a8a", "#1e3a8a", "#1e3a8a"] as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +38,7 @@ export default function OnboardingScreen() {
   const isNavy = slide === 0;
 
   async function handleNext() {
-    if (slide < 2) {
+    if (slide < LAST_SLIDE_INDEX) {
       setSlide((s) => s + 1);
       return;
     }
@@ -59,7 +67,7 @@ export default function OnboardingScreen() {
       <StatusBar style={isNavy ? "light" : "dark"} />
 
       {/*
-       * ALL THREE SLIDES ARE ALWAYS MOUNTED.
+       * ALL SLIDES ARE ALWAYS MOUNTED.
        *
        * Conditional rendering ({slide === N && <Slide />}) causes expo-image to
        * decode the photo from scratch each time the slide mounts, producing a
@@ -109,7 +117,24 @@ export default function OnboardingScreen() {
           pointerEvents={slide === 2 ? "auto" : "none"}
         >
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            <SlideFeatures onBack={handleBack} />
+            <SlideFeatures
+              onBack={handleBack}
+              onNext={() => void handleNext()}
+            />
+            <View className="h-4" />
+          </ScrollView>
+        </View>
+
+        <View
+          style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0, bottom: 0,
+            opacity: slide === 3 ? 1 : 0,
+          }}
+          pointerEvents={slide === 3 ? "auto" : "none"}
+        >
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+            <SlideSubscriptionSchedule onBack={handleBack} />
             <View className="h-4" />
           </ScrollView>
         </View>
@@ -119,7 +144,7 @@ export default function OnboardingScreen() {
       {/* ── Pagination dots + CTA ── */}
       <View className="px-6 pb-6">
         <View className="flex-row justify-center items-center gap-2 mb-5">
-          {[0, 1, 2].map((i) => (
+          {SLIDES.map((i) => (
             <View
               key={i}
               className="h-2 rounded-full"
@@ -167,14 +192,14 @@ function SlideIntro() {
 
       <View className="flex-row items-center mt-6 mb-8 px-8 py-2 rounded-full border border-white/30 bg-white/10">
         <View className="w-2 h-2 rounded-full bg-green-400 mr-2" />
-        <Text className="text-white text-[14px]">Your Trusted Care Platform</Text>
+        <Text className="text-white text-[14px]">Your Trusted Care Platform </Text>
       </View>
 
       <Text className="mt-10 text-white text-[20px] font-bold text-center leading-6 tracking-wide">
         Reliable home care for your loved ones, anytime you need it.
       </Text>
-      <Text className="text-white/65 text-[14px] text-center mt-4 leading-relaxed tracking-wide">
-        Book trained caregivers and nurses in real time with ease and confidence.
+      <Text className="text-white/65 text-[14px] text-center mt-6 leading-6 tracking-wide">
+        Book trained caregivers and nurses in real time with ease and confidence by subscribing to a monthly care plan that fits your family&apos;s needs.
       </Text>
     </View>
   );
@@ -253,7 +278,10 @@ function SlideCareTypes({
 
 // ─── Slide 2: features (white background + photo) ────────────────────────────
 
-function SlideFeatures({ onBack }: NavSlideProps) {
+function SlideFeatures({
+  onBack,
+  onNext,
+}: NavSlideProps & { onNext: () => void }) {
   return (
     <View className="bg-background">
       <View className="relative" style={{ height: 400 }}>
@@ -264,6 +292,7 @@ function SlideFeatures({ onBack }: NavSlideProps) {
           contentPosition="top"
         />
         <NavArrow direction="left" onPress={onBack} />
+        <NavArrow direction="right" onPress={onNext} />
       </View>
 
       <View className="px-6 pt-4">
@@ -301,6 +330,80 @@ function SlideFeatures({ onBack }: NavSlideProps) {
 }
 
 // ─── Shared: image overlay navigation arrow ───────────────────────────────────
+
+function SlideSubscriptionSchedule({ onBack }: NavSlideProps) {
+  return (
+    <View className="bg-background">
+      <View
+        className="relative"
+        style={{ height: 390, backgroundColor: "#17365d" }}
+      >
+        <ExpoImage
+          source={require("../assets/images/slide4.jpg")}
+          style={{ width: "100%", height: 390 }}
+          contentFit="cover"
+          contentPosition="top"
+        />
+        <View
+          className="absolute left-0 right-0 bottom-0"
+          style={{ height: 80, backgroundColor: "rgba(255,255,255,0.08)" }}
+        />
+        <NavArrow direction="left" onPress={onBack} />
+      </View>
+
+      <View className="px-5 pt-4">
+        <View className="flex-row justify-between mb-4" style={{ gap: 8 }}>
+          {SCHEDULE_TAGS.map((tag) => (
+            <View key={tag.label} className="items-center flex-1">
+              <View
+                className="w-12 h-12 rounded-full items-center justify-center mb-2"
+                style={{ backgroundColor: tag.bg }}
+              >
+                <Ionicons name={tag.icon} size={22} color={tag.color} />
+              </View>
+              <View
+                className="rounded-full px-2.5 py-1"
+                style={{ backgroundColor: tag.bg }}
+              >
+                <Text
+                  className="text-[10px] font-semibold text-center"
+                  numberOfLines={1}
+                  style={{ color: tag.color }}
+                >
+                  {tag.label}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <Text className="text-foreground text-[20px] font-bold text-center leading-[31px]">
+          Monthly base subscription.
+        </Text>
+        <Text className="text-muted text-[13px] mt-3 text-center leading-5">
+          Accept subscription-based visits, set your max visits per day,
+          work within the active care plan.
+        </Text>
+
+        <View className="mt-5 gap-3">
+          {SCHEDULE_PROTECTIONS.map((item) => (
+            <View
+              key={item}
+              className="flex-row items-center rounded-2xl bg-slate-100 px-4 py-3"
+            >
+              <View className="w-6 h-6 rounded-full bg-green-500 items-center justify-center mr-3">
+                <Ionicons name="checkmark" size={14} color="#ffffff" />
+              </View>
+              <Text className="text-slate-700 text-[12px] font-semibold flex-1">
+                {item}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
 
 function NavArrow({
   direction,

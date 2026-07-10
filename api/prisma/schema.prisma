@@ -181,8 +181,9 @@ model User {
   messages           Message[]
 
   // Coordinator-side relations (role = CARE_COORDINATOR)
-  coordinatedSubscriptions Subscription[] @relation("CoordinatorSubscriptions")
-  reviewedLogs             VisitLog[]     @relation("LogReviewer")
+  coordinatedSubscriptions Subscription[]             @relation("CoordinatorSubscriptions")
+  reviewedLogs             VisitLog[]                 @relation("LogReviewer")
+  coordinatorPayouts       CoordinatorPayoutRequest[] @relation("CoordinatorPayouts")
 
   @@map("users")
 }
@@ -557,9 +558,10 @@ model Payment {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  subscription   Subscription    @relation(fields: [subscriptionId], references: [id])
-  family         FamilyProfile   @relation(fields: [familyId], references: [id])
-  payoutRequests PayoutRequest[]
+  subscription              Subscription               @relation(fields: [subscriptionId], references: [id])
+  family                    FamilyProfile              @relation(fields: [familyId], references: [id])
+  payoutRequests            PayoutRequest[]
+  coordinatorPayoutRequests CoordinatorPayoutRequest[]
 
   @@map("payments")
 }
@@ -582,6 +584,27 @@ model PayoutRequest {
   @@unique([caregiverId, paymentId]) // one payout per nurse per month
   @@index([caregiverId])
   @@map("payout_requests")
+}
+
+// A Care Coordinator's request to be paid their 8% fee for one completed
+// subscription month (tied to the family's monthly Payment). Same lifecycle as
+// PayoutRequest: requestable once the billing cycle has ended and the family
+// has paid; an admin marks it PAID after disbursing.
+model CoordinatorPayoutRequest {
+  id            String       @id @default(uuid())
+  coordinatorId String // User id (role CARE_COORDINATOR)
+  paymentId     String // the subscription monthly payment this covers
+  amountGhs     Decimal      @db.Decimal(10, 2)
+  status        PayoutStatus @default(PENDING)
+  requestedAt   DateTime     @default(now())
+  paidAt        DateTime?
+
+  coordinator User    @relation("CoordinatorPayouts", fields: [coordinatorId], references: [id], onDelete: Cascade)
+  payment     Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([coordinatorId, paymentId]) // one payout per coordinator per month
+  @@index([coordinatorId])
+  @@map("coordinator_payout_requests")
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

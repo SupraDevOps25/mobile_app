@@ -5,9 +5,16 @@ type Props = {
   periods: { id: EarningsPeriodId; label: string }[];
   selected: EarningsPeriodId;
   onSelect: (id: EarningsPeriodId) => void;
+  /** Active-pill colour; defaults to the family/nurse navy. */
+  accent?: string;
 };
 
-export function PeriodTabs({ periods, selected, onSelect }: Props) {
+export function PeriodTabs({
+  periods,
+  selected,
+  onSelect,
+  accent = "#1e3a8a",
+}: Props) {
   return (
     <View
       className="flex-row rounded-full p-1"
@@ -20,7 +27,7 @@ export function PeriodTabs({ periods, selected, onSelect }: Props) {
             key={period.id}
             onPress={() => onSelect(period.id)}
             className="flex-1 items-center rounded-full py-2"
-            style={{ backgroundColor: active ? "#1e3a8a" : "transparent" }}
+            style={{ backgroundColor: active ? accent : "transparent" }}
           >
             <Text
               style={{

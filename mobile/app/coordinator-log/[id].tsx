@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -20,6 +21,7 @@ import {
   useRequestLogChanges,
   useReviewLog,
 } from "@/hooks/useCoordinator";
+import { useRefresh } from "@/hooks/useRefresh";
 import type { ApiPatientMood, ApiVisitKind } from "@/services/visit.service";
 
 const MOOD_LABEL: Record<ApiPatientMood, string> = {
@@ -64,7 +66,8 @@ export default function CoordinatorLogScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const { data: logs, isLoading } = useCoordinatorLogs();
+  const { data: logs, isLoading, refetch } = useCoordinatorLogs();
+  const { refreshing, onRefresh } = useRefresh(refetch);
   const log = logs?.find((l) => l.visitId === id);
   const reviewLog = useReviewLog();
   const requestChanges = useRequestLogChanges();
@@ -145,6 +148,14 @@ export default function CoordinatorLogScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottom + 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0d9488"
+            colors={["#0d9488"]}
+          />
+        }
       >
         {/* Patient banner */}
         <View className="flex-row items-center rounded-2xl p-4" style={{ backgroundColor: "#0f2461" }}>

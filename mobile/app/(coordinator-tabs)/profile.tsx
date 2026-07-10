@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { useCoordinatorCases, useCoordinatorLogs } from "@/hooks/useCoordinator";
 import { useAuthProfile, useUploadAuthPhoto } from "@/hooks/useProfile";
+import { useRefresh } from "@/hooks/useRefresh";
 import { initialsOf } from "@/lib/avatar";
 import { pickImageFromLibrary, takePhoto } from "@/lib/pick";
 import { rateApp } from "@/lib/rate";
@@ -178,10 +180,15 @@ export default function CoordinatorProfileScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const { data: profile } = useAuthProfile();
-  const { data: cases } = useCoordinatorCases();
-  const { data: logs } = useCoordinatorLogs();
+  const { data: profile, refetch: refetchProfile } = useAuthProfile();
+  const { data: cases, refetch: refetchCases } = useCoordinatorCases();
+  const { data: logs, refetch: refetchLogs } = useCoordinatorLogs();
   const uploadPhoto = useUploadAuthPhoto();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchProfile,
+    refetchCases,
+    refetchLogs,
+  ]);
 
   const photoUrl = profile?.photoUrl ?? null;
 
@@ -255,6 +262,15 @@ export default function CoordinatorProfileScreen() {
   ];
 
   const work: RowItem[] = [
+    {
+      key: "earnings",
+      icon: "wallet-outline",
+      tint: "#0f766e",
+      bg: "#ccfbf1",
+      title: "Earnings & payouts",
+      subtitle: "Your 8% fee per case, and withdrawals",
+      onPress: () => router.push("/coordinator-earnings" as any),
+    },
     {
       key: "cases",
       icon: "people-outline",
@@ -368,6 +384,14 @@ export default function CoordinatorProfileScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0d9488"
+            colors={["#0d9488"]}
+          />
+        }
       >
         {/* Profile card */}
         <View className="mx-5">

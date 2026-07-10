@@ -1,9 +1,17 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/ui/Avatar";
 import { useCaregiverAssignments } from "@/hooks/useVisits";
+import { useRefresh } from "@/hooks/useRefresh";
 import type { ApiCaregiverAssignment } from "@/services/visit.service";
 import type { ApiSubscriptionStatus } from "@/services/subscription.service";
 
@@ -167,7 +175,8 @@ function AssignmentCard({
 export default function VisitsScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
-  const { data: assignments, isLoading } = useCaregiverAssignments();
+  const { data: assignments, isLoading, refetch } = useCaregiverAssignments();
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   const list = assignments ?? [];
   const active = list.filter((a) => a.active);
@@ -194,6 +203,14 @@ export default function VisitsScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 6, paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16a34a"
+            colors={["#16a34a"]}
+          />
+        }
       >
         {isLoading ? (
           <ActivityIndicator color="#16a34a" style={{ marginVertical: 24 }} />

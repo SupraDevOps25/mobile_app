@@ -1,9 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CoordinatorLogRow } from "@/components/coordinator/CoordinatorLogRow";
 import { useCoordinatorLogs } from "@/hooks/useCoordinator";
+import { useRefresh } from "@/hooks/useRefresh";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -19,7 +26,8 @@ function SectionLabel({ title }: { title: string }) {
 export default function CoordinatorLogsScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
-  const { data: logs, isLoading } = useCoordinatorLogs();
+  const { data: logs, isLoading, refetch } = useCoordinatorLogs();
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   const all = logs ?? [];
   const pending = all.filter((l) => !l.reviewedAt);
@@ -39,6 +47,14 @@ export default function CoordinatorLogsScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0d9488"
+            colors={["#0d9488"]}
+          />
+        }
       >
       {isLoading ? (
         <ActivityIndicator color="#0d9488" style={{ marginVertical: 24 }} />

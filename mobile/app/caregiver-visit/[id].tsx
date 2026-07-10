@@ -3,12 +3,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/ui/Avatar";
+import { useRefresh } from "@/hooks/useRefresh";
 import { useVisit } from "@/hooks/useVisits";
 import type { ApiPatientMood, ApiVisitKind } from "@/services/visit.service";
 
@@ -54,7 +56,8 @@ export default function CaregiverVisitScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const { data: visit, isLoading } = useVisit(id);
+  const { data: visit, isLoading, refetch } = useVisit(id);
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   if (isLoading) {
     return (
@@ -114,6 +117,14 @@ export default function CaregiverVisitScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottom + 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16a34a"
+            colors={["#16a34a"]}
+          />
+        }
       >
         {/* Patient banner */}
         <View className="flex-row items-center rounded-2xl p-4" style={{ backgroundColor: "#0f2461" }}>

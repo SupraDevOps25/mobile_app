@@ -43,6 +43,7 @@ export const qk = {
   coordinatorCase: (id: string) => ["coordinator", "cases", id] as const,
   coordinatorLogs: ["coordinator", "logs"] as const,
   coordinatorProfile: ["coordinator", "me"] as const,
+  coordinatorEarnings: ["coordinator", "earnings"] as const,
 
   authProfile: ["auth", "profile"] as const,
 };

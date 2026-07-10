@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -11,11 +12,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PackageCard } from "@/components/packages/PackageCard";
 import { toPackageView } from "@/constants/package-presentation";
 import { usePackages } from "@/hooks/usePackages";
+import { useRefresh } from "@/hooks/useRefresh";
 
 export default function PackagesScreen() {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
-  const { data: packages, isLoading, isError } = usePackages();
+  const { data: packages, isLoading, isError, refetch } = usePackages();
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   return (
     <View className="flex-1 bg-background">
@@ -40,6 +43,14 @@ export default function PackagesScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#1e3a8a"
+            colors={["#1e3a8a"]}
+          />
+        }
       >
         <Text className="text-foreground font-bold" style={{ fontSize: 22, marginTop: 4 }}>
           Choose a care package

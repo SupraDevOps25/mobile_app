@@ -6,6 +6,7 @@ import {
   Alert,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -32,6 +33,7 @@ import {
   useSetAssessment,
   useSetCareStart,
 } from "@/hooks/useCoordinator";
+import { useRefresh } from "@/hooks/useRefresh";
 import { Avatar } from "@/components/ui/Avatar";
 import { initialsOf } from "@/lib/avatar";
 import type { ApiCoordinatorCaseVisit } from "@/services/coordinator.service";
@@ -43,15 +45,18 @@ const VISIT_KIND_LABEL: Record<ApiVisitKind, string> = {
   CARE_VISIT: "Care visit",
 };
 
-// Ordering for the "Care visits & logs" list: in-progress first, then logs
-// (awaiting review, then reviewed), then upcoming, completed and missed.
+// Ordering for the "Care visits & logs" list: the initial home assessment
+// always leads (it's the first step in the care journey), then in-progress
+// visits, then logs (awaiting review, then reviewed), then upcoming, completed
+// and missed.
 function visitRank(v: ApiCoordinatorCaseVisit): number {
-  if (v.status === "IN_PROGRESS") return 0;
-  if (v.hasLog && !v.logReviewed) return 1;
-  if (v.hasLog && v.logReviewed) return 2;
-  if (v.status === "SCHEDULED") return 3;
-  if (v.status === "MISSED") return 5;
-  return 4;
+  if (v.kind === "INITIAL_ASSESSMENT") return 0;
+  if (v.status === "IN_PROGRESS") return 1;
+  if (v.hasLog && !v.logReviewed) return 2;
+  if (v.hasLog && v.logReviewed) return 3;
+  if (v.status === "SCHEDULED") return 4;
+  if (v.status === "MISSED") return 6;
+  return 5;
 }
 
 // A visit's badge reflects where its log stands in review, or its plain status
@@ -110,9 +115,12 @@ export default function CoordinatorCaseScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const { data: cases, isLoading } = useCoordinatorCases();
+  const { data: cases, isLoading, refetch: refetchCases } =
+    useCoordinatorCases();
   const item = cases?.find((c) => c.id === id);
-  const { data: detail } = useCoordinatorCaseDetail(id);
+  const { data: detail, refetch: refetchDetail } =
+    useCoordinatorCaseDetail(id);
+  const { refreshing, onRefresh } = useRefresh([refetchCases, refetchDetail]);
   // "What's included" starts collapsed so a long package list doesn't bury the
   // rest of the case; the coordinator expands it on demand.
   const [showIncluded, setShowIncluded] = useState(false);
@@ -344,6 +352,14 @@ export default function CoordinatorCaseScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottom + 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0d9488"
+            colors={["#0d9488"]}
+          />
+        }
       >
         {/* Recipient + status */}
         <View className="rounded-2xl p-5" style={{ backgroundColor: "#0f2461" }}>
@@ -372,6 +388,35 @@ export default function CoordinatorCaseScreen() {
                 {item.recipient.age} yrs · {item.recipient.area}, {item.recipient.city}
               </Text>
             </View>
+          </View>
+        </View>
+
+        {/* Your fee — the coordinator's 8% share of this plan, per billing month */}
+        <View
+          className="flex-row items-center rounded-2xl p-4 mt-4"
+          style={{ backgroundColor: "#f0fdfa", borderWidth: 1, borderColor: "#99f6e4" }}
+        >
+          <View
+            className="w-11 h-11 rounded-full items-center justify-center"
+            style={{ backgroundColor: "#ccfbf1" }}
+          >
+            <Ionicons name="wallet-outline" size={19} color="#0d9488" />
+          </View>
+          <View className="flex-1 ml-3">
+            <Text style={{ color: "#0f766e", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 }}>
+              YOUR FEE · THIS PLAN
+            </Text>
+            <Text className="text-foreground font-bold" style={{ fontSize: 20, marginTop: 2 }}>
+              GHS {item.coordinatorFeeGhs.toLocaleString()}
+              <Text className="text-muted" style={{ fontSize: 12, fontWeight: "400" }}>
+                {" "}
+                /month
+              </Text>
+            </Text>
+            <Text className="text-muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+              8% of the GHS {item.priceGhs.toLocaleString()} plan · paid after the
+              family settles each month
+            </Text>
           </View>
         </View>
 

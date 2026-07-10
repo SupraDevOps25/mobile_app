@@ -1,12 +1,21 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { verificationMeta } from "@/constants/verification";
 import { useAuth } from "@/hooks/useAuth";
 import { useCaregiverProfile } from "@/hooks/useCaregiverProfile";
 import { useAuthProfile } from "@/hooks/useProfile";
+import { useRefresh } from "@/hooks/useRefresh";
 import { initialsOf } from "@/lib/avatar";
 import { rateApp } from "@/lib/rate";
 
@@ -184,8 +193,12 @@ export default function CaregiverProfileScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const { data: account } = useAuthProfile();
-  const { data: profile } = useCaregiverProfile();
+  const { data: account, refetch: refetchAccount } = useAuthProfile();
+  const { data: profile, refetch: refetchProfile } = useCaregiverProfile();
+  const { refreshing, onRefresh } = useRefresh([
+    refetchAccount,
+    refetchProfile,
+  ]);
 
   const fullName = account
     ? `${account.firstName} ${account.lastName}`.trim()
@@ -368,6 +381,14 @@ export default function CaregiverProfileScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16a34a"
+            colors={["#16a34a"]}
+          />
+        }
       >
         {/* Profile card */}
         <View className="mx-5">

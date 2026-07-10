@@ -1,9 +1,17 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/ui/Avatar";
 import { useConversations } from "@/hooks/useMessages";
+import { useRefresh } from "@/hooks/useRefresh";
 import type { ApiConversation } from "@/services/message.service";
 
 function timeLabel(iso: string | null): string {
@@ -90,7 +98,8 @@ function ConversationRow({
 export default function CoordinatorMessagesScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
-  const { data: conversations, isLoading } = useConversations();
+  const { data: conversations, isLoading, refetch } = useConversations();
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   const list = conversations ?? [];
 
@@ -105,6 +114,14 @@ export default function CoordinatorMessagesScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingTop: 8, paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0d9488"
+            colors={["#0d9488"]}
+          />
+        }
       >
         {isLoading ? (
           <ActivityIndicator color="#0d9488" style={{ marginVertical: 24 }} />

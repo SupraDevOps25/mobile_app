@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -18,6 +19,7 @@ import {
   useDeclineOffer,
   useRequestAssistant,
 } from "@/hooks/useAssignments";
+import { useRefresh } from "@/hooks/useRefresh";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -82,7 +84,8 @@ export default function AssignmentOfferScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
 
-  const { data: assignment, isLoading } = useAssignment(id);
+  const { data: assignment, isLoading, refetch } = useAssignment(id);
+  const { refreshing, onRefresh } = useRefresh(refetch);
   const accept = useAcceptOffer();
   const decline = useDeclineOffer();
   const requestAssistant = useRequestAssistant();
@@ -213,6 +216,14 @@ export default function AssignmentOfferScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#16a34a"
+            colors={["#16a34a"]}
+          />
+        }
       >
         {/* Role banner */}
         <View
