@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
@@ -56,6 +56,7 @@ export default function PersonalInformationScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { updateUser } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
 
   const { data: profile, isLoading } = useFamilyProfile();
   const update = useUpdateFamilyProfile();
@@ -69,6 +70,7 @@ export default function PersonalInformationScreen() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     null,
   );
+  const [addressFieldY, setAddressFieldY] = useState(0);
 
   useEffect(() => {
     if (!profile) return;
@@ -80,11 +82,20 @@ export default function PersonalInformationScreen() {
     }
   }, [profile]);
 
+  function scrollToAddressField() {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(addressFieldY - 140, 0),
+        animated: true,
+      });
+    }, 160);
+  }
+
   const {
     control,
     handleSubmit,
     setError,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<PersonalInfoFormValues>({
     resolver: zodResolver(personalInfoSchema),
     values: profile
@@ -156,10 +167,32 @@ export default function PersonalInformationScreen() {
     : "";
   const photoUrl = profile?.photoUrl ?? null;
 
+  // Gender / DOB / location live outside react-hook-form; compare them to the
+  // loaded values so "Save" stays disabled until something actually changes.
+  const localBaseline = useMemo(() => {
+    if (!profile) return null;
+    return JSON.stringify({
+      gender: profile.gender,
+      dob: profile.dateOfBirth ? profile.dateOfBirth.slice(0, 10) : null,
+      address: profile.address ?? "",
+      lat: profile.lat ?? null,
+      lng: profile.lng ?? null,
+    });
+  }, [profile]);
+  const localCurrent = JSON.stringify({
+    gender,
+    dob,
+    address,
+    lat: coords?.lat ?? null,
+    lng: coords?.lng ?? null,
+  });
+  const dirty = isDirty || (localBaseline != null && localCurrent !== localBaseline);
+
   return (
     <KeyboardAvoidingView
       className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : top + 56}
     >
       <View className="flex-1 bg-background">
         <StatusBar style="dark" />
@@ -189,8 +222,13 @@ export default function PersonalInformationScreen() {
         ) : (
           <>
             <ScrollView
+              ref={scrollRef}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingBottom: bottom + 72,
+              }}
+              keyboardDismissMode="interactive"
               keyboardShouldPersistTaps="handled"
             >
               {/* Profile photo */}
@@ -297,18 +335,23 @@ export default function PersonalInformationScreen() {
               </Text>
 
               {/* Home location */}
-              <FieldLabel>Home area</FieldLabel>
-              <ServiceAreaField
-                value={address}
-                onChangeText={setAddress}
-                onLocated={(loc) => {
-                  setAddress(
-                    [loc.area, loc.city].filter(Boolean).join(", ") ||
-                      loc.address,
-                  );
-                  setCoords({ lat: loc.lat, lng: loc.lng });
-                }}
-              />
+              <View
+                onLayout={(event) => setAddressFieldY(event.nativeEvent.layout.y)}
+              >
+                <FieldLabel>Home area</FieldLabel>
+                <ServiceAreaField
+                  value={address}
+                  onChangeText={setAddress}
+                  onFocus={scrollToAddressField}
+                  onLocated={(loc) => {
+                    setAddress(
+                      [loc.area, loc.city].filter(Boolean).join(", ") ||
+                        loc.address,
+                    );
+                    setCoords({ lat: loc.lat, lng: loc.lng });
+                  }}
+                />
+              </View>
 
               {/* Read-only email */}
               <FieldLabel>Email address</FieldLabel>
@@ -349,6 +392,7 @@ export default function PersonalInformationScreen() {
                 title="Save changes"
                 variant="navy"
                 loading={update.isPending}
+                disabled={!dirty}
                 onPress={handleSubmit(onSubmit)}
               />
             </View>

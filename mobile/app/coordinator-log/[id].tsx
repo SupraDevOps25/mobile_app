@@ -13,7 +13,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { avatarColor, initialsOf } from "@/lib/avatar";
+import { Avatar } from "@/components/ui/Avatar";
+import { initialsOf } from "@/lib/avatar";
 import {
   useCoordinatorLogs,
   useRequestLogChanges,
@@ -147,14 +148,12 @@ export default function CoordinatorLogScreen() {
       >
         {/* Patient banner */}
         <View className="flex-row items-center rounded-2xl p-4" style={{ backgroundColor: "#0f2461" }}>
-          <View
-            className="w-12 h-12 rounded-full items-center justify-center"
-            style={{ backgroundColor: avatarColor(log.clientName) }}
-          >
-            <Text className="text-white font-bold" style={{ fontSize: 15 }}>
-              {initialsOf(log.clientName)}
-            </Text>
-          </View>
+          <Avatar
+            name={log.clientName}
+            initials={initialsOf(log.clientName)}
+            photoUrl={log.clientPhotoUrl}
+            size={48}
+          />
           <View className="flex-1 ml-3">
             <Text className="text-white font-bold" style={{ fontSize: 16 }}>
               {log.clientName}
@@ -291,10 +290,18 @@ export default function CoordinatorLogScreen() {
         style={{ paddingBottom: bottom + 12, borderTopWidth: 1, borderTopColor: "#f3f4f6" }}
       >
         {reviewed ? (
-          <View className="flex-row items-center justify-center" style={{ gap: 8, paddingVertical: 6 }}>
-            <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
-            <Text className="text-muted" style={{ fontSize: 13 }}>
-              Reviewed on {new Date(log.reviewedAt!).toLocaleDateString()}
+          <View
+            className="items-center justify-center"
+            style={{ paddingVertical: 6, width: "100%" }}
+          >
+            <View className="flex-row items-center justify-center" style={{ gap: 6 }}>
+              <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+              <Text style={{ color: "#16a34a", fontSize: 13, fontWeight: "700" }}>
+                Reviewed on
+              </Text>
+            </View>
+            <Text className="text-muted text-center" style={{ fontSize: 12, lineHeight: 17, marginTop: 2 }}>
+              {new Date(log.reviewedAt!).toLocaleDateString()}
             </Text>
           </View>
         ) : requesting ? (

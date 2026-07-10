@@ -45,6 +45,13 @@ export default function CoordinatorTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="messages"
+        options={{
+          title: "Messages",
+          tabBarIcon: icon("chatbubble", "chatbubble-outline"),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{ title: "Profile", tabBarIcon: icon("person", "person-outline") }}
       />

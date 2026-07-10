@@ -6,6 +6,7 @@ import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,8 +18,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuthProfile, useUpdateAuthProfile } from "@/hooks/useProfile";
+import {
+  useAuthProfile,
+  useUpdateAuthProfile,
+  useUploadAuthPhoto,
+} from "@/hooks/useProfile";
 import { initialsOf } from "@/lib/avatar";
+import { pickImageFromLibrary, takePhoto } from "@/lib/pick";
 import { roleMeta } from "@/lib/roles";
 import {
   personalInfoSchema,
@@ -45,6 +51,7 @@ export default function AccountDetailsScreen() {
 
   const { data: profile, isLoading } = useAuthProfile();
   const update = useUpdateAuthProfile();
+  const uploadPhoto = useUploadAuthPhoto();
 
   const {
     control,
@@ -61,6 +68,32 @@ export default function AccountDetailsScreen() {
         }
       : undefined,
   });
+
+  function changePhoto() {
+    Alert.alert("Profile photo", "Choose a source", [
+      {
+        text: "Take photo",
+        onPress: async () => {
+          const file = await takePhoto();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      {
+        text: "Choose from library",
+        onPress: async () => {
+          const file = await pickImageFromLibrary();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
 
   function onSubmit(values: PersonalInfoFormValues) {
     update.mutate(
@@ -131,14 +164,42 @@ export default function AccountDetailsScreen() {
             >
               {/* Identity summary */}
               <View className="items-center mt-2 mb-6">
-                <View
-                  className="w-20 h-20 rounded-full items-center justify-center"
-                  style={{ backgroundColor: meta.color }}
-                >
-                  <Text className="text-white font-bold" style={{ fontSize: 26 }}>
-                    {initialsOf(fullName || profile.email)}
-                  </Text>
-                </View>
+                <Pressable onPress={changePhoto}>
+                  {profile.photoUrl ? (
+                    <Image
+                      source={{ uri: profile.photoUrl }}
+                      style={{ width: 88, height: 88, borderRadius: 44 }}
+                    />
+                  ) : (
+                    <View
+                      className="items-center justify-center"
+                      style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: meta.color }}
+                    >
+                      <Text className="text-white font-bold" style={{ fontSize: 28 }}>
+                        {initialsOf(fullName || profile.email)}
+                      </Text>
+                    </View>
+                  )}
+                  <View
+                    className="absolute items-center justify-center"
+                    style={{
+                      right: -2,
+                      bottom: -2,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 15,
+                      backgroundColor: meta.color,
+                      borderWidth: 2,
+                      borderColor: "#ffffff",
+                    }}
+                  >
+                    {uploadPhoto.isPending ? (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    ) : (
+                      <Ionicons name="camera" size={15} color="#ffffff" />
+                    )}
+                  </View>
+                </Pressable>
                 <Text
                   className="text-foreground font-bold"
                   style={{ fontSize: 18, marginTop: 12 }}
@@ -147,6 +208,9 @@ export default function AccountDetailsScreen() {
                 </Text>
                 <Text className="text-muted text-center" style={{ fontSize: 13, marginTop: 2 }}>
                   {meta.label}
+                </Text>
+                <Text className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  Tap the photo to {profile.photoUrl ? "change" : "add"} it
                 </Text>
               </View>
 

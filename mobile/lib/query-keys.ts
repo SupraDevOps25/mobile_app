@@ -10,6 +10,10 @@ export const qk = {
 
   pendingReview: ["reviews", "pending"] as const,
 
+  conversations: ["messages", "conversations"] as const,
+  familyThread: ["messages", "family"] as const,
+  messageThread: (id: string) => ["messages", "thread", id] as const,
+
   offers: ["assignments", "offers"] as const,
   myAssignments: ["assignments", "mine"] as const,
   assignment: (id: string) => ["assignments", id] as const,
@@ -22,6 +26,7 @@ export const qk = {
 
   caregiverProfile: ["caregivers", "me"] as const,
   caregiverDocuments: ["caregivers", "documents"] as const,
+  caregiverEarnings: ["caregivers", "earnings"] as const,
 
   invoices: ["billing", "invoices"] as const,
 
@@ -37,6 +42,7 @@ export const qk = {
   coordinatorCases: ["coordinator", "cases"] as const,
   coordinatorCase: (id: string) => ["coordinator", "cases", id] as const,
   coordinatorLogs: ["coordinator", "logs"] as const,
+  coordinatorProfile: ["coordinator", "me"] as const,
 
   authProfile: ["auth", "profile"] as const,
 };

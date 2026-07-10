@@ -101,9 +101,7 @@ export default function CaregiverHomeScreen() {
             style={{ width: 36, height: 36 }}
             resizeMode="contain"
           />
-          <Text className="text-brand font-bold" style={{ fontSize: 18 }}>
-            Supracarer
-          </Text>
+         
         </View>
         <View className="flex-row items-center gap-3">
           <NotificationBell />
@@ -229,27 +227,28 @@ export default function CaregiverHomeScreen() {
           value={String(upcomingList.length)}
           label="Upcoming visits"
           trend="Scheduled"
-          trendColor="#2563eb"
           icon="calendar-outline"
-          iconColor="#2563eb"
-          iconBg="#eff6ff"
+          tint="#1d4ed8"
+          bg="#eff6ff"
+          border="#bfdbfe"
         />
         <StatCard
           value={String(completedCount)}
           label="Visits completed"
           trend="All time"
           icon="checkmark-done-outline"
-          iconColor="#16a34a"
-          iconBg="#f0fdf4"
+          tint="#15803d"
+          bg="#f0fdf4"
+          border="#bbf7d0"
         />
         <StatCard
           value={ratingLabel}
           label="Your rating"
           trend={profile && profile.totalReviews > 0 ? `★ ${profile.totalReviews} reviews` : "No reviews yet"}
-          trendColor="#f59e0b"
           icon="star"
-          iconColor="#f59e0b"
-          iconBg="#fffbeb"
+          tint="#b45309"
+          bg="#fffbeb"
+          border="#fde68a"
         />
       </View>
 

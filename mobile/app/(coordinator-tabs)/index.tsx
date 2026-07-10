@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -12,9 +13,26 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CaseCard } from "@/components/coordinator/CaseCard";
 import { CoordinatorLogRow } from "@/components/coordinator/CoordinatorLogRow";
+import { Avatar } from "@/components/ui/Avatar";
 import { caseAction } from "@/constants/coordinator-presentation";
-import { useCoordinatorCases, useCoordinatorLogs } from "@/hooks/useCoordinator";
+import {
+  useCoordinatorCases,
+  useCoordinatorLogs,
+  useCoordinatorProfile,
+} from "@/hooks/useCoordinator";
 import { useAuth } from "@/hooks/useAuth";
+import { initialsOf } from "@/lib/avatar";
+
+// True when an ISO timestamp falls in the current calendar month.
+function inThisMonth(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  );
+}
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -29,6 +47,9 @@ function StatTile({
   icon,
   tint,
   bg,
+  border,
+  monthValue,
+  monthLabel,
   onPress,
 }: {
   value: number;
@@ -36,25 +57,77 @@ function StatTile({
   icon: keyof typeof Ionicons.glyphMap;
   tint: string;
   bg: string;
+  border: string;
+  monthValue: number;
+  monthLabel: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={{ width: "48%", backgroundColor: bg, borderRadius: 18, padding: 16 }}
+      style={({ pressed }) => ({
+        width: "48%",
+        backgroundColor: bg,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: border,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        opacity: pressed ? 0.9 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+        shadowColor: "#0f172a",
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 1,
+      })}
     >
-      <View className="flex-row items-center justify-between">
+      <View className="flex-row items-start justify-between">
         <View
-          className="w-10 h-10 rounded-full items-center justify-center"
+          className="w-9 h-9 rounded-xl items-center justify-center"
           style={{ backgroundColor: "rgba(255,255,255,0.7)" }}
         >
-          <Ionicons name={icon} size={20} color={tint} />
+          <Ionicons name={icon} size={19} color={tint} />
         </View>
-        <Text style={{ color: tint, fontSize: 30, fontWeight: "800" }}>{value}</Text>
+        <Ionicons
+          name="arrow-forward"
+          size={15}
+          color={tint}
+          style={{ opacity: 0.45, marginTop: 2 }}
+        />
       </View>
-      <Text style={{ color: tint, fontSize: 13, marginTop: 10, fontWeight: "600" }}>
+      <Text style={{ color: tint, fontSize: 26, fontWeight: "800", marginTop: 8 }}>
+        {value}
+      </Text>
+      <Text
+        style={{ color: tint, fontSize: 12, marginTop: 1, fontWeight: "700", opacity: 0.85 }}
+      >
         {label}
       </Text>
+
+      {/* This-month sub-metric */}
+      <View
+        className="flex-row items-center"
+        style={{
+          marginTop: 9,
+          paddingTop: 8,
+          borderTopWidth: 1,
+          borderTopColor: border,
+        }}
+      >
+        <View
+          className="rounded-full items-center justify-center"
+          style={{ width: 17, height: 17, backgroundColor: "rgba(255,255,255,0.7)" }}
+        >
+          <Ionicons name="trending-up" size={11} color={tint} />
+        </View>
+        <Text
+          style={{ color: tint, fontSize: 10.5, fontWeight: "700", marginLeft: 6, opacity: 0.9 }}
+          numberOfLines={1}
+        >
+          {monthValue} {monthLabel}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -66,9 +139,14 @@ export default function CoordinatorHomeScreen() {
 
   const { data: cases, isLoading } = useCoordinatorCases();
   const { data: logs } = useCoordinatorLogs();
+  const { data: profile } = useCoordinatorProfile();
 
-  const firstName = user?.firstName || user?.email?.split("@")[0] || "Coordinator";
-  const initials = firstName.slice(0, 2).toUpperCase();
+  const fullName = profile
+    ? `${profile.firstName} ${profile.lastName}`.trim()
+    : "";
+  const firstName =
+    profile?.firstName || user?.firstName || user?.email?.split("@")[0] || "Coordinator";
+  const initials = initialsOf(fullName || firstName);
 
   const list = cases ?? [];
   const needsCareStart = list.filter((c) => c.status === "TEAM_ASSIGNED").length;
@@ -79,6 +157,18 @@ export default function CoordinatorHomeScreen() {
   const allLogs = logs ?? [];
   const logsToReview = allLogs.filter((l) => !l.reviewedAt).length;
   const logsPreview = allLogs.slice(0, 3); // pending-first from the API
+
+  // "This month" activity, derived from real timestamps on cases and logs.
+  const newThisMonth = list.filter((c) => inThisMonth(c.createdAt)).length;
+  const activatedThisMonth = list.filter((c) =>
+    inThisMonth(c.activatedAt),
+  ).length;
+  const reviewedThisMonth = allLogs.filter((l) =>
+    inThisMonth(l.reviewedAt),
+  ).length;
+  const logsThisMonth = allLogs.filter((l) =>
+    inThisMonth(l.submittedAt),
+  ).length;
 
   const attention = list.filter((c) => caseAction(c.status) !== "NONE");
   const attentionIds = new Set(attention.map((c) => c.id));
@@ -91,28 +181,44 @@ export default function CoordinatorHomeScreen() {
       <StatusBar style="dark" />
 
       {/* Fixed header — content scrolls beneath it */}
-      <View
-        className="flex-row items-center justify-between px-5 pb-3 bg-background"
-        style={{ paddingTop: top + 12 }}
-      >
-        <View>
+      <View className="px-5 pb-3 bg-background" style={{ paddingTop: top + 12 }}>
+        {/* Brand + actions */}
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2">
+            <Image
+              source={require("@/assets/images/logo-blue2.png")}
+              style={{ width: 34, height: 34 }}
+              resizeMode="contain"
+            />
+            {/* <Text className="text-brand font-bold" style={{ fontSize: 18 }}>
+              Supracarer
+            </Text> */}
+          </View>
+          <View className="flex-row items-center gap-3">
+            <NotificationBell />
+            <Pressable
+              onPress={() => router.push("/(coordinator-tabs)/profile" as any)}
+              hitSlop={8}
+            >
+              <Avatar
+                name={fullName || firstName}
+                initials={initials}
+                photoUrl={profile?.photoUrl ?? null}
+                size={38}
+                bg="#0d9488"
+              />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Greeting */}
+        <View style={{ marginTop: 14 }}>
           <Text className="text-muted" style={{ fontSize: 13 }}>
             {getGreeting()},
           </Text>
           <Text className="text-foreground font-bold" style={{ fontSize: 22 }}>
             {firstName}
           </Text>
-        </View>
-        <View className="flex-row items-center gap-3">
-          <NotificationBell />
-          <View
-            className="w-9 h-9 rounded-full items-center justify-center"
-            style={{ backgroundColor: "#0d9488" }}
-          >
-            <Text className="text-white font-bold" style={{ fontSize: 13 }}>
-              {initials}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -133,6 +239,9 @@ export default function CoordinatorHomeScreen() {
               icon="calendar-outline"
               tint="#92400e"
               bg="#fffbeb"
+              border="#fde68a"
+              monthValue={newThisMonth}
+              monthLabel="new this month"
               onPress={() => router.push("/(coordinator-tabs)/cases" as any)}
             />
             <StatTile
@@ -141,6 +250,9 @@ export default function CoordinatorHomeScreen() {
               icon="pulse-outline"
               tint="#1d4ed8"
               bg="#eff6ff"
+              border="#bfdbfe"
+              monthValue={activatedThisMonth}
+              monthLabel="activated this month"
               onPress={() => router.push("/(coordinator-tabs)/cases" as any)}
             />
             <StatTile
@@ -149,6 +261,9 @@ export default function CoordinatorHomeScreen() {
               icon="clipboard-outline"
               tint="#7c3aed"
               bg="#f5f3ff"
+              border="#ddd6fe"
+              monthValue={reviewedThisMonth}
+              monthLabel="reviewed this month"
               onPress={() => router.push("/(coordinator-tabs)/logs" as any)}
             />
             <StatTile
@@ -157,6 +272,9 @@ export default function CoordinatorHomeScreen() {
               icon="heart-outline"
               tint="#15803d"
               bg="#f0fdf4"
+              border="#bbf7d0"
+              monthValue={logsThisMonth}
+              monthLabel="logs this month"
               onPress={() => router.push("/(coordinator-tabs)/cases" as any)}
             />
           </View>

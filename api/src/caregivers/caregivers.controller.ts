@@ -62,13 +62,27 @@ export class CaregiversController {
     return this.caregiversService.uploadPhoto(req.user.id, file);
   }
 
+  @ApiOperation({ summary: 'Nurse: my earnings (subscription-based, monthly)' })
+  @Get('me/earnings')
+  earnings(@Request() req: { user: { id: string } }) {
+    return this.caregiversService.earnings(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Nurse: request a payout of my available balance' })
+  @Post('me/payouts')
+  requestPayout(@Request() req: { user: { id: string } }) {
+    return this.caregiversService.requestPayout(req.user.id);
+  }
+
   @ApiOperation({ summary: 'Nurse: list my uploaded credentials' })
   @Get('me/documents')
   listDocuments(@Request() req: { user: { id: string } }) {
     return this.caregiversService.listDocuments(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Nurse: upload / replace a credential (Ghana/PIN card)' })
+  @ApiOperation({
+    summary: 'Nurse: upload / replace a credential (Ghana/PIN card)',
+  })
   @ApiConsumes('multipart/form-data')
   @Post('me/documents')
   @UseInterceptors(FileInterceptor('file'))

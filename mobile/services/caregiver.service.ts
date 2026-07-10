@@ -91,6 +91,44 @@ export interface SchedulePayload {
   maxVisitsPerDay: number;
 }
 
+export type ApiEarningsPeriodId = "month" | "all";
+
+export interface ApiEarningsPeriod {
+  id: ApiEarningsPeriodId;
+  totalGhs: number;
+  plans: number;
+  subtitle: string;
+  chartTitle: string;
+  bars: { label: string; amountGhs: number }[];
+}
+
+// Per-month earning lifecycle: pending (awaiting family payment / month not
+// ended) → available (withdrawable) → requested (awaiting admin) → paid.
+export type ApiEarningStatus = "pending" | "available" | "requested" | "paid";
+
+export interface ApiEarningsTransaction {
+  id: string;
+  date: string; // ISO
+  patientName: string;
+  service: string;
+  amountGhs: number;
+  status: ApiEarningStatus;
+}
+
+export interface ApiCaregiverEarnings {
+  rating: number;
+  availableGhs: number; // withdrawable now
+  requestedGhs: number; // awaiting admin disbursement
+  paidOutGhs: number; // disbursed all-time
+  periods: ApiEarningsPeriod[];
+  recentTransactions: ApiEarningsTransaction[];
+}
+
+export interface ApiPayoutResult {
+  count: number;
+  totalGhs: number;
+}
+
 export const caregiverService = {
   me: () => api.get<ApiCaregiverProfile>("/caregivers/me"),
   setAvailability: (isAvailable: boolean) =>
@@ -105,6 +143,12 @@ export const caregiverService = {
 
   uploadPhoto: (file: PickedFile) =>
     api.upload<ApiCaregiverProfile>("/caregivers/me/photo", fileForm(file)),
+
+  earnings: () =>
+    api.get<ApiCaregiverEarnings>("/caregivers/me/earnings"),
+
+  requestPayout: () =>
+    api.post<ApiPayoutResult>("/caregivers/me/payouts"),
 
   documents: () =>
     api.get<ApiCaregiverDocument[]>("/caregivers/me/documents"),

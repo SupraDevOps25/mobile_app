@@ -17,7 +17,7 @@ export function CoordinatorCard({ coordinator }: { coordinator: ApiCoordinator }
           {initialsOf(coordinator.name)}
         </Text>
       </View>
-      <View className="flex-1 ml-3">
+      <View className="flex-1 ml-3" style={{ minWidth: 0 }}>
         <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
           {coordinator.name}
         </Text>

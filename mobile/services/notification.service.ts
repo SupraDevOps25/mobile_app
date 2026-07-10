@@ -37,6 +37,10 @@ export const notificationService = {
     api.post<{ registered: boolean }>("/notifications/register-device", {
       token,
     }),
+  unregisterDevice: (token: string) =>
+    api.post<{ unregistered: boolean }>("/notifications/unregister-device", {
+      token,
+    }),
   preferences: () =>
     api.get<ApiNotificationPreferences>("/notifications/preferences"),
   updatePreferences: (payload: Partial<ApiNotificationPreferences>) =>

@@ -10,13 +10,19 @@ const ghanaPhone = z
   )
   .transform((val) => `+233${val.startsWith("0") ? val.slice(1) : val}`);
 
-export const signUpSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Enter a valid email address"),
-  phone: ghanaPhone,
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+export const signUpSchema = z
+  .object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    email: z.string().email("Enter a valid email address"),
+    phone: ghanaPhone,
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Confirm your password"),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 export type SignUpFormValues = z.infer<typeof signUpSchema>;
 

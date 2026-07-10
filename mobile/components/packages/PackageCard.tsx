@@ -11,8 +11,21 @@ export function PackageCard({ pkg, onPress }: Props) {
   return (
     <Pressable
       onPress={() => onPress(pkg)}
-      className="bg-card rounded-2xl p-4 mb-3"
-      style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+      style={({ pressed }) => ({
+        backgroundColor: "#ffffff",
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: "#eef0f3",
+        marginBottom: 12,
+        opacity: pressed ? 0.9 : 1,
+        padding: 16,
+        shadowColor: "#0f172a",
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 1,
+        transform: [{ scale: pressed ? 0.985 : 1 }],
+      })}
     >
       <View className="flex-row items-center">
         <View
@@ -32,12 +45,13 @@ export function PackageCard({ pkg, onPress }: Props) {
         <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
       </View>
 
-      <View className="flex-row items-baseline mt-3">
-        <Text className="text-foreground font-bold" style={{ fontSize: 20 }}>
+      <View className="mt-3">
+        <Text className="text-foreground font-bold" style={{ fontSize: 20, lineHeight: 26 }}>
           GHS {pkg.priceGhs.toLocaleString()}
-        </Text>
-        <Text className="text-muted" style={{ fontSize: 13, marginLeft: 3 }}>
-          /month
+          <Text className="text-muted" style={{ fontSize: 13, fontWeight: "400" }}>
+            {" "}
+            /month
+          </Text>
         </Text>
       </View>
 

@@ -26,6 +26,7 @@ export interface ApiRosterMember {
   name: string;
   initials: string;
   phone: string;
+  photoUrl: string | null;
   expiresAt: string | null;
 }
 
@@ -53,7 +54,7 @@ export interface ApiCoordinatorCase {
   careStartAt: string | null;
   activatedAt: string | null;
   renewsAt: string | null;
-  family: { name: string; phone: string };
+  family: { name: string; phone: string; photoUrl: string | null };
   recipient: ApiCoordinatorRecipient;
   careTeam: ApiCareTeam;
   roster: ApiRosterMember[];
@@ -77,7 +78,9 @@ export interface ApiCoordinatorLog {
   submittedAt: string;
   reviewedAt: string | null;
   clientName: string;
+  clientPhotoUrl: string | null;
   nurseName: string;
+  nursePhotoUrl: string | null;
   visitKind: ApiVisitKind;
   visitStatus: ApiVisitStatus;
   scheduledFor: string;
@@ -93,6 +96,7 @@ export interface ApiCoordinatorCaseVisit {
   scheduledFor: string;
   durationHrs: number;
   nurseName: string;
+  nursePhotoUrl: string | null;
   hasLog: boolean;
   logReviewed: boolean;
   changesRequested: boolean;
@@ -107,8 +111,44 @@ export interface ApiCoordinatorCaseDetail {
   visits: ApiCoordinatorCaseVisit[];
 }
 
+// The coordinator's own personal + professional profile (GET /coordinators/me).
+export interface ApiCoordinatorProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  emailVerified: boolean;
+  photoUrl: string | null;
+  memberSince: string;
+  gender: ApiGender | null;
+  dateOfBirth: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  yearsExperience: number;
+  bio: string | null;
+  workplace: string | null;
+}
+
+export interface UpdateCoordinatorPayload {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  gender?: ApiGender;
+  dateOfBirth?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  yearsExperience?: number;
+  bio?: string;
+  workplace?: string;
+}
+
 export const coordinatorService = {
   cases: () => api.get<ApiCoordinatorCase[]>("/subscriptions/coordinating"),
+  me: () => api.get<ApiCoordinatorProfile>("/coordinators/me"),
+  updateMe: (payload: UpdateCoordinatorPayload) =>
+    api.patch<ApiCoordinatorProfile>("/coordinators/me", payload),
   caseDetail: (id: string) =>
     api.get<ApiCoordinatorCaseDetail>(`/subscriptions/coordinating/${id}`),
   setAssessment: (id: string, assessmentAt: string) =>

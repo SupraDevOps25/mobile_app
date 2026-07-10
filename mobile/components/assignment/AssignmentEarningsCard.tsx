@@ -35,19 +35,20 @@ export function AssignmentEarningsCard({
         >
           <Ionicons name="cash-outline" size={18} color="#16a34a" />
         </View>
-        <View className="flex-1 ml-3">
+        <View className="flex-1 ml-3" style={{ minWidth: 0 }}>
           <Text style={{ color: "#16a34a", fontSize: 12, fontWeight: "600" }}>
             {isAssistant ? "You'll earn (shared rotation)" : "You'll earn"}
           </Text>
-          <View className="flex-row items-baseline">
-            <Text className="text-foreground font-bold" style={{ fontSize: 22 }}>
+          <View>
+            <Text className="text-foreground font-bold" style={{ fontSize: 22, lineHeight: 28 }}>
               {ghs(primary)}
-            </Text>
-            {primary != null && (
-              <Text className="text-muted" style={{ fontSize: 13, marginLeft: 4 }}>
-                /month
+              {primary != null && (
+                <Text className="text-muted" style={{ fontSize: 13, fontWeight: "400" }}>
+                  {" "}
+                  /month
+                </Text>
+              )}
               </Text>
-            )}
           </View>
         </View>
         <Text style={{ color: "#16a34a", fontSize: 12, fontWeight: "600" }}>

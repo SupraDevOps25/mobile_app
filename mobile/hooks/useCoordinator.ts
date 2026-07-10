@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/lib/query-keys";
-import { coordinatorService } from "@/services/coordinator.service";
+import {
+  coordinatorService,
+  type ApiCoordinatorLog,
+  type UpdateCoordinatorPayload,
+} from "@/services/coordinator.service";
 import type { ApiPackageType } from "@/services/package.service";
 
 export function useCoordinatorCases() {
@@ -22,6 +26,22 @@ export function useCoordinatorLogs() {
   return useQuery({
     queryKey: qk.coordinatorLogs,
     queryFn: () => coordinatorService.logs(),
+  });
+}
+
+export function useCoordinatorProfile() {
+  return useQuery({
+    queryKey: qk.coordinatorProfile,
+    queryFn: () => coordinatorService.me(),
+  });
+}
+
+export function useUpdateCoordinatorProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateCoordinatorPayload) =>
+      coordinatorService.updateMe(payload),
+    onSuccess: (profile) => qc.setQueryData(qk.coordinatorProfile, profile),
   });
 }
 
@@ -88,8 +108,18 @@ export function useReviewLog() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (visitId: string) => coordinatorService.reviewLog(visitId),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Reflect "reviewed" instantly, then refetch to stay in sync.
+      qc.setQueryData<ApiCoordinatorLog[]>(qk.coordinatorLogs, (prev) =>
+        prev?.map((l) =>
+          l.visitId === data.visitId
+            ? { ...l, reviewedAt: data.reviewedAt }
+            : l,
+        ),
+      );
       qc.invalidateQueries({ queryKey: qk.coordinatorLogs });
+      // The case detail's visit badges reflect the same log status.
+      qc.invalidateQueries({ queryKey: qk.coordinatorCases });
     },
   });
 }
@@ -99,8 +129,20 @@ export function useRequestLogChanges() {
   return useMutation({
     mutationFn: (vars: { visitId: string; note?: string }) =>
       coordinatorService.requestChanges(vars.visitId, vars.note),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      qc.setQueryData<ApiCoordinatorLog[]>(qk.coordinatorLogs, (prev) =>
+        prev?.map((l) =>
+          l.visitId === data.visitId
+            ? {
+                ...l,
+                changesRequested: data.changesRequested,
+                reviewNotes: data.reviewNotes,
+              }
+            : l,
+        ),
+      );
       qc.invalidateQueries({ queryKey: qk.coordinatorLogs });
+      qc.invalidateQueries({ queryKey: qk.coordinatorCases });
     },
   });
 }

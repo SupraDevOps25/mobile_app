@@ -32,7 +32,8 @@ import {
   useSetAssessment,
   useSetCareStart,
 } from "@/hooks/useCoordinator";
-import { avatarColor, initialsOf } from "@/lib/avatar";
+import { Avatar } from "@/components/ui/Avatar";
+import { initialsOf } from "@/lib/avatar";
 import type { ApiCoordinatorCaseVisit } from "@/services/coordinator.service";
 import type { ApiPackageType } from "@/services/package.service";
 import type { ApiVisitKind } from "@/services/visit.service";
@@ -41,6 +42,17 @@ const VISIT_KIND_LABEL: Record<ApiVisitKind, string> = {
   INITIAL_ASSESSMENT: "Home assessment",
   CARE_VISIT: "Care visit",
 };
+
+// Ordering for the "Care visits & logs" list: in-progress first, then logs
+// (awaiting review, then reviewed), then upcoming, completed and missed.
+function visitRank(v: ApiCoordinatorCaseVisit): number {
+  if (v.status === "IN_PROGRESS") return 0;
+  if (v.hasLog && !v.logReviewed) return 1;
+  if (v.hasLog && v.logReviewed) return 2;
+  if (v.status === "SCHEDULED") return 3;
+  if (v.status === "MISSED") return 5;
+  return 4;
+}
 
 // A visit's badge reflects where its log stands in review, or its plain status
 // when there's no nurse log (scheduled, in progress, missed, or the assessment).
@@ -346,14 +358,12 @@ export default function CoordinatorCaseScreen() {
             </View>
           </View>
           <View className="flex-row items-center mt-3">
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center"
-              style={{ backgroundColor: avatarColor(item.recipient.name) }}
-            >
-              <Text className="text-white font-bold" style={{ fontSize: 15 }}>
-                {initialsOf(item.recipient.name)}
-              </Text>
-            </View>
+            <Avatar
+              name={item.recipient.name}
+              initials={initialsOf(item.recipient.name)}
+              photoUrl={item.family.photoUrl}
+              size={52}
+            />
             <View className="flex-1 ml-3">
               <Text className="text-white font-bold" style={{ fontSize: 18 }}>
                 {item.recipient.name}
@@ -365,22 +375,64 @@ export default function CoordinatorCaseScreen() {
           </View>
         </View>
 
-        {/* Conditions + needs */}
+        {/* Care recipient */}
         <SectionLabel title="Care recipient" />
         <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
-          <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-            {item.recipient.conditions.map((c) => (
-              <View key={c} className="rounded-full px-3 py-1.5" style={{ backgroundColor: "#f3f4f6" }}>
-                <Text style={{ color: "#374151", fontSize: 12, fontWeight: "500" }}>{c}</Text>
-              </View>
-            ))}
+          {/* Gender · age · who care is for */}
+          <View
+            className="flex-row items-center rounded-2xl p-3"
+            style={{ backgroundColor: "#f8fafc", gap: 10 }}
+          >
+            <View className="flex-1 items-center">
+              <Text className="text-muted" style={{ fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
+                GENDER
+              </Text>
+              <Text className="text-foreground font-bold" style={{ fontSize: 14, marginTop: 3 }}>
+                {item.recipient.gender === "MALE" ? "Male" : "Female"}
+              </Text>
+            </View>
+            <View style={{ width: 1, height: 30, backgroundColor: "#e5e7eb" }} />
+            <View className="flex-1 items-center">
+              <Text className="text-muted" style={{ fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
+                AGE
+              </Text>
+              <Text className="text-foreground font-bold" style={{ fontSize: 14, marginTop: 3 }}>
+                {item.recipient.age} yrs
+              </Text>
+            </View>
+            <View style={{ width: 1, height: 30, backgroundColor: "#e5e7eb" }} />
+            <View className="flex-1 items-center">
+              <Text className="text-muted" style={{ fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
+                CARE FOR
+              </Text>
+              <Text className="text-foreground font-bold" style={{ fontSize: 14, marginTop: 3 }}>
+                {item.recipient.bookingFor === "SELF" ? "Self" : "Loved one"}
+              </Text>
+            </View>
           </View>
-          <Text className="text-foreground" style={{ fontSize: 13, lineHeight: 20, marginTop: 12 }}>
-            {item.recipient.basicCareNeeds}
-          </Text>
-          <View className="flex-row items-center mt-3">
+
+          {item.recipient.conditions.length > 0 && (
+            <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
+              {item.recipient.conditions.map((c) => (
+                <View key={c} className="rounded-full px-3 py-1.5" style={{ backgroundColor: "#eef2ff" }}>
+                  <Text style={{ color: "#3730a3", fontSize: 12, fontWeight: "500" }}>{c}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View className="flex-row mt-3" style={{ gap: 8 }}>
+            <Ionicons name="document-text-outline" size={15} color="#6b7280" style={{ marginTop: 2 }} />
+            <Text className="text-foreground flex-1" style={{ fontSize: 13, lineHeight: 20 }}>
+              {item.recipient.basicCareNeeds}
+            </Text>
+          </View>
+          <View
+            className="flex-row items-center mt-3 pt-3"
+            style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6" }}
+          >
             <Ionicons name="location-outline" size={15} color="#6b7280" />
-            <Text className="text-muted" style={{ fontSize: 13, marginLeft: 6 }}>
+            <Text className="text-muted flex-1" style={{ fontSize: 13, marginLeft: 6 }}>
               {item.recipient.address}
             </Text>
           </View>
@@ -392,7 +444,13 @@ export default function CoordinatorCaseScreen() {
           className="flex-row items-center bg-card rounded-2xl p-4"
           style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
         >
-          <View className="flex-1">
+          <Avatar
+            name={item.family.name}
+            initials={initialsOf(item.family.name)}
+            photoUrl={item.family.photoUrl}
+            size={40}
+          />
+          <View className="flex-1 ml-3">
             <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
               {item.family.name}
             </Text>
@@ -473,14 +531,12 @@ export default function CoordinatorCaseScreen() {
                   className="flex-row items-center bg-card rounded-2xl p-3 mb-3"
                   style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
                 >
-                  <View
-                    className="w-11 h-11 rounded-full items-center justify-center"
-                    style={{ backgroundColor: avatarColor(m.name) }}
-                  >
-                    <Text className="text-white font-bold" style={{ fontSize: 14 }}>
-                      {m.initials}
-                    </Text>
-                  </View>
+                  <Avatar
+                    name={m.name}
+                    initials={m.initials}
+                    photoUrl={m.photoUrl}
+                    size={44}
+                  />
                   <View className="flex-1 ml-3">
                     <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
                       {m.name}
@@ -800,30 +856,27 @@ export default function CoordinatorCaseScreen() {
             nestedScrollEnabled
             showsVerticalScrollIndicator
           >
-            {detail.visits.map((v) => {
-              const badge = visitBadge(v);
-            const isAssessment = v.kind === "INITIAL_ASSESSMENT";
-            const dateLabel = new Date(v.scheduledFor).toLocaleDateString([], {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-            });
-            const row = (
-              <View
-                className="flex-row items-center bg-card rounded-2xl p-3 mb-2.5"
-                style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
-              >
-                <View
-                  className="w-10 h-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: isAssessment ? "#eff6ff" : "#f0fdfa" }}
-                >
-                  <Ionicons
-                    name={isAssessment ? "clipboard-outline" : "medkit-outline"}
-                    size={17}
-                    color={isAssessment ? "#2563eb" : "#0d9488"}
-                  />
-                </View>
-                <View className="flex-1 ml-3">
+            {[...detail.visits]
+              .sort((a, b) => visitRank(a) - visitRank(b))
+              .map((v) => {
+                const badge = visitBadge(v);
+                const dateLabel = new Date(v.scheduledFor).toLocaleDateString([], {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                });
+                const row = (
+                  <View
+                    className="flex-row items-center bg-card rounded-2xl p-3 mb-2.5"
+                    style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+                  >
+                    <Avatar
+                      name={v.nurseName}
+                      initials={initialsOf(v.nurseName)}
+                      photoUrl={v.nursePhotoUrl}
+                      size={40}
+                    />
+                    <View className="flex-1 ml-3">
                   <Text className="text-foreground font-semibold" style={{ fontSize: 13.5 }}>
                     {VISIT_KIND_LABEL[v.kind]} · {dateLabel}
                   </Text>

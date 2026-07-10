@@ -152,11 +152,39 @@ export class NotificationsService {
   // ─── Device registration (Expo push token) ───────────────────────────────
 
   async registerDevice(userId: string, token: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { fcmToken: token },
-    });
+    // A device token must map to exactly ONE account. When someone signs in on
+    // a device a different account previously used, clear the token from that
+    // other account first — otherwise push notifications meant for them would
+    // still land on this device (leaking another role's alerts here).
+    await this.prisma.$transaction([
+      this.prisma.user.updateMany({
+        where: { fcmToken: token, id: { not: userId } },
+        data: { fcmToken: null },
+      }),
+      this.prisma.caregiverProfile.updateMany({
+        where: { fcmToken: token, userId: { not: userId } },
+        data: { fcmToken: null },
+      }),
+      this.prisma.familyProfile.updateMany({
+        where: { fcmToken: token, userId: { not: userId } },
+        data: { fcmToken: null },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { fcmToken: token },
+      }),
+    ]);
     return { registered: true };
+  }
+
+  /** Release this device's push token on sign-out so the account stops
+   * receiving pushes on a device it no longer owns. */
+  async unregisterDevice(userId: string, token: string) {
+    await this.prisma.user.updateMany({
+      where: { id: userId, fcmToken: token },
+      data: { fcmToken: null },
+    });
+    return { unregistered: true };
   }
 
   // ─── Channel preferences ──────────────────────────────────────────────────

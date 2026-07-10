@@ -23,7 +23,7 @@ export function PackageSummaryCard({ pkg }: { pkg: PackageView }) {
           {pkg.tagline}
         </Text>
       </View>
-      <View className="items-end">
+      <View className="items-end" style={{ flexShrink: 0 }}>
         <Text className="text-foreground font-bold" style={{ fontSize: 16 }}>
           GHS {pkg.priceGhs.toLocaleString()}
         </Text>

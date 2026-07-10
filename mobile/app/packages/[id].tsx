@@ -64,7 +64,16 @@ export default function PackageDetailScreen() {
         {/* Hero */}
         <View
           className="rounded-2xl p-5"
-          style={{ backgroundColor: pkg.accentBg }}
+          style={{
+            backgroundColor: pkg.accentBg,
+            borderWidth: 1,
+            borderColor: "#eef0f3",
+            shadowColor: "#0f172a",
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 3 },
+            elevation: 1,
+          }}
         >
           <View
             className="w-14 h-14 rounded-2xl items-center justify-center"
@@ -78,12 +87,13 @@ export default function PackageDetailScreen() {
           <Text className="text-muted" style={{ fontSize: 13, marginTop: 2 }}>
             {pkg.tagline}
           </Text>
-          <View className="flex-row items-baseline mt-3">
-            <Text className="text-foreground font-bold" style={{ fontSize: 26 }}>
+          <View className="mt-3">
+            <Text className="text-foreground font-bold" style={{ fontSize: 26, lineHeight: 32 }}>
               GHS {pkg.priceGhs.toLocaleString()}
-            </Text>
-            <Text className="text-muted" style={{ fontSize: 14, marginLeft: 4 }}>
-              /month
+              <Text className="text-muted" style={{ fontSize: 14, fontWeight: "400" }}>
+                {" "}
+                /month
+              </Text>
             </Text>
           </View>
         </View>
@@ -105,7 +115,15 @@ export default function PackageDetailScreen() {
         </Text>
         <View
           className="bg-card rounded-2xl px-4 py-1"
-          style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+          style={{
+            borderWidth: 1,
+            borderColor: "#eef0f3",
+            shadowColor: "#0f172a",
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 3 },
+            elevation: 1,
+          }}
         >
           {pkg.inclusions.map((item, index) => (
             <View

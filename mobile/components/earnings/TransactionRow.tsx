@@ -3,6 +3,8 @@ import type { Transaction } from "@/constants/earnings";
 
 const STATUS_STYLES = {
   paid: { bg: "#dcfce7", color: "#16a34a", label: "Paid" },
+  requested: { bg: "#e0e7ff", color: "#4338ca", label: "Requested" },
+  available: { bg: "#cffafe", color: "#0e7490", label: "Ready" },
   pending: { bg: "#fef9c3", color: "#a16207", label: "Pending" },
 } as const;
 
@@ -32,7 +34,7 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
           {transaction.patientName}
         </Text>
         <Text className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>
-          {transaction.service} · {transaction.durationHrs}hrs
+          {transaction.service} · {transaction.month} {transaction.year}
         </Text>
       </View>
 

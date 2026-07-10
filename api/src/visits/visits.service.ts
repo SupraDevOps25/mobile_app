@@ -451,7 +451,12 @@ export class VisitsService {
       include: {
         visit: {
           include: {
-            subscription: { include: { careRecipient: true } },
+            subscription: {
+              include: {
+                careRecipient: true,
+                family: { select: { photoUrl: true } },
+              },
+            },
             caregiver: { include: { user: true } },
           },
         },
@@ -463,7 +468,9 @@ export class VisitsService {
         .map((l) => ({
           ...this.toLogResponse(l),
           clientName: l.visit.subscription.careRecipient.name,
+          clientPhotoUrl: l.visit.subscription.family.photoUrl,
           nurseName: `${l.visit.caregiver.user.firstName} ${l.visit.caregiver.user.lastName}`,
+          nursePhotoUrl: l.visit.caregiver.photoUrl,
           visitKind: l.visit.kind,
           scheduledFor: l.visit.scheduledFor,
           durationHrs: l.visit.durationHrs,

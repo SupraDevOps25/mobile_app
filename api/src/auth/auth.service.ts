@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -10,6 +11,18 @@ import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../storage/cloudinary.service';
+
+// Minimal shape of a multer-uploaded file (avoids depending on @types/multer).
+export interface UploadedFile {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+}
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -24,6 +37,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
+    private readonly storage: CloudinaryService,
   ) {}
 
   /** Check email + phone uniqueness before registration. */
@@ -72,6 +86,10 @@ export class AuthService {
           });
         } else if (dto.role === Role.FAMILY) {
           await tx.familyProfile.create({
+            data: { userId: created.id },
+          });
+        } else if (dto.role === Role.CARE_COORDINATOR) {
+          await tx.coordinatorProfile.create({
             data: { userId: created.id },
           });
         }
@@ -179,6 +197,7 @@ export class AuthService {
         firstName: true,
         lastName: true,
         role: true,
+        photoUrl: true,
         createdAt: true,
         caregiverProfile: true,
         familyProfile: true,
@@ -187,6 +206,36 @@ export class AuthService {
 
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  /** Upload / replace the logged-in user's own profile photo (any role). Used
+   * primarily by Care Coordinators, who have no role-specific profile table. */
+  async uploadPhoto(userId: string, file: UploadedFile) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    this.assertImage(file);
+
+    const stored = await this.storage.upload(file, {
+      folder: `supracarer/users/${userId}`,
+      publicId: 'photo',
+      resourceType: 'image',
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { photoUrl: stored.url, photoPublicId: stored.publicId },
+    });
+    return this.getProfile(userId);
+  }
+
+  private assertImage(file: UploadedFile | undefined) {
+    if (!file) throw new BadRequestException('No file was uploaded.');
+    if (file.size > MAX_PHOTO_BYTES) {
+      throw new BadRequestException('Image is too large (max 5 MB).');
+    }
+    if (!ALLOWED_IMAGE.includes(file.mimetype)) {
+      throw new BadRequestException('Upload a JPG, PNG or WebP image.');
+    }
   }
 
   /** Self-service profile update for any authenticated user (any role). */

@@ -201,10 +201,12 @@ export function ServiceAreaField({
   value,
   onChangeText,
   onLocated,
+  onFocus,
 }: {
   value: string;
   onChangeText: (t: string) => void;
   onLocated: (loc: ResolvedLocation) => void;
+  onFocus?: () => void;
 }) {
   const { getCurrent, loading } = useDeviceLocation();
 
@@ -238,6 +240,7 @@ export function ServiceAreaField({
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onFocus={onFocus}
           placeholder="e.g. East Legon, Accra"
           placeholderTextColor="#9ca3af"
           maxFontSizeMultiplier={1.2}

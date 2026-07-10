@@ -17,6 +17,23 @@ export function useCaregiverProfile() {
   });
 }
 
+export function useCaregiverEarnings() {
+  return useQuery({
+    queryKey: qk.caregiverEarnings,
+    queryFn: () => caregiverService.earnings(),
+  });
+}
+
+export function useRequestPayout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => caregiverService.requestPayout(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.caregiverEarnings });
+    },
+  });
+}
+
 export function useSetAvailability() {
   const qc = useQueryClient();
   return useMutation({

@@ -50,14 +50,14 @@ function Row({ item, showDivider }: { item: RowItem; showDivider: boolean }) {
         >
           <Ionicons name={item.icon} size={18} color={item.tint} />
         </View>
-        <View className="flex-1 ml-3">
+        <View className="flex-1 ml-3" style={{ minWidth: 0 }}>
           <Text
             className="font-semibold"
             style={{ fontSize: 14.5, color: item.danger ? "#dc2626" : "#111827" }}
           >
             {item.title}
           </Text>
-          <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
+          <Text className="text-muted" style={{ fontSize: 12, marginTop: 1, flexShrink: 1 }}>
             {item.subtitle}
           </Text>
         </View>
@@ -92,10 +92,21 @@ function Row({ item, showDivider }: { item: RowItem; showDivider: boolean }) {
 
 function Section({ items }: { items: RowItem[] }) {
   return (
-    <View className="mx-5">
+    <View
+      className="mx-5"
+      style={{
+        borderRadius: 16,
+        backgroundColor: "#ffffff",
+        shadowColor: "#0f172a",
+        shadowOpacity: 0.03,
+        shadowRadius: 5,
+        shadowOffset: { width: 0, height: 1 },
+        elevation: 1,
+      }}
+    >
       <View
         className="bg-card rounded-2xl overflow-hidden"
-        style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+        style={{ borderWidth: 1, borderColor: "#ebedf0" }}
       >
         {items.map((item, i) => (
           <Row key={item.key} item={item} showDivider={i < items.length - 1} />
@@ -106,23 +117,62 @@ function Section({ items }: { items: RowItem[] }) {
 }
 
 function StatItem({
+  icon,
+  tint,
+  bg,
+  border,
   value,
   label,
-  icon,
-  color,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  bg: string;
+  border: string;
   value: string;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
 }) {
   return (
-    <View className="flex-1 items-center">
-      <Ionicons name={icon} size={18} color={color} style={{ marginBottom: 4 }} />
-      <Text className="text-foreground font-bold" style={{ fontSize: 20 }}>
+    <View
+      className="flex-1 items-center"
+      style={{
+        backgroundColor: bg,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: border,
+        paddingVertical: 12,
+        paddingHorizontal: 6,
+      }}
+    >
+      <View
+        className="items-center justify-center"
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 12,
+          backgroundColor: "rgba(255,255,255,0.7)",
+        }}
+      >
+        <Ionicons name={icon} size={17} color={tint} />
+      </View>
+      <Text
+        style={{ color: tint, fontSize: 16, fontWeight: "800", marginTop: 7 }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {value}
       </Text>
-      <Text className="text-muted text-center" style={{ fontSize: 11, marginTop: 2 }}>
+      <Text
+        style={{
+          color: tint,
+          fontSize: 10,
+          fontWeight: "700",
+          opacity: 0.85,
+          marginTop: 2,
+          textAlign: "center",
+          lineHeight: 13,
+        }}
+        numberOfLines={2}
+      >
         {label}
       </Text>
     </View>
@@ -323,7 +373,15 @@ export default function CaregiverProfileScreen() {
         <View className="mx-5">
           <View
             className="bg-card rounded-3xl items-center px-5 pt-6 pb-5"
-            style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            style={{
+              borderWidth: 1,
+              borderColor: "#ebedf0",
+              shadowColor: "#0f172a",
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 3 },
+              elevation: 2,
+            }}
           >
             {photoUrl ? (
               <Image
@@ -362,6 +420,7 @@ export default function CaregiverProfileScreen() {
                   fontSize: 12,
                   fontWeight: "700",
                   marginLeft: 4,
+                  flexShrink: 1,
                 }}
               >
                 {verification.label}
@@ -379,24 +438,30 @@ export default function CaregiverProfileScreen() {
             </Pressable>
 
             {/* Stats */}
-            <View
-              className="flex-row w-full mt-5 pt-5"
-              style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6" }}
-            >
-              <StatItem value={rating} label="Ratings " icon="star" color="#f59e0b" />
-              <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
+            <View className="flex-row w-full mt-5" style={{ gap: 8 }}>
               <StatItem
+                icon="star"
+                tint="#b45309"
+                bg="#fffbeb"
+                border="#fde68a"
+                value={rating}
+                label="Ratings"
+              />
+              <StatItem
+                icon="chatbubble-ellipses"
+                tint="#1d4ed8"
+                bg="#eff6ff"
+                border="#bfdbfe"
                 value={String(reviews)}
                 label="Reviews"
-                icon="chatbubble-ellipses-outline"
-                color="#2563eb"
               />
-              <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
               <StatItem
+                icon="calendar"
+                tint="#15803d"
+                bg="#f0fdf4"
+                border="#bbf7d0"
                 value={memberSince}
-                label="Member since "
-                icon="calendar-outline"
-                color="#16a34a"
+                label="Member since"
               />
             </View>
           </View>

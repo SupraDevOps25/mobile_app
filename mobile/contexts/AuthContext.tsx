@@ -6,6 +6,8 @@ import {
   useMemo,
   useState,
 } from "react";
+import { registerForPushToken } from "@/lib/push";
+import { notificationService } from "@/services/notification.service";
 import type { Role, User } from "@/types/auth";
 
 // Decode JWT payload without an external library.
@@ -72,6 +74,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Best-effort: release this device's push token so notifications for this
+    // account stop arriving here after sign-out. Must run while still
+    // authenticated (before the token is cleared).
+    try {
+      const pushToken = await registerForPushToken();
+      if (pushToken) await notificationService.unregisterDevice(pushToken);
+    } catch {
+      // Ignore — logout must proceed regardless of the network call.
+    }
     await SecureStore.deleteItemAsync("auth_token");
     setToken(null);
     setUser(null);

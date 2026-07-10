@@ -8,11 +8,19 @@ import {
   Query,
   Request,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuthService } from './auth.service';
+import { AuthService, type UploadedFile as MulterFile } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
 import { LoginDto } from './dto/login.dto';
@@ -79,6 +87,19 @@ export class AuthController {
     @Body() dto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(req.user.id, dto);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upload / replace my own profile photo (any role)' })
+  @ApiConsumes('multipart/form-data')
+  @UseGuards(JwtAuthGuard)
+  @Post('profile/photo')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadPhoto(
+    @Request() req: { user: { id: string } },
+    @UploadedFile() file: MulterFile,
+  ) {
+    return this.authService.uploadPhoto(req.user.id, file);
   }
 
   @ApiBearerAuth()

@@ -66,8 +66,21 @@ function AssignmentCard({
   return (
     <Pressable
       onPress={() => onPress(item)}
-      className="bg-card rounded-2xl p-4 mb-3"
-      style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+      style={({ pressed }) => ({
+        backgroundColor: "#ffffff",
+        borderRadius: 18,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#ebedf0",
+        opacity: pressed ? 0.95 : 1,
+        transform: [{ scale: pressed ? 0.99 : 1 }],
+        shadowColor: "#0f172a",
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 1,
+      })}
     >
       <View className="flex-row items-center">
         <Avatar

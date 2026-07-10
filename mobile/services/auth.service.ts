@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { fileForm, type PickedFile } from "@/lib/pick";
 import type { AuthResponse, RegisterResponse, Role } from "@/types/auth";
 
 export interface RegisterPayload {
@@ -24,6 +25,7 @@ export interface ApiAuthProfile {
   firstName: string;
   lastName: string;
   role: Role;
+  photoUrl: string | null;
   createdAt: string;
 }
 
@@ -54,6 +56,10 @@ export const authService = {
   /** Update the logged-in user's own name / phone (any role). */
   updateProfile: (payload: UpdateProfilePayload) =>
     api.patch<ApiAuthProfile>("/auth/profile", payload),
+
+  /** Upload / replace the logged-in user's own profile photo (any role). */
+  uploadPhoto: (file: PickedFile) =>
+    api.upload<ApiAuthProfile>("/auth/profile/photo", fileForm(file)),
 
   /** Change the logged-in user's password. */
   changePassword: (payload: {

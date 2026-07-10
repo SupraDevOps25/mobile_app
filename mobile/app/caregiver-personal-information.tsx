@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -121,6 +121,44 @@ export default function CaregiverPersonalInfoScreen() {
     ? `${account.firstName} ${account.lastName}`.trim()
     : "";
   const photoUrl = profile?.photoUrl ?? null;
+
+  // Every field is local state, so compare the whole form to the loaded values
+  // to keep "Save" disabled until something actually changes. (The photo saves
+  // instantly on its own, so it isn't part of this check.)
+  const baseline = useMemo(() => {
+    if (!account || !profile) return null;
+    return JSON.stringify({
+      firstName: account.firstName,
+      lastName: account.lastName,
+      phone: toLocalPhone(account.phone),
+      gender: profile.gender,
+      dob: profile.dateOfBirth ? profile.dateOfBirth.slice(0, 10) : null,
+      bio: profile.bio ?? "",
+      address: profile.address ?? "",
+      serviceArea: profile.serviceAreas.join(", "),
+      lat: profile.lat ?? null,
+      lng: profile.lng ?? null,
+      languages: [...profile.languages].sort(),
+      hasExp: profile.hasHomecareExp,
+      years: profile.yearsExperience ? String(profile.yearsExperience) : "",
+    });
+  }, [account, profile]);
+  const current = JSON.stringify({
+    firstName,
+    lastName,
+    phone,
+    gender,
+    dob,
+    bio,
+    address,
+    serviceArea,
+    lat: coords?.lat ?? null,
+    lng: coords?.lng ?? null,
+    languages: [...languages].sort(),
+    hasExp,
+    years: hasExp ? years : "",
+  });
+  const dirty = baseline != null && current !== baseline;
 
   function toggleLanguage(lang: string) {
     setLanguages((prev) =>
@@ -541,6 +579,7 @@ export default function CaregiverPersonalInfoScreen() {
                 title="Save changes"
                 variant="navy"
                 loading={update.isPending || updateAccount.isPending}
+                disabled={!dirty}
                 onPress={onSave}
               />
             </View>

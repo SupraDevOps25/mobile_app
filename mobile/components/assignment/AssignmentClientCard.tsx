@@ -48,7 +48,7 @@ export function AssignmentClientCard({
           photoUrl={family.photoUrl}
           size={60}
         />
-        <View className="flex-1" style={{ marginLeft: 14 }}>
+        <View className="flex-1" style={{ marginLeft: 14, minWidth: 0 }}>
           <View className="flex-row items-center" style={{ gap: 5 }}>
             <Ionicons name="people" size={13} color="#2563eb" />
             <Text className="text-muted" style={{ fontSize: 11, fontWeight: "700", letterSpacing: 0.4 }}>
@@ -105,7 +105,7 @@ export function AssignmentClientCard({
         >
           <Ionicons name="shield-checkmark" size={19} color="#2563eb" />
         </View>
-        <View className="flex-1 ml-3">
+        <View className="flex-1 ml-3" style={{ minWidth: 0 }}>
           <Text className="text-muted" style={{ fontSize: 11, fontWeight: "600" }}>
             Care Coordinator
           </Text>

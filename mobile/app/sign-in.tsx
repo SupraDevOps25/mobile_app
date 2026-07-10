@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { CommonActions } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigation, useRouter } from "expo-router";
@@ -23,6 +22,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { signInSchema, type SignInFormValues } from "@/schemas/auth.schemas";
 import { authService } from "@/services/auth.service";
 import { homeGroupForRole } from "@/lib/home-route";
+
+const AUTH_INPUT_STYLE = {
+  backgroundColor: "#ffffff",
+  borderColor: "#dbe2ea",
+  borderWidth: 1.5,
+  minHeight: 58,
+  shadowColor: "#0f172a",
+  shadowOpacity: 0.04,
+  shadowRadius: 7,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 1,
+};
 
 // Format a Ghana phone number to +233XXXXXXXXX for the backend.
 function toE164(raw: string): string {
@@ -97,12 +108,19 @@ export default function SignInScreen() {
         <Text className="text-foreground text-2xl font-bold text-center mb-8">
           Nice to see you again
         </Text>
+        <Text
+          className="text-muted text-center"
+          style={{ fontSize: 14, lineHeight: 20, marginTop: -24, marginBottom: 24 }}
+        >
+          Sign in with your email or Ghana phone number.
+        </Text>
 
         <Controller
           control={control}
           name="emailOrPhone"
           render={({ field: { value, onChange, onBlur } }) => (
             <Input
+              label="Email or phone number"
               placeholder="Email or phone number (e.g. 0244123456)"
               value={value}
               onChangeText={onChange}
@@ -110,6 +128,7 @@ export default function SignInScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               error={errors.emailOrPhone?.message}
+              inputContainerStyle={AUTH_INPUT_STYLE}
             />
           )}
         />
@@ -119,12 +138,14 @@ export default function SignInScreen() {
           name="password"
           render={({ field: { value, onChange, onBlur } }) => (
             <Input
-              placeholder="Enter password"
+              label="Password"
+              placeholder="Enter your password"
               value={value}
               onChangeText={onChange}
               onBlur={onBlur}
               secureTextEntry={!showPassword}
               error={errors.password?.message}
+              inputContainerStyle={AUTH_INPUT_STYLE}
               rightIcon={
                 <Pressable onPress={() => setShowPassword((v) => !v)}>
                   <Text className="text-muted text-sm pr-1">
@@ -151,20 +172,22 @@ export default function SignInScreen() {
         </View>
 
         <Button
-          title="Sign In"
+          title="Sign in"
           variant="primary"
           loading={isPending}
           onPress={handleSubmit((values) => mutate(values))}
         />
 
-        {/* Divider */}
+        {/*
+        Divider and social sign-in are parked for the MVP. Re-enable this block
+        when Google/Apple auth is configured end-to-end.
+
         <View className="flex-row items-center my-7 gap-4">
           <View className="flex-1 bg-border" style={{ height: 1 }} />
           <Text className="text-muted text-sm">Or</Text>
           <View className="flex-1 bg-border" style={{ height: 1 }} />
         </View>
 
-        {/* Social sign-in (UI only) */}
         <Pressable
           onPress={() => Alert.alert("Coming soon", "Google sign-in not yet available.")}
           className="bg-black rounded-full py-4 flex-row items-center justify-center gap-3 mb-3"
@@ -184,6 +207,7 @@ export default function SignInScreen() {
             Sign in with Apple ID
           </Text>
         </Pressable>
+        */}
 
         {/* Sign up link */}
         <View className="flex-row justify-center mt-8">

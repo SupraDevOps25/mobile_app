@@ -37,8 +37,8 @@ export function TeamNurseRow({ nurse, onPress }: Props) {
         </View>
       )}
 
-      <View className="flex-1 ml-3">
-        <View className="flex-row items-center">
+      <View className="flex-1 ml-3" style={{ minWidth: 0 }}>
+        <View className="flex-row items-center" style={{ minWidth: 0 }}>
           <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
             {nurse.name}
           </Text>
@@ -49,7 +49,11 @@ export function TeamNurseRow({ nurse, onPress }: Props) {
             style={{ marginLeft: 4 }}
           />
         </View>
-        <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
+        <Text
+          className="text-muted"
+          style={{ flexShrink: 1, fontSize: 12, lineHeight: 17, marginTop: 1 }}
+          numberOfLines={2}
+        >
           {nurse.qualification ?? "Nurse"} · {nurse.yearsExperience} yrs · ★{" "}
           {nurse.rating.toFixed(1)}
         </Text>
@@ -57,7 +61,7 @@ export function TeamNurseRow({ nurse, onPress }: Props) {
 
       <View
         className="rounded-full px-2.5 py-1 mr-1"
-        style={{ backgroundColor: isLead ? "#dcfce7" : "#f3f4f6" }}
+        style={{ backgroundColor: isLead ? "#dcfce7" : "#f3f4f6", flexShrink: 0 }}
       >
         <Text
           style={{

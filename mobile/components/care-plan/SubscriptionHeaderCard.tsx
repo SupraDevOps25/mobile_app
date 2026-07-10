@@ -46,16 +46,17 @@ export function SubscriptionHeaderCard({ pkg, subscription }: Props) {
         </View>
       </View>
 
-      <View className="flex-row items-end justify-between mt-4">
-        <View className="flex-row items-baseline">
-          <Text className="text-white font-bold" style={{ fontSize: 22 }}>
+      <View className="flex-row items-end justify-between mt-4" style={{ gap: 12 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text className="text-white font-bold" style={{ fontSize: 22, lineHeight: 28 }}>
             GHS {subscription.priceGhs.toLocaleString()}
-          </Text>
-          <Text style={{ color: "#94a3b8", fontSize: 13, marginLeft: 4 }}>
-            /month
+            <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "400" }}>
+              {" "}
+              /month
+            </Text>
           </Text>
         </View>
-        <Text style={{ color: "#94a3b8", fontSize: 12 }}>
+        <Text style={{ color: "#94a3b8", flexShrink: 0, fontSize: 12 }}>
           Renews {formatDate(subscription.renewsAt)}
         </Text>
       </View>

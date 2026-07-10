@@ -748,6 +748,7 @@ export class SubscriptionsService {
           family: {
             name: `${s.family.user.firstName} ${s.family.user.lastName}`,
             phone: s.family.user.phone,
+            photoUrl: s.family.photoUrl,
           },
           recipient: {
             bookingFor: s.careRecipient.bookingFor,
@@ -809,6 +810,7 @@ export class SubscriptionsService {
         scheduledFor: v.scheduledFor,
         durationHrs: v.durationHrs,
         nurseName: `${v.caregiver.user.firstName} ${v.caregiver.user.lastName}`,
+        nursePhotoUrl: v.caregiver.photoUrl,
         hasLog: v.log !== null,
         logReviewed: v.log?.reviewedAt != null,
         changesRequested: v.log?.changesRequested ?? false,
@@ -923,6 +925,7 @@ export class SubscriptionsService {
           initials:
             `${u.firstName[0] ?? ''}${u.lastName[0] ?? ''}`.toUpperCase(),
           phone: u.phone,
+          photoUrl: a.caregiver.photoUrl,
           expiresAt: a.expiresAt,
         };
       })

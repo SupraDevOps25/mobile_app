@@ -130,6 +130,12 @@ enum PaymentStatus {
   ABANDONED
 }
 
+// Nurse payout requests (withdraw realized earnings to mobile money).
+enum PayoutStatus {
+  PENDING // requested, awaiting disbursement
+  PAID // disbursed to the nurse
+}
+
 enum NotificationType {
   SUBSCRIPTION_CREATED
   TEAM_ASSIGNED
@@ -160,13 +166,19 @@ model User {
   notifySms     Boolean  @default(true)
   // Expo push token for this user's current device (any role).
   fcmToken      String?
+  // Self-uploaded profile photo (used by roles without a profile table, e.g.
+  // Care Coordinators; families/nurses keep their own on their profile row).
+  photoUrl      String?
+  photoPublicId String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   caregiverProfile   CaregiverProfile?
   familyProfile      FamilyProfile?
+  coordinatorProfile CoordinatorProfile?
   notifications      Notification[]
   emailVerifications EmailVerification[]
+  messages           Message[]
 
   // Coordinator-side relations (role = CARE_COORDINATOR)
   coordinatedSubscriptions Subscription[] @relation("CoordinatorSubscriptions")
@@ -222,11 +234,12 @@ model CaregiverProfile {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignments Assignment[]
-  visits      Visit[]
-  documents   CaregiverDocument[]
-  reviews     Review[]
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments    Assignment[]
+  visits         Visit[]
+  documents      CaregiverDocument[]
+  reviews        Review[]
+  payoutRequests PayoutRequest[]
 
   @@map("caregiver_profiles")
 }
@@ -279,6 +292,27 @@ model FamilyProfile {
   reviews        Review[]
 
   @@map("family_profiles")
+}
+
+// Care Coordinator profile. Coordinators log in as plain Users; this holds
+// their personal + professional details (the account photo lives on User).
+model CoordinatorProfile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  gender          Gender?
+  dateOfBirth     DateTime? // shows the coordinator's age
+  address         String? // home / house address
+  lat             Float?
+  lng             Float?
+  yearsExperience Int       @default(0) // years in care coordination / nursing
+  bio             String? // "about me" blurb
+  workplace       String? // where they work (hospital / organisation)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coordinator_profiles")
 }
 
 // A reusable Paystack authorization captured after a successful payment. We
@@ -387,8 +421,25 @@ model Subscription {
   visits        Visit[]
   payments      Payment[]
   reviews       Review[]
+  messages      Message[]
 
   @@map("subscriptions")
+}
+
+// ─── Message (family ⇄ care coordinator chat, scoped to a subscription) ────────
+model Message {
+  id             String    @id @default(uuid())
+  subscriptionId String
+  senderId       String // User id (the family account holder or the coordinator)
+  body           String
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@map("messages")
 }
 
 // ─── Review (family rates the nurse at the end of a care cycle) ────────────────
@@ -506,10 +557,31 @@ model Payment {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  subscription Subscription  @relation(fields: [subscriptionId], references: [id])
-  family       FamilyProfile @relation(fields: [familyId], references: [id])
+  subscription   Subscription    @relation(fields: [subscriptionId], references: [id])
+  family         FamilyProfile   @relation(fields: [familyId], references: [id])
+  payoutRequests PayoutRequest[]
 
   @@map("payments")
+}
+
+// A nurse's request to be paid for one completed subscription month (tied to
+// the family's monthly Payment). Requestable only once that billing cycle has
+// ended and the family has paid. An admin marks it PAID after disbursing.
+model PayoutRequest {
+  id          String       @id @default(uuid())
+  caregiverId String
+  paymentId   String // the subscription monthly payment this covers
+  amountGhs   Decimal      @db.Decimal(10, 2)
+  status      PayoutStatus @default(PENDING)
+  requestedAt DateTime     @default(now())
+  paidAt      DateTime?
+
+  caregiver CaregiverProfile @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+  payment   Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([caregiverId, paymentId]) // one payout per nurse per month
+  @@index([caregiverId])
+  @@map("payout_requests")
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

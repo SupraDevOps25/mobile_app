@@ -270,12 +270,22 @@ export default function CaregiverAssignmentScreen() {
               style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.12)" }}
             >
               <Ionicons name="shield-checkmark" size={16} color="#93c5fd" />
-              <Text style={{ color: "#94a3b8", fontSize: 12, marginLeft: 7 }}>
-                Care Coordinator
-              </Text>
-              <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "800", marginLeft: 6, flex: 1 }}>
-                {item.coordinatorName}
-              </Text>
+              <View style={{ flex: 1, marginLeft: 7, minWidth: 0 }}>
+                <Text style={{ color: "#94a3b8", fontSize: 12 }}>
+                  Care Coordinator
+                </Text>
+                <Text
+                  style={{
+                    color: "#ffffff",
+                    fontSize: 13.5,
+                    fontWeight: "800",
+                    marginTop: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {item.coordinatorName}
+                </Text>
+              </View>
             </View>
           )}
         </View>

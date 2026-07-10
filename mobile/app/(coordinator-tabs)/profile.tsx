@@ -1,12 +1,21 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/useAuth";
 import { useCoordinatorCases, useCoordinatorLogs } from "@/hooks/useCoordinator";
-import { useAuthProfile } from "@/hooks/useProfile";
+import { useAuthProfile, useUploadAuthPhoto } from "@/hooks/useProfile";
 import { initialsOf } from "@/lib/avatar";
+import { pickImageFromLibrary, takePhoto } from "@/lib/pick";
 import { rateApp } from "@/lib/rate";
 
 const TEAL = "#0d9488";
@@ -48,14 +57,14 @@ function Row({ item, showDivider }: { item: RowItem; showDivider: boolean }) {
         >
           <Ionicons name={item.icon} size={18} color={item.tint} />
         </View>
-        <View className="flex-1 ml-3">
+        <View className="flex-1 ml-3" style={{ minWidth: 0 }}>
           <Text
             className="font-semibold"
             style={{ fontSize: 14.5, color: item.danger ? "#dc2626" : "#111827" }}
           >
             {item.title}
           </Text>
-          <Text className="text-muted" style={{ fontSize: 12, marginTop: 1 }}>
+          <Text className="text-muted" style={{ fontSize: 12, marginTop: 1, flexShrink: 1 }}>
             {item.subtitle}
           </Text>
         </View>
@@ -77,10 +86,21 @@ function Row({ item, showDivider }: { item: RowItem; showDivider: boolean }) {
 
 function Section({ items }: { items: RowItem[] }) {
   return (
-    <View className="mx-5">
+    <View
+      className="mx-5"
+      style={{
+        borderRadius: 16,
+        backgroundColor: "#ffffff",
+        shadowColor: "#0f172a",
+        shadowOpacity: 0.03,
+        shadowRadius: 5,
+        shadowOffset: { width: 0, height: 1 },
+        elevation: 1,
+      }}
+    >
       <View
         className="bg-card rounded-2xl overflow-hidden"
-        style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+        style={{ borderWidth: 1, borderColor: "#ebedf0" }}
       >
         {items.map((item, i) => (
           <Row key={item.key} item={item} showDivider={i < items.length - 1} />
@@ -90,13 +110,63 @@ function Section({ items }: { items: RowItem[] }) {
   );
 }
 
-function StatItem({ value, label }: { value: string; label: string }) {
+function StatItem({
+  icon,
+  tint,
+  bg,
+  border,
+  value,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  bg: string;
+  border: string;
+  value: string;
+  label: string;
+}) {
   return (
-    <View className="flex-1 items-center">
-      <Text className="text-foreground font-bold" style={{ fontSize: 20 }}>
+    <View
+      className="flex-1 items-center"
+      style={{
+        backgroundColor: bg,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: border,
+        paddingVertical: 12,
+        paddingHorizontal: 6,
+      }}
+    >
+      <View
+        className="items-center justify-center"
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 12,
+          backgroundColor: "rgba(255,255,255,0.7)",
+        }}
+      >
+        <Ionicons name={icon} size={17} color={tint} />
+      </View>
+      <Text
+        style={{ color: tint, fontSize: 16, fontWeight: "800", marginTop: 7 }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {value}
       </Text>
-      <Text className="text-muted text-center" style={{ fontSize: 11, marginTop: 2 }}>
+      <Text
+        style={{
+          color: tint,
+          fontSize: 10,
+          fontWeight: "700",
+          opacity: 0.85,
+          marginTop: 2,
+          textAlign: "center",
+          lineHeight: 13,
+        }}
+        numberOfLines={2}
+      >
         {label}
       </Text>
     </View>
@@ -111,6 +181,9 @@ export default function CoordinatorProfileScreen() {
   const { data: profile } = useAuthProfile();
   const { data: cases } = useCoordinatorCases();
   const { data: logs } = useCoordinatorLogs();
+  const uploadPhoto = useUploadAuthPhoto();
+
+  const photoUrl = profile?.photoUrl ?? null;
 
   const fullName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
@@ -128,6 +201,32 @@ export default function CoordinatorProfileScreen() {
   const activeCases = list.filter((c) => c.status === "ACTIVE").length;
   const totalCases = list.length;
   const logsReviewed = (logs ?? []).filter((l) => l.reviewedAt).length;
+
+  function changePhoto() {
+    Alert.alert("Profile photo", "Choose a source", [
+      {
+        text: "Take photo",
+        onPress: async () => {
+          const file = await takePhoto();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      {
+        text: "Choose from library",
+        onPress: async () => {
+          const file = await pickImageFromLibrary();
+          if (file)
+            uploadPhoto.mutate(file, {
+              onError: (e: Error) => Alert.alert("Upload failed", e.message),
+            });
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
 
   async function handleLogout() {
     Alert.alert("Log out", "Are you sure you want to log out?", [
@@ -150,8 +249,8 @@ export default function CoordinatorProfileScreen() {
       tint: TEAL,
       bg: "#ccfbf1",
       title: "Personal information",
-      subtitle: "Name, phone, email",
-      onPress: () => router.push("/account-details" as any),
+      subtitle: "Photo, contact, experience, about",
+      onPress: () => router.push("/coordinator-personal-information" as any),
     },
   ];
 
@@ -274,16 +373,52 @@ export default function CoordinatorProfileScreen() {
         <View className="mx-5">
           <View
             className="bg-card rounded-3xl items-center px-5 pt-6 pb-5"
-            style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            style={{
+              borderWidth: 1,
+              borderColor: "#ebedf0",
+              shadowColor: "#0f172a",
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 3 },
+              elevation: 1,
+            }}
           >
-            <View
-              className="w-20 h-20 rounded-full items-center justify-center"
-              style={{ backgroundColor: TEAL }}
-            >
-              <Text className="text-white font-bold" style={{ fontSize: 26 }}>
-                {initials}
-              </Text>
-            </View>
+            <Pressable onPress={changePhoto}>
+              {photoUrl ? (
+                <Image
+                  source={{ uri: photoUrl }}
+                  style={{ width: 80, height: 80, borderRadius: 40 }}
+                />
+              ) : (
+                <View
+                  className="items-center justify-center"
+                  style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: TEAL }}
+                >
+                  <Text className="text-white font-bold" style={{ fontSize: 26 }}>
+                    {initials}
+                  </Text>
+                </View>
+              )}
+              <View
+                className="absolute items-center justify-center"
+                style={{
+                  right: -2,
+                  bottom: -2,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: TEAL,
+                  borderWidth: 2,
+                  borderColor: "#ffffff",
+                }}
+              >
+                {uploadPhoto.isPending ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons name="camera" size={14} color="#ffffff" />
+                )}
+              </View>
+            </Pressable>
 
             <Text
               className="text-foreground font-bold"
@@ -297,14 +432,20 @@ export default function CoordinatorProfileScreen() {
             >
               <Ionicons name="shield-checkmark" size={13} color={TEAL} />
               <Text
-                style={{ color: "#0f766e", fontSize: 12, fontWeight: "700", marginLeft: 4 }}
+                style={{
+                  color: "#0f766e",
+                  fontSize: 12,
+                  fontWeight: "700",
+                  marginLeft: 4,
+                  flexShrink: 1,
+                }}
               >
                 Care Coordinator
               </Text>
             </View>
 
             <Pressable
-              onPress={() => router.push("/account-details" as any)}
+              onPress={() => router.push("/coordinator-personal-information" as any)}
               className="rounded-full px-4 py-1.5 mt-3"
               style={{ backgroundColor: "#ccfbf1" }}
             >
@@ -314,15 +455,31 @@ export default function CoordinatorProfileScreen() {
             </Pressable>
 
             {/* Stats */}
-            <View
-              className="flex-row w-full mt-5 pt-5"
-              style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6" }}
-            >
-              <StatItem value={String(activeCases)} label="Active cases" />
-              <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-              <StatItem value={String(totalCases)} label="Cases coordinated" />
-              <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-              <StatItem value={memberSince} label="Coordinating since" />
+            <View className="flex-row w-full mt-5" style={{ gap: 8 }}>
+              <StatItem
+                icon="pulse"
+                tint="#0f766e"
+                bg="#f0fdfa"
+                border="#99f6e4"
+                value={String(activeCases)}
+                label="Active cases"
+              />
+              <StatItem
+                icon="people"
+                tint="#7c3aed"
+                bg="#f5f3ff"
+                border="#ddd6fe"
+                value={String(totalCases)}
+                label="Cases coordinated"
+              />
+              <StatItem
+                icon="calendar"
+                tint="#b45309"
+                bg="#fffbeb"
+                border="#fde68a"
+                value={memberSince}
+                label="Coordinating since"
+              />
             </View>
           </View>
         </View>

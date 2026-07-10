@@ -103,7 +103,15 @@ function Section({ items }: { items: RowItem[] }) {
     <View className="mx-5">
       <View
         className="bg-card rounded-2xl overflow-hidden"
-        style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+        style={{
+          borderWidth: 1,
+          borderColor: "#eef0f3",
+          shadowColor: "#0f172a",
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: 1,
+        }}
       >
         {items.map((item, i) => (
           <Row key={item.key} item={item} showDivider={i < items.length - 1} />
@@ -114,30 +122,62 @@ function Section({ items }: { items: RowItem[] }) {
 }
 
 function StatItem({
-  value,
-  label,
   icon,
   tint,
   bg,
+  border,
+  value,
+  label,
 }: {
-  value: string;
-  label: string;
   icon: keyof typeof Ionicons.glyphMap;
   tint: string;
   bg: string;
+  border: string;
+  value: string;
+  label: string;
 }) {
   return (
-    <View className="flex-1 items-center">
+    <View
+      className="flex-1 items-center"
+      style={{
+        backgroundColor: bg,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: border,
+        paddingVertical: 12,
+        paddingHorizontal: 6,
+      }}
+    >
       <View
-        className="w-9 h-9 rounded-full items-center justify-center mb-2"
-        style={{ backgroundColor: bg }}
+        className="items-center justify-center"
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 12,
+          backgroundColor: "rgba(255,255,255,0.7)",
+        }}
       >
-        <Ionicons name={icon} size={18} color={tint} />
+        <Ionicons name={icon} size={17} color={tint} />
       </View>
-      <Text className="text-foreground font-bold" style={{ fontSize: 19 }}>
+      <Text
+        style={{ color: tint, fontSize: 16, fontWeight: "800", marginTop: 7 }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {value}
       </Text>
-      <Text className="text-muted text-center" style={{ fontSize: 11, marginTop: 2 }}>
+      <Text
+        style={{
+          color: tint,
+          fontSize: 10,
+          fontWeight: "700",
+          opacity: 0.85,
+          marginTop: 2,
+          textAlign: "center",
+          lineHeight: 13,
+        }}
+        numberOfLines={2}
+      >
         {label}
       </Text>
     </View>
@@ -362,7 +402,15 @@ export default function ProfileScreen() {
       <View className="mx-5">
         <View
           className="bg-card rounded-3xl items-center px-5 pt-6 pb-5"
-          style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+          style={{
+            borderWidth: 1,
+            borderColor: "#eef0f3",
+            shadowColor: "#0f172a",
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 3 },
+            elevation: 1,
+          }}
         >
           {/* Avatar with edit badge — tap to change the profile photo */}
           <Pressable onPress={changePhoto}>
@@ -421,7 +469,7 @@ export default function ProfileScreen() {
           {/* Stats */}
           <View
             className="flex-row w-full mt-5 pt-5"
-            style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6" }}
+            style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6", gap: 8 }}
           >
             <StatItem
               value={String(stats?.carePlans ?? 0)}
@@ -429,22 +477,23 @@ export default function ProfileScreen() {
               icon="briefcase"
               tint="#1e3a8a"
               bg="#eef2ff"
+              border="#bfdbfe"
             />
-            <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
             <StatItem
               value={String(stats?.caregivers ?? 0)}
               label="Caregivers used"
               icon="people"
               tint="#16a34a"
               bg="#f0fdf4"
+              border="#bbf7d0"
             />
-            <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
             <StatItem
               value={memberSince}
               label="Member since "
               icon="ribbon"
               tint="#d97706"
               bg="#fffbeb"
+              border="#fde68a"
             />
           </View>
         </View>

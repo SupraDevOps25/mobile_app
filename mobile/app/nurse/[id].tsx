@@ -16,9 +16,27 @@ import {
 } from "@/hooks/useSubscription";
 import { avatarColor } from "@/lib/avatar";
 
-function Stat({ value, label }: { value: string; label: string }) {
+function Stat({
+  value,
+  label,
+  icon,
+  color,
+  bg,
+}: {
+  value: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  bg: string;
+}) {
   return (
     <View className="flex-1 items-center">
+      <View
+        className="rounded-full items-center justify-center"
+        style={{ width: 32, height: 32, backgroundColor: bg, marginBottom: 8, borderRadius: 16 }}
+      >
+        <Ionicons name={icon} size={16} color={color} />
+      </View>
       <Text className="text-foreground font-bold" style={{ fontSize: 18 }}>
         {value}
       </Text>
@@ -37,6 +55,45 @@ function SectionLabel({ title }: { title: string }) {
     >
       {title.toUpperCase()}
     </Text>
+  );
+}
+
+function GoodToKnowItem({
+  icon,
+  label,
+  color,
+  bg,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  color: string;
+  bg: string;
+}) {
+  return (
+    <View
+      className="flex-row items-center"
+      style={{
+        alignSelf: "flex-start",
+        backgroundColor: bg,
+        borderRadius: 999,
+        flexShrink: 0,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+      }}
+    >
+      <Ionicons name={icon} size={15} color={color} />
+      <Text
+        style={{
+          color,
+          fontSize: 12,
+          fontWeight: "600",
+          lineHeight: 18,
+          marginLeft: 6,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -116,7 +173,17 @@ export default function NurseProfileScreen() {
               <Ionicons name="checkmark-circle" size={18} color="#2563eb" style={{ marginLeft: 5 }} />
             )}
           </View>
-          <Text className="text-muted" style={{ fontSize: 13, marginTop: 2 }}>
+          <Text
+            className="text-muted text-center"
+            style={{
+              alignSelf: "stretch",
+              flexShrink: 1,
+              fontSize: 13,
+              lineHeight: 18,
+              marginTop: 2,
+              minWidth: 0,
+            }}
+          >
             {nurse.qualification ?? "Nurse"}
           </Text>
           <View
@@ -140,18 +207,33 @@ export default function NurseProfileScreen() {
           className="flex-row bg-card rounded-2xl py-4 mt-6"
           style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
         >
-          <Stat value={`${nurse.yearsExperience} yrs`} label="Experience" />
+          <Stat
+            value={`${nurse.yearsExperience} yrs`}
+            label="Experience"
+            icon="briefcase-outline"
+            color="#1d4ed8"
+            bg="#eff6ff"
+          />
           <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
           <Stat
-            value={`★ ${nurse.rating.toFixed(1)}`}
+            value={`${nurse.rating.toFixed(1)}`}
             label={
               nurse.totalReviews > 0
                 ? `${nurse.totalReviews} ${nurse.totalReviews === 1 ? "review" : "reviews"}`
                 : "Rating"
             }
+            icon="star-outline"
+            color="#d97706"
+            bg="#fffbeb"
           />
           <View style={{ width: 1, backgroundColor: "#f3f4f6" }} />
-          <Stat value={`${nurse.reliabilityScore}%`} label="Reliability " />
+          <Stat
+            value={`${nurse.reliabilityScore}%`}
+            label="Reliability"
+            icon="shield-checkmark-outline"
+            color="#16a34a"
+            bg="#f0fdf4"
+          />
         </View>
 
         {/* About the nurse */}
@@ -196,42 +278,29 @@ export default function NurseProfileScreen() {
             <SectionLabel title="Good to know" />
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
               {nurse.gender && (
-            <View
-              className="flex-row items-center rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "#eff6ff" }}
-            >
-              <Ionicons
-                name={nurse.gender === "FEMALE" ? "female-outline" : "male-outline"}
-                size={13}
-                color="#2563eb"
-              />
-              <Text style={{ color: "#1d4ed8", fontSize: 12, marginLeft: 4, fontWeight: "500" }}>
-                {nurse.gender === "FEMALE" ? "Female" : "Male"}
-              </Text>
-            </View>
-          )}
-          {nurse.hasHomecareExp && (
-            <View
-              className="flex-row items-center rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "#f0fdf4" }}
-            >
-              <Ionicons name="home-outline" size={13} color="#16a34a" />
-              <Text style={{ color: "#15803d", fontSize: 12, marginLeft: 4, fontWeight: "500" }}>
-                Homecare experienced
-              </Text>
-            </View>
-          )}
-          {nurse.licenseVerified && (
-            <View
-              className="flex-row items-center rounded-full px-3 py-1.5"
-              style={{ backgroundColor: "#eff6ff" }}
-            >
-              <Ionicons name="shield-checkmark-outline" size={13} color="#2563eb" />
-              <Text style={{ color: "#1d4ed8", fontSize: 12, marginLeft: 4, fontWeight: "500" }}>
-                Licence verified
-              </Text>
-            </View>
-          )}
+                <GoodToKnowItem
+                  icon={nurse.gender === "FEMALE" ? "female-outline" : "male-outline"}
+                  label={nurse.gender === "FEMALE" ? "Female" : "Male"}
+                  color="#1d4ed8"
+                  bg="#eff6ff"
+                />
+              )}
+              {nurse.hasHomecareExp && (
+                <GoodToKnowItem
+                  icon="home-outline"
+                  label="Homecare experienced"
+                  color="#15803d"
+                  bg="#f0fdf4"
+                />
+              )}
+              {nurse.licenseVerified && (
+                <GoodToKnowItem
+                  icon="shield-checkmark-outline"
+                  label="Licence verified"
+                  color="#1d4ed8"
+                  bg="#eff6ff"
+                />
+              )}
             </View>
           </>
         )}

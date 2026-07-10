@@ -57,6 +57,15 @@ export class NotificationsController {
     return this.notificationsService.registerDevice(req.user.id, dto.token);
   }
 
+  @ApiOperation({ summary: 'Release this device token on sign-out' })
+  @Post('unregister-device')
+  unregisterDevice(
+    @Request() req: { user: { id: string } },
+    @Body() dto: RegisterDeviceDto,
+  ) {
+    return this.notificationsService.unregisterDevice(req.user.id, dto.token);
+  }
+
   @ApiOperation({ summary: 'My notification channel preferences' })
   @Get('preferences')
   getPreferences(@Request() req: { user: { id: string } }) {
