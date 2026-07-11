@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { qk } from "@/lib/query-keys";
+import { LIVE_REFETCH_MS, qk } from "@/lib/query-keys";
 import { visitService, type SubmitLogPayload } from "@/services/visit.service";
 
 export function useUpcomingVisits() {
   return useQuery({
     queryKey: qk.upcomingVisits,
     queryFn: () => visitService.upcoming(),
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 
@@ -13,6 +14,9 @@ export function useVisitHistory() {
   return useQuery({
     queryKey: qk.visitHistory,
     queryFn: () => visitService.history(),
+    // Polls so a coordinator's "changes requested" shows up without a manual
+    // refresh (drives the nurse dashboard's revise nudge).
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 
@@ -20,6 +24,7 @@ export function useCaregiverAssignments() {
   return useQuery({
     queryKey: qk.caregiverAssignments,
     queryFn: () => visitService.assignments(),
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 

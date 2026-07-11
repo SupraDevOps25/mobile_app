@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { qk } from "@/lib/query-keys";
+import { LIVE_REFETCH_MS, qk } from "@/lib/query-keys";
 import { assignmentService } from "@/services/assignment.service";
 
 export function useOffers() {
   return useQuery({
     queryKey: qk.offers,
     queryFn: () => assignmentService.offers(),
+    // Poll so a new match offer appears without a manual refresh.
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 

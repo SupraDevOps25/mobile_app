@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { qk } from "@/lib/query-keys";
+import { LIVE_REFETCH_MS, qk } from "@/lib/query-keys";
 import {
   coordinatorService,
   type ApiCoordinatorLog,
@@ -11,6 +11,7 @@ export function useCoordinatorCases() {
   return useQuery({
     queryKey: qk.coordinatorCases,
     queryFn: () => coordinatorService.cases(),
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 
@@ -26,6 +27,9 @@ export function useCoordinatorLogs() {
   return useQuery({
     queryKey: qk.coordinatorLogs,
     queryFn: () => coordinatorService.logs(),
+    // Polls so a nurse's revised/resubmitted log surfaces for review without a
+    // manual refresh.
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 
