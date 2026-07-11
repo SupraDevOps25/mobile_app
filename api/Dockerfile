@@ -8,8 +8,12 @@ WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Install against the lockfile first so this layer caches when only src changes.
+# Use `npm install` (not `npm ci`): in this npm-workspaces monorepo the real
+# lockfile lives at the repo root, so api/package-lock.json drifts and `npm ci`
+# would reject it. The build context here is api-only (no workspace root), so
+# install resolves cleanly against api/package.json.
 COPY package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Copy the rest, generate the client (schema + prisma.config.ts must be present)
 # then build to dist/.
