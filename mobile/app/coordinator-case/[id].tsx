@@ -300,6 +300,11 @@ export default function CoordinatorCaseScreen() {
     item.assessmentDone &&
     !assistantReady;
   const canInvoice = item.status === "ACTIVE" || item.status === "RENEWING";
+  // Billing waits until this cycle's care is delivered: any visit still to come
+  // or underway blocks the invoice (matches the API guard).
+  const hasPendingVisits = (detail?.visits ?? []).some(
+    (v) => v.status === "SCHEDULED" || v.status === "IN_PROGRESS",
+  );
 
   function onMatchAssistant() {
     matchAssistant.mutate(item!.id, {
@@ -867,18 +872,44 @@ export default function CoordinatorCaseScreen() {
         )}
 
         {canInvoice && (
-          <Pressable
-            onPress={onIssueInvoice}
-            disabled={issueInvoice.isPending}
-            className="rounded-2xl items-center justify-center mt-1 flex-row"
-            style={{ borderWidth: 1, borderColor: "#0d9488", paddingVertical: 15, gap: 8 }}
-          >
-            {issueInvoice.isPending && <ActivityIndicator color="#0d9488" size="small" />}
-            <Ionicons name="receipt-outline" size={17} color="#0d9488" />
-            <Text style={{ color: "#0d9488", fontWeight: "bold", fontSize: 15 }}>
-              Issue month-end invoice
-            </Text>
-          </Pressable>
+          <>
+            <Pressable
+              onPress={onIssueInvoice}
+              disabled={issueInvoice.isPending || hasPendingVisits}
+              className="rounded-2xl items-center justify-center mt-1 flex-row"
+              style={{
+                borderWidth: 1,
+                borderColor: hasPendingVisits ? "#e5e7eb" : "#0d9488",
+                paddingVertical: 15,
+                gap: 8,
+                opacity: hasPendingVisits ? 0.6 : 1,
+              }}
+            >
+              {issueInvoice.isPending && <ActivityIndicator color="#0d9488" size="small" />}
+              <Ionicons
+                name="receipt-outline"
+                size={17}
+                color={hasPendingVisits ? "#9ca3af" : "#0d9488"}
+              />
+              <Text
+                style={{
+                  color: hasPendingVisits ? "#9ca3af" : "#0d9488",
+                  fontWeight: "bold",
+                  fontSize: 15,
+                }}
+              >
+                Issue month-end invoice
+              </Text>
+            </Pressable>
+            {hasPendingVisits && (
+              <Text
+                className="text-muted"
+                style={{ fontSize: 12, marginTop: 6, textAlign: "center", lineHeight: 17 }}
+              >
+                Complete all care visits before issuing this month&apos;s invoice.
+              </Text>
+            )}
+          </>
         )}
 
         {/* Care visits & logs — every visit on the case, active or not */}
