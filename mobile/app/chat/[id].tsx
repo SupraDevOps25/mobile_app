@@ -58,7 +58,6 @@ export default function ChatScreen() {
           subscriptionId={thread.subscriptionId}
           messages={thread.messages}
           accent="#0d9488"
-          keyboardOffset={top + 56}
         />
       )}
     </View>

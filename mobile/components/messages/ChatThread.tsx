@@ -164,7 +164,7 @@ export function ChatThread({
       <View
         className="flex-row items-end px-3 pt-2 bg-white"
         style={{
-          paddingBottom: keyboardUp ? 10 : bottom + 8,
+          paddingBottom: keyboardUp ? 5 : bottom + 8,
           borderTopWidth: 1,
           borderTopColor: "#f3f4f6",
           gap: 8,
