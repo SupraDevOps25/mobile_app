@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -100,6 +101,21 @@ export function ChatThread({
   const scrollRef = useRef<ScrollView>(null);
   const { bottom } = useSafeAreaInsets();
 
+  // Once the keyboard is up it already covers the home-indicator area, so the
+  // composer shouldn't also reserve the bottom safe-area inset — that leftover
+  // padding is the gap between the input and the keyboard on iOS.
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvt, () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(hideEvt, () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   function onSend() {
     const body = text.trim();
     if (!body) return;
@@ -148,7 +164,7 @@ export function ChatThread({
       <View
         className="flex-row items-end px-3 pt-2 bg-white"
         style={{
-          paddingBottom: bottom + 8,
+          paddingBottom: keyboardUp ? 10 : bottom + 8,
           borderTopWidth: 1,
           borderTopColor: "#f3f4f6",
           gap: 8,
