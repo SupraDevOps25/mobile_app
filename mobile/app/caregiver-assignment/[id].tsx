@@ -318,6 +318,85 @@ export default function CaregiverAssignmentScreen() {
           </View>
         )}
 
+        {/* What's included in this care package */}
+        {item.inclusions.length > 0 && (
+          <>
+            <Text
+              className="text-muted font-semibold"
+              style={{ fontSize: 11, letterSpacing: 1, marginTop: 22, marginBottom: 10 }}
+            >
+              WHAT&apos;S INCLUDED
+            </Text>
+            <View
+              className="bg-card rounded-2xl px-4 py-1"
+              style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            >
+              {item.inclusions.map((inc, i) => (
+                <View
+                  key={inc}
+                  className="flex-row items-center py-3"
+                  style={
+                    i === item.inclusions.length - 1
+                      ? undefined
+                      : { borderBottomWidth: 1, borderBottomColor: "#f3f4f6" }
+                  }
+                >
+                  <Ionicons name="checkmark-circle" size={17} color="#16a34a" />
+                  <Text className="text-foreground flex-1" style={{ fontSize: 13.5, marginLeft: 9 }}>
+                    {inc}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* The family's review + star rating for this nurse */}
+        {item.review && (
+          <>
+            <Text
+              className="text-muted font-semibold"
+              style={{ fontSize: 11, letterSpacing: 1, marginTop: 22, marginBottom: 10 }}
+            >
+              FAMILY REVIEW
+            </Text>
+            <View
+              className="bg-card rounded-2xl p-4"
+              style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            >
+              <View className="flex-row items-center">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Ionicons
+                    key={s}
+                    name={s <= item.review!.rating ? "star" : "star-outline"}
+                    size={18}
+                    color="#f59e0b"
+                    style={{ marginRight: 2 }}
+                  />
+                ))}
+                <Text className="text-foreground font-bold" style={{ fontSize: 14, marginLeft: 6 }}>
+                  {item.review.rating.toFixed(1)}
+                </Text>
+              </View>
+              {item.review.comment ? (
+                <Text
+                  className="text-foreground"
+                  style={{ fontSize: 13.5, lineHeight: 20, marginTop: 10 }}
+                >
+                  &ldquo;{item.review.comment}&rdquo;
+                </Text>
+              ) : (
+                <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                  No written comment left.
+                </Text>
+              )}
+              <Text className="text-muted" style={{ fontSize: 11, marginTop: 8 }}>
+                Reviewed {new Date(item.review.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </>
+        )}
+
         {/* Visits, grouped by state */}
         {item.visits.length === 0 ? (
           <View className="items-center" style={{ marginTop: 40 }}>

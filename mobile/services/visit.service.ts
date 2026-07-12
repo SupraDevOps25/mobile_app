@@ -68,6 +68,8 @@ export interface ApiCaregiverAssignment {
   active: boolean;
   packageType: ApiPackageType;
   packageName: string | null;
+  inclusions: string[];
+  review: { rating: number; comment: string | null; createdAt: string } | null;
   coordinatorName: string | null;
   client: {
     name: string;

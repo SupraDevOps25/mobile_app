@@ -196,6 +196,24 @@ export class VisitsService {
 
     const packages = await this.prisma.package.findMany();
     const nameByType = new Map(packages.map((p) => [p.type, p.name]));
+    const inclusionsByType = new Map(
+      packages.map((p) => [p.type, p.inclusions]),
+    );
+
+    // The family's star rating + comment for this nurse, per subscription.
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        caregiverId,
+        subscriptionId: { in: assignments.map((a) => a.subscriptionId) },
+      },
+      select: {
+        subscriptionId: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+      },
+    });
+    const reviewBySub = new Map(reviews.map((r) => [r.subscriptionId, r]));
 
     return assignments.map((a) => {
       const sub = a.subscription;
@@ -240,6 +258,14 @@ export class VisitsService {
         active: sub.status !== SubscriptionStatus.CANCELLED,
         packageType: sub.packageType,
         packageName: nameByType.get(sub.packageType) ?? null,
+        inclusions: inclusionsByType.get(sub.packageType) ?? [],
+        review: reviewBySub.get(sub.id)
+          ? {
+              rating: reviewBySub.get(sub.id)!.rating,
+              comment: reviewBySub.get(sub.id)!.comment,
+              createdAt: reviewBySub.get(sub.id)!.createdAt,
+            }
+          : null,
         coordinatorName: sub.coordinator
           ? `${sub.coordinator.firstName} ${sub.coordinator.lastName}`
           : null,
