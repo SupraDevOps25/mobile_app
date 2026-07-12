@@ -16,6 +16,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { CaseCard } from "@/components/coordinator/CaseCard";
 import { CoordinatorLogRow } from "@/components/coordinator/CoordinatorLogRow";
 import { Avatar } from "@/components/ui/Avatar";
+import { CardPattern } from "@/components/ui/CardPattern";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { caseAction } from "@/constants/coordinator-presentation";
 import {
@@ -269,8 +270,9 @@ export default function CoordinatorHomeScreen() {
         <Pressable
           onPress={() => router.push("/coordinator-earnings" as any)}
           className="flex-row items-center rounded-2xl p-4"
-          style={{ backgroundColor: "#134e4a" }}
+          style={{ backgroundColor: "#134e4a", overflow: "hidden" }}
         >
+          <CardPattern />
           <View
             className="w-11 h-11 rounded-full items-center justify-center"
             style={{ backgroundColor: "rgba(255,255,255,0.12)" }}

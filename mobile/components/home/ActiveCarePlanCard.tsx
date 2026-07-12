@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { Image, Pressable, Text, View } from "react-native";
+import { CardPattern } from "@/components/ui/CardPattern";
 import { PACKAGE_LABELS } from "@/constants/package-presentation";
 import {
   SUBSCRIPTION_STATUS_LABELS,
@@ -29,8 +30,9 @@ export function ActiveCarePlanCard({
     <Pressable
       onPress={onPress ?? (() => router.push("/(tabs)/bookings" as any))}
       className="rounded-2xl p-5"
-      style={{ backgroundColor: "#0f2461" }}
+      style={{ backgroundColor: "#0f2461", overflow: "hidden" }}
     >
+      <CardPattern />
       <View className="flex-row items-center justify-between">
         <Text style={{ color: "#94a3b8", fontSize: 11, letterSpacing: 1 }}>
           YOUR CARE PLAN
