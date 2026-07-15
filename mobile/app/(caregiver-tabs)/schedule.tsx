@@ -18,8 +18,8 @@ import { useCaregiverAssignments } from "@/hooks/useVisits";
 const GREEN = "#16a34a";
 const GREEN_LIGHT = "#dcfce7";
 const GREEN_TEXT = "#15803d";
-const SCREEN_BG = "#f3f4f6";
-const CARD_BORDER = "#eef2f6";
+const SCREEN_BG = "#ffffff";
+const CARD_BORDER = "#ebedf0";
 const LABEL = "#9ca3af";
 
 // Pills shown Monday-first; value is the JS getDay() code (0=Sun … 6=Sat).
@@ -63,6 +63,11 @@ function Card({ children }: { children: React.ReactNode }) {
         borderColor: CARD_BORDER,
         padding: 16,
         marginBottom: 14,
+        shadowColor: "#0f172a",
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 1,
       }}
     >
       {children}
