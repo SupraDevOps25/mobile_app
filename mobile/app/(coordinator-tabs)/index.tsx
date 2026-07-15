@@ -265,7 +265,17 @@ export default function CoordinatorHomeScreen() {
           />
         }
       >
-      {/* Earnings summary — always on top; tap for the full breakdown */}
+      {/* Quick search */}
+      <View className="px-5 mb-4">
+        <SearchInput
+          value={query}
+          onChangeText={setQuery}
+          accent="#0d9488"
+          placeholder="Search cases by patient, family or area"
+        />
+      </View>
+
+      {/* Earnings summary — tap for the full breakdown */}
       <View className="px-5 mb-4">
         <Pressable
           onPress={() => router.push("/coordinator-earnings" as any)}
@@ -300,16 +310,6 @@ export default function CoordinatorHomeScreen() {
             <Ionicons name="chevron-forward" size={18} color="#5eead4" />
           )}
         </Pressable>
-      </View>
-
-      {/* Quick search */}
-      <View className="px-5 mb-4">
-        <SearchInput
-          value={query}
-          onChangeText={setQuery}
-          accent="#0d9488"
-          placeholder="Search cases by patient, family or area"
-        />
       </View>
 
       {isLoading ? (

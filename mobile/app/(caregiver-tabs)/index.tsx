@@ -163,6 +163,16 @@ export default function CaregiverHomeScreen() {
           />
         }
       >
+      {/* Quick search */}
+      <View className="px-5 mb-4">
+        <SearchInput
+          value={query}
+          onChangeText={setQuery}
+          accent="#16a34a"
+          placeholder="Search visits by patient or area"
+        />
+      </View>
+
       {/* Greeting card */}
       <View className="px-5 mb-4">
         <GreetingCard
@@ -172,16 +182,6 @@ export default function CaregiverHomeScreen() {
           dateLabel={getDateLabel()}
           offerCount={offerCount}
           photoUrl={profile?.photoUrl}
-        />
-      </View>
-
-      {/* Quick search */}
-      <View className="px-5 mb-4">
-        <SearchInput
-          value={query}
-          onChangeText={setQuery}
-          accent="#16a34a"
-          placeholder="Search visits by patient or area"
         />
       </View>
 

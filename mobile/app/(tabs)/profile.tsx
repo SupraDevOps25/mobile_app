@@ -294,6 +294,18 @@ export default function ProfileScreen() {
     },
   ];
 
+  const security: RowItem[] = [
+    {
+      key: "password",
+      icon: "lock-closed-outline",
+      tint: "#dc2626",
+      bg: "#fef2f2",
+      title: "Change password",
+      subtitle: "Update your account password",
+      onPress: () => router.push("/change-password" as any),
+    },
+  ];
+
   const preferences: RowItem[] = [
     {
       key: "notifications",
@@ -518,6 +530,9 @@ export default function ProfileScreen() {
       {/* Sections */}
       <SectionLabel title="Account" />
       <Section items={account} />
+
+      <SectionLabel title="Security" />
+      <Section items={security} />
 
       <SectionLabel title="Preferences" />
       <Section items={preferences} />
