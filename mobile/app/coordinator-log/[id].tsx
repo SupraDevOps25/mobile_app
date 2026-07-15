@@ -108,8 +108,16 @@ export default function CoordinatorLogScreen() {
   }
 
   function onRequestChanges() {
+    const trimmed = note.trim();
+    if (trimmed.length < 3) {
+      Alert.alert(
+        "Add a note",
+        "Tell the nurse what needs fixing before requesting changes.",
+      );
+      return;
+    }
     requestChanges.mutate(
-      { visitId: log!.visitId, note: note.trim() || undefined },
+      { visitId: log!.visitId, note: trimmed },
       {
         onSuccess: () => {
           setRequesting(false);
@@ -319,7 +327,7 @@ export default function CoordinatorLogScreen() {
             <TextInput
               value={note}
               onChangeText={setNote}
-              placeholder="What should the nurse fix? (optional)"
+              placeholder="What should the nurse fix? (required)"
               placeholderTextColor="#9ca3af"
               multiline
               maxFontSizeMultiplier={1.2}
@@ -350,9 +358,16 @@ export default function CoordinatorLogScreen() {
               </Pressable>
               <Pressable
                 onPress={onRequestChanges}
-                disabled={requestChanges.isPending}
+                disabled={requestChanges.isPending || note.trim().length < 3}
                 className="flex-1 rounded-2xl items-center justify-center flex-row"
-                style={{ paddingVertical: 14, backgroundColor: requestChanges.isPending ? "#9ca3af" : "#dc2626", gap: 8 }}
+                style={{
+                  paddingVertical: 14,
+                  backgroundColor:
+                    requestChanges.isPending || note.trim().length < 3
+                      ? "#f3b4b4"
+                      : "#dc2626",
+                  gap: 8,
+                }}
               >
                 {requestChanges.isPending && <ActivityIndicator color="#fff" size="small" />}
                 <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>

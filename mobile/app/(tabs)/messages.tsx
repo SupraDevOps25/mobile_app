@@ -67,7 +67,7 @@ export default function MessagesScreen() {
         subscriptionId={thread.subscriptionId}
         messages={thread.messages}
         accent="#1e3a8a"
-        keyboardOffset={top + 58}
+        bottomInset={0}
       />
     </View>
   );

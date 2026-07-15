@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 // Self-service profile update available to any authenticated user, regardless
 // of role. Only the fields a user may change about themselves — email is
@@ -9,17 +15,21 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(50)
   firstName?: string;
 
   @ApiPropertyOptional({ example: 'Doe' })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(50)
   lastName?: string;
 
   @ApiPropertyOptional({ example: '+233201234567' })
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^\+233\d{9}$/, {
+    message: 'Phone must be a Ghana number in the format +233XXXXXXXXX',
+  })
   phone?: string;
 }

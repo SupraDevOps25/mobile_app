@@ -90,16 +90,22 @@ export function ChatThread({
   messages,
   accent = "#0d9488",
   keyboardOffset = 0,
+  bottomInset,
 }: {
   subscriptionId: string;
   messages: ApiMessage[];
   accent?: string;
   keyboardOffset?: number;
+  // Override the resting bottom padding under the composer. Pass 0 when the
+  // thread renders inside a tab navigator (the tab bar already covers the
+  // device's bottom inset, so adding it again leaves a gap above the tabs).
+  bottomInset?: number;
 }) {
   const send = useSendMessage(subscriptionId);
   const [text, setText] = useState("");
   const scrollRef = useRef<ScrollView>(null);
-  const { bottom } = useSafeAreaInsets();
+  const { bottom: safeBottom } = useSafeAreaInsets();
+  const bottom = bottomInset ?? safeBottom;
 
   // Once the keyboard is up it already covers the home-indicator area, so the
   // composer shouldn't also reserve the bottom safe-area inset — that leftover

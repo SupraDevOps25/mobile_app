@@ -267,7 +267,7 @@ export default function ScheduleScreen() {
         <>
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 6 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 6 }}
           >
             {/* Policy note */}
             <View
@@ -370,7 +370,7 @@ export default function ScheduleScreen() {
           </ScrollView>
 
           {/* Sticky footer */}
-          <View className="px-4 pt-3" style={{ paddingBottom: bottom + 12, backgroundColor: SCREEN_BG }}>
+          <View className="px-5 pt-3" style={{ paddingBottom: bottom + 12, backgroundColor: SCREEN_BG }}>
             <Pressable
               onPress={handleSave}
               disabled={!dirty || setSchedule.isPending}
