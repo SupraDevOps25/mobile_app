@@ -240,6 +240,20 @@ export default function CaregiverVisitScreen() {
               </>
             )}
 
+            {log.quickLog.length > 0 && (
+              <>
+                <SectionLabel title="Quick log" />
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {log.quickLog.map((q) => (
+                    <View key={q} className="flex-row items-center rounded-full px-3 py-1.5" style={{ backgroundColor: "#f0fdf4" }}>
+                      <Ionicons name="checkmark-circle" size={13} color="#16a34a" />
+                      <Text style={{ color: "#15803d", fontSize: 12, marginLeft: 5 }}>{q}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+
             <SectionLabel title="Assessment" />
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
               {log.mood && (

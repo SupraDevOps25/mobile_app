@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { QuickLogGrid, QUICK_LOG_ITEMS } from "@/components/active-visit/QuickLogGrid";
 import { MoodSelector, type Mood } from "@/components/care-report/MoodSelector";
 import { ToggleRow } from "@/components/care-report/ToggleRow";
 import { VitalsGrid, type Vitals } from "@/components/care-report/VitalsGrid";
@@ -35,6 +36,21 @@ const MOOD_FROM_API: Record<ApiPatientMood, Mood> = {
   GREAT: "Great",
   EXCELLENT: "Excellent",
 };
+
+// Quick-log items are persisted as labels but the grid toggles ids, so map both
+// ways when reading params / an existing log and when building the payload.
+const QUICK_LOG_LABEL_BY_ID = new Map(
+  QUICK_LOG_ITEMS.map((i) => [i.id, i.label] as const),
+);
+const QUICK_LOG_ID_BY_LABEL = new Map(
+  QUICK_LOG_ITEMS.map((i) => [i.label, i.id] as const),
+);
+
+function labelsToIds(labels: string[]): string[] {
+  return labels
+    .map((label) => QUICK_LOG_ID_BY_LABEL.get(label.trim()))
+    .filter((id): id is string => Boolean(id));
+}
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -110,6 +126,27 @@ export default function CareReportScreen() {
   const [followUp, setFollowUp] = useState(false);
   const [escalation, setEscalation] = useState(false);
 
+  // Quick-log ticks carried from the active visit (as labels) → grid ids. Like
+  // the notes above, params can arrive a tick after mount, so seed once.
+  const [quickLogIds, setQuickLogIds] = useState<string[]>(() =>
+    labelsToIds((quickLog ?? "").split(",")),
+  );
+  const quickLogPrefilled = useRef((quickLog ?? "").length > 0);
+  useEffect(() => {
+    if (!quickLogPrefilled.current && quickLog) {
+      quickLogPrefilled.current = true;
+      setQuickLogIds((cur) =>
+        cur.length ? cur : labelsToIds(quickLog.split(",")),
+      );
+    }
+  }, [quickLog]);
+
+  function toggleQuickLog(itemId: string) {
+    setQuickLogIds((prev) =>
+      prev.includes(itemId) ? prev.filter((x) => x !== itemId) : [...prev, itemId],
+    );
+  }
+
   // Edit mode: seed the form from the existing log once it loads.
   const seededFromLog = useRef(false);
   useEffect(() => {
@@ -128,6 +165,7 @@ export default function CareReportScreen() {
     setMood(l.mood ? MOOD_FROM_API[l.mood] : null);
     setFollowUp(l.followUpRecommended);
     setEscalation(l.escalationNeeded);
+    setQuickLogIds(labelsToIds(l.quickLog));
   }, [visit]);
 
   if (isLoading) {
@@ -170,13 +208,33 @@ export default function CareReportScreen() {
       .split(",")
       .map((m) => m.trim())
       .filter(Boolean);
-    const quickLogItems =
-      editing && visit?.log
-        ? visit.log.quickLog
-        : (quickLog ?? "")
-            .split(",")
-            .map((q) => q.trim())
-            .filter(Boolean);
+    const anyVital = [
+      vitals.bloodPressure,
+      vitals.bloodGlucose,
+      vitals.heartRate,
+      vitals.temperature,
+    ].some((v) => v.trim().length > 0);
+
+    // If the nurse ticked these in the quick log, the matching detail is
+    // required so the report and the quick log can't contradict each other.
+    if (quickLogIds.includes("medication") && medicationsGiven.length === 0) {
+      Alert.alert(
+        "Medications required",
+        "You ticked “Medication given” in the quick log — please list the medications administered.",
+      );
+      return;
+    }
+    if (quickLogIds.includes("vitals") && !anyVital) {
+      Alert.alert(
+        "Vitals required",
+        "You ticked “Vitals checked” in the quick log — please record at least one vital.",
+      );
+      return;
+    }
+
+    const quickLogItems = quickLogIds
+      .map((id) => QUICK_LOG_LABEL_BY_ID.get(id))
+      .filter((label): label is string => Boolean(label));
 
     const payload = {
       summary: summary.trim(),
@@ -357,6 +415,12 @@ export default function CareReportScreen() {
                 style={{ fontSize: 14, lineHeight: 21, minHeight: 48, padding: 0 }}
               />
             </View>
+          </View>
+
+          {/* Quick log */}
+          <View className="mt-5">
+            <SectionLabel title="Quick log" />
+            <QuickLogGrid logged={quickLogIds} onToggle={toggleQuickLog} />
           </View>
 
           {/* Patient mood */}
