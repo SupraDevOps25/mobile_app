@@ -199,7 +199,8 @@ function SlideIntro() {
         Reliable home care for your loved ones, anytime you need it.
       </Text>
       <Text className="text-white/65 text-[14px] text-center mt-6 leading-6 tracking-wide">
-        Book trained caregivers and nurses in real time with ease and confidence by subscribing to a monthly care plan that fits your family&apos;s needs.
+        Book trained caregivers and nurses in real time with ease and confidence by subscribing to a 
+        monthly care plan that fits both family and individual needs.
       </Text>
     </View>
   );

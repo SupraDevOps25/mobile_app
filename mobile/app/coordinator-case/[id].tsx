@@ -591,12 +591,41 @@ export default function CoordinatorCaseScreen() {
                     <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
                       {m.name}
                     </Text>
-                    <View className="flex-row items-center mt-1" style={{ gap: 8 }}>
-                      <Text className="text-muted" style={{ fontSize: 12 }}>
+                    <View
+                      className="flex-row flex-wrap items-center mt-1"
+                      style={{ columnGap: 8, rowGap: 4, minWidth: 0 }}
+                    >
+                      <Text
+                        className="text-muted"
+                        style={{
+                          flexShrink: 0,
+                          fontSize: 12,
+                          includeFontPadding: true,
+                          lineHeight: 18,
+                          paddingRight: 3,
+                        }}
+                      >
                         {ASSIGNMENT_ROLE_LABELS[m.role]}
                       </Text>
-                      <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: st.bg }}>
-                        <Text style={{ color: st.color, fontSize: 10, fontWeight: "600" }}>
+                      <View
+                        className="rounded-full px-2"
+                        style={{
+                          alignSelf: "flex-start",
+                          backgroundColor: st.bg,
+                          minHeight: 24,
+                          paddingVertical: 4,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: st.color,
+                            fontSize: 10,
+                            fontWeight: "600",
+                            includeFontPadding: true,
+                            lineHeight: 14,
+                            paddingRight: 2,
+                          }}
+                        >
                           {st.label}
                         </Text>
                       </View>

@@ -7,6 +7,7 @@ import {
   ScrollView,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/ui/Avatar";
@@ -26,6 +27,10 @@ const KIND_LABEL: Record<ApiVisitKind, string> = {
   INITIAL_ASSESSMENT: "Initial assessment",
   CARE_VISIT: "Care visit",
 };
+
+function getPillWidth(label: string, maxWidth: number) {
+  return Math.min(Math.ceil(label.length * 7) + 42, maxWidth);
+}
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -55,6 +60,8 @@ export default function CaregiverVisitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const pillMaxWidth = Math.max(windowWidth - 64, 220);
 
   const { data: visit, isLoading, refetch } = useVisit(id);
   const { refreshing, onRefresh } = useRefresh(refetch);
@@ -244,10 +251,31 @@ export default function CaregiverVisitScreen() {
               <>
                 <SectionLabel title="Quick log" />
                 <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                  {log.quickLog.map((q) => (
-                    <View key={q} className="flex-row items-center rounded-full px-3 py-1.5" style={{ backgroundColor: "#f0fdf4" }}>
-                      <Ionicons name="checkmark-circle" size={13} color="#16a34a" />
-                      <Text style={{ color: "#15803d", fontSize: 12, marginLeft: 5 }}>{q}</Text>
+                  {log.quickLog.map((quickLogItem) => (
+                    <View
+                      key={quickLogItem}
+                      className="flex-row rounded-full px-3 py-1.5"
+                      style={{
+                        backgroundColor: "#f0fdf4",
+                        width: getPillWidth(quickLogItem, pillMaxWidth),
+                        alignSelf: "flex-start",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle" size={13} color="#16a34a" style={{ marginTop: 2 }} />
+                      <Text
+                        style={{
+                          color: "#15803d",
+                          fontSize: 12,
+                          marginLeft: 5,
+                          flex: 1,
+                          flexShrink: 1,
+                          minWidth: 0,
+                          lineHeight: 18,
+                        }}
+                      >
+                        {quickLogItem}
+                      </Text>
                     </View>
                   ))}
                 </View>
