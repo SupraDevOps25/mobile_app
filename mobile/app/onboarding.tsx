@@ -269,8 +269,9 @@ function SlideCareTypes({
         </View>
 
         <Text className="text-muted text-[14px] mt-3 text-center leading-6">
-          From preventive wellness to full-time support, Supracarer meets your
-          family wherever they are.
+          From preventive wellness to full-time support, Supracarer 
+          meet individuals and families at their unique care needs, providing peace of mind and
+          support.
         </Text>
       </View>
     </View>

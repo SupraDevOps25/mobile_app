@@ -140,10 +140,10 @@ function AssignmentCard({
 
       {/* Visit breakdown */}
       <View className="flex-row flex-wrap items-center mt-3" style={{ gap: 6 }}>
-        <CountPill n={item.counts.pending} label="pending" color="#1d4ed8" bg="#eff6ff" />
-        <CountPill n={item.counts.submitted} label="submitted" color="#b45309" bg="#fffbeb" />
-        <CountPill n={item.counts.reviewed} label="reviewed" color="#15803d" bg="#f0fdf4" />
-        <CountPill n={item.counts.missed} label="missed" color="#dc2626" bg="#fef2f2" />
+        <CountPill n={item.counts.pending} label="pending " color="#1d4ed8" bg="#eff6ff" />
+        <CountPill n={item.counts.submitted} label="submitted " color="#b45309" bg="#fffbeb" />
+        <CountPill n={item.counts.reviewed} label="reviewed " color="#15803d" bg="#f0fdf4" />
+        <CountPill n={item.counts.missed} label="missed " color="#dc2626" bg="#fef2f2" />
         {item.counts.total === 0 && (
           <Text className="text-muted" style={{ fontSize: 12 }}>
             No visits scheduled yet
