@@ -5,8 +5,8 @@
 //
 // TEMPORARY: pointed at the deployed Railway API to smoke-test from Expo Go.
 // Restore the local line when developing against your local server again.
-const DEV_API_URL = "https://supramobileapi-production.up.railway.app";
-// const DEV_API_URL = "http://192.168.0.114:3000"; // ← local server
+//const DEV_API_URL = "https://supramobileapi-production.up.railway.app";
+ const DEV_API_URL = "http://192.168.0.114:3000"; // ← local server
 
 // Production/preview builds hit the deployed Railway API (built from `dev`).
 // Swap to https://api.supracarer.com once that domain is pointed at Railway.
