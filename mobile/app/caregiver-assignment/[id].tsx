@@ -10,17 +10,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/ui/Avatar";
+import { VisitRowCard } from "@/components/ui/VisitRowCard";
 import { useRefresh } from "@/hooks/useRefresh";
 import { useCaregiverAssignments } from "@/hooks/useVisits";
 import type {
   ApiAssignmentVisit,
   ApiCaregiverAssignment,
 } from "@/services/visit.service";
-
-const MONTHS = [
-  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
-];
 
 // Shared card look across the app: gray border + a soft shadow (matches the
 // Visits and Schedule screens).
@@ -100,41 +96,19 @@ function VisitCard({
   v: ApiAssignmentVisit;
   onPress: (v: ApiAssignmentVisit) => void;
 }) {
-  const date = new Date(v.scheduledFor);
-  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const badge = visitBadge(v);
+  const time = new Date(v.scheduledFor).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
   return (
-    <Pressable
+    <VisitRowCard
+      dateISO={v.scheduledFor}
+      title={KIND_LABEL[v.kind]}
+      subtitle={`${time} · ${v.durationHrs} hrs`}
+      badge={visitBadge(v)}
+      chevron
       onPress={() => onPress(v)}
-      className="flex-row items-center bg-card rounded-2xl px-3 mb-3"
-      style={{ height: 76, borderWidth: 1, borderColor: CARD_BORDER, ...CARD_SHADOW }}
-    >
-      <View
-        className="rounded-xl items-center justify-center"
-        style={{ width: 46, height: 46, backgroundColor: "#f3f4f6" }}
-      >
-        <Text style={{ color: "#374151", fontSize: 16, fontWeight: "700" }}>
-          {date.getDate()}
-        </Text>
-        <Text style={{ color: "#6b7280", fontSize: 9, fontWeight: "600" }}>
-          {MONTHS[date.getMonth()]}
-        </Text>
-      </View>
-      <View className="flex-1 ml-3">
-        <Text className="text-foreground font-semibold" style={{ fontSize: 14 }} numberOfLines={1}>
-          {KIND_LABEL[v.kind]}
-        </Text>
-        <Text className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>
-          {time} · {v.durationHrs} hrs
-        </Text>
-      </View>
-      <View className="rounded-full px-2.5 py-1 mr-1" style={{ backgroundColor: badge.bg }}>
-        <Text style={{ color: badge.color, fontSize: 10, fontWeight: "700" }}>
-          {badge.label}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={15} color="#c4c9d1" />
-    </Pressable>
+    />
   );
 }
 
