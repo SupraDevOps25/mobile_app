@@ -22,6 +22,17 @@ const MONTHS = [
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ];
 
+// Shared card look across the app: gray border + a soft shadow (matches the
+// Visits and Schedule screens).
+const CARD_BORDER = "#ebedf0";
+const CARD_SHADOW = {
+  shadowColor: "#0f172a",
+  shadowOpacity: 0.04,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 1,
+} as const;
+
 const KIND_LABEL: Record<ApiAssignmentVisit["kind"], string> = {
   INITIAL_ASSESSMENT: "Initial assessment",
   CARE_VISIT: "Care visit",
@@ -96,7 +107,7 @@ function VisitCard({
     <Pressable
       onPress={() => onPress(v)}
       className="flex-row items-center bg-card rounded-2xl px-3 mb-3"
-      style={{ height: 76, borderWidth: 1, borderColor: "#f3f4f6" }}
+      style={{ height: 76, borderWidth: 1, borderColor: CARD_BORDER, ...CARD_SHADOW }}
     >
       <View
         className="rounded-xl items-center justify-center"
@@ -329,7 +340,7 @@ export default function CaregiverAssignmentScreen() {
             </Text>
             <View
               className="bg-card rounded-2xl px-4 py-1"
-              style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+              style={{ borderWidth: 1, borderColor: CARD_BORDER, ...CARD_SHADOW }}
             >
               {item.inclusions.map((inc, i) => (
                 <View
@@ -362,7 +373,7 @@ export default function CaregiverAssignmentScreen() {
             </Text>
             <View
               className="bg-card rounded-2xl p-4"
-              style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+              style={{ borderWidth: 1, borderColor: CARD_BORDER, ...CARD_SHADOW }}
             >
               <View className="flex-row items-center">
                 {[1, 2, 3, 4, 5].map((s) => (
