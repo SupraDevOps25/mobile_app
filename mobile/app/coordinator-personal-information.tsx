@@ -9,10 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -25,6 +22,7 @@ import {
 } from "@/components/caregiver/profile-fields";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCoordinatorProfile,
@@ -205,11 +203,7 @@ export default function CoordinatorPersonalInformationScreen() {
   const dirty = isDirty || (localBaseline != null && localCurrent !== localBaseline);
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
         <StatusBar style="dark" />
 
         {/* Header */}
@@ -236,12 +230,8 @@ export default function CoordinatorPersonalInformationScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
+            <KeyboardAwareForm
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 220 }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              automaticallyAdjustKeyboardInsets
             >
               {/* Profile photo */}
               <View className="items-center mt-2 mb-4">
@@ -422,7 +412,7 @@ export default function CoordinatorPersonalInformationScreen() {
                   ? "Your email is verified. Contact support to change it."
                   : "Your email isn't verified yet. Contact support to change it."}
               </Text>
-            </ScrollView>
+            </KeyboardAwareForm>
 
             {/* Sticky footer */}
             <View
@@ -444,6 +434,5 @@ export default function CoordinatorPersonalInformationScreen() {
           </>
         )}
       </View>
-    </KeyboardAvoidingView>
   );
 }

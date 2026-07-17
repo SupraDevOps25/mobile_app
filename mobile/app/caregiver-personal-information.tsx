@@ -11,9 +11,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCaregiverProfile,
@@ -264,11 +264,7 @@ export default function CaregiverPersonalInfoScreen() {
           </View>
         ) : (
           <>
-            <KeyboardAwareScrollView
-              showsVerticalScrollIndicator={false}
-              bottomOffset={16}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+            <KeyboardAwareForm
               contentContainerStyle={{
                 paddingHorizontal: 20,
                 paddingBottom: bottom + 96,
@@ -563,7 +559,7 @@ export default function CaregiverPersonalInfoScreen() {
                   </View>
                 </>
               )}
-            </KeyboardAwareScrollView>
+            </KeyboardAwareForm>
 
             {/* Sticky footer */}
             <View

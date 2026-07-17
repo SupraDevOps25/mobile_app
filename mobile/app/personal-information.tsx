@@ -8,10 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -23,6 +20,7 @@ import {
   ServiceAreaField,
 } from "@/components/caregiver/profile-fields";
 import { Button } from "@/components/ui/Button";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useFamilyProfile,
@@ -178,11 +176,7 @@ export default function PersonalInformationScreen() {
   const dirty = isDirty || (localBaseline != null && localCurrent !== localBaseline);
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
         <StatusBar style="dark" />
 
         {/* Header */}
@@ -209,15 +203,11 @@ export default function PersonalInformationScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              automaticallyAdjustKeyboardInsets
+            <KeyboardAwareForm
               contentContainerStyle={{
                 paddingHorizontal: 20,
                 paddingBottom: bottom + 120,
               }}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
             >
               {/* Profile photo */}
               <View className="items-center mt-2 mb-4">
@@ -432,7 +422,7 @@ export default function PersonalInformationScreen() {
                   ? "Your email is verified. Contact support to change it."
                   : "Your email isn't verified yet. Contact support to change it."}
               </Text>
-            </ScrollView>
+            </KeyboardAwareForm>
 
             {/* Sticky footer */}
             <View
@@ -454,6 +444,5 @@ export default function PersonalInformationScreen() {
           </>
         )}
       </View>
-    </KeyboardAvoidingView>
   );
 }
