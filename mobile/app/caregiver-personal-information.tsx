@@ -6,14 +6,12 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
@@ -239,11 +237,7 @@ export default function CaregiverPersonalInfoScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
         <StatusBar style="dark" />
 
         {/* Header */}
@@ -270,14 +264,14 @@ export default function CaregiverPersonalInfoScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
+            <KeyboardAwareScrollView
               showsVerticalScrollIndicator={false}
-              automaticallyAdjustKeyboardInsets
+              bottomOffset={16}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               contentContainerStyle={{
                 paddingHorizontal: 20,
-                paddingBottom: bottom + 120,
+                paddingBottom: bottom + 96,
               }}
             >
               {/* Profile photo */}
@@ -569,7 +563,7 @@ export default function CaregiverPersonalInfoScreen() {
                   </View>
                 </>
               )}
-            </ScrollView>
+            </KeyboardAwareScrollView>
 
             {/* Sticky footer */}
             <View
@@ -591,6 +585,5 @@ export default function CaregiverPersonalInfoScreen() {
           </>
         )}
       </View>
-    </KeyboardAvoidingView>
   );
 }

@@ -2,6 +2,7 @@ import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { Text, TextInput } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PushRegistrar } from "@/components/PushRegistrar";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -33,12 +34,14 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <PushRegistrar />
-          <Stack screenOptions={{ headerShown: false }} />
-        </AuthProvider>
-      </QueryClientProvider>
+      <KeyboardProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <PushRegistrar />
+            <Stack screenOptions={{ headerShown: false }} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }
