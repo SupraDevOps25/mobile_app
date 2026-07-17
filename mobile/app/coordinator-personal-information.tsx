@@ -276,52 +276,122 @@ export default function CoordinatorPersonalInformationScreen() {
                 </Text>
               </View>
 
-              {/* Editable details */}
-              <FieldLabel>First name</FieldLabel>
-              <Controller
-                control={control}
-                name="firstName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="First name"
-                    autoCapitalize="words"
-                    error={errors.firstName?.message}
-                  />
-                )}
-              />
+              {/* Name — first & last side by side */}
+              <FieldLabel>Name</FieldLabel>
+              <View className="flex-row" style={{ gap: 12 }}>
+                <Controller
+                  control={control}
+                  name="firstName"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <View
+                      className="flex-1 flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.firstName ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="person-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="First name"
+                        placeholderTextColor="#9ca3af"
+                        autoCapitalize="words"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="lastName"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <View
+                      className="flex-1 flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.lastName ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="person-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="Last name"
+                        placeholderTextColor="#9ca3af"
+                        autoCapitalize="words"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                  )}
+                />
+              </View>
+              {(errors.firstName || errors.lastName) && (
+                <Text style={{ color: "#ef4444", fontSize: 12, marginTop: 6, marginLeft: 8 }}>
+                  {errors.firstName?.message ?? errors.lastName?.message}
+                </Text>
+              )}
 
-              <FieldLabel>Last name</FieldLabel>
-              <Controller
-                control={control}
-                name="lastName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="Last name"
-                    autoCapitalize="words"
-                    error={errors.lastName?.message}
-                  />
-                )}
-              />
-
+              {/* Phone */}
               <FieldLabel>Phone number</FieldLabel>
               <Controller
                 control={control}
                 name="phone"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="0244123456"
-                    keyboardType="phone-pad"
-                    error={errors.phone?.message}
-                  />
+                  <>
+                    <View
+                      className="flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.phone ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="call-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="0244123456"
+                        placeholderTextColor="#9ca3af"
+                        keyboardType="phone-pad"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                    {errors.phone && (
+                      <Text style={{ color: "#ef4444", fontSize: 12, marginTop: 6, marginLeft: 8 }}>
+                        {errors.phone.message}
+                      </Text>
+                    )}
+                  </>
                 )}
               />
 
