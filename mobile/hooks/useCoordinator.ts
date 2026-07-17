@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LIVE_REFETCH_MS, qk } from "@/lib/query-keys";
 import {
   coordinatorService,
+  type ApiCoordinatorCase,
   type ApiCoordinatorEarnings,
   type ApiCoordinatorLog,
   type UpdateCoordinatorPayload,
@@ -81,19 +82,37 @@ export function useRequestCoordinatorPayout() {
   });
 }
 
-function useCaseMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
+function useCaseMutation<TArgs>(
+  fn: (args: TArgs) => Promise<unknown>,
+  // Optional optimistic patch of the cached case list, applied the moment the
+  // server confirms so the case screen updates without waiting for the refetch.
+  optimisticPatch?: (
+    args: TArgs,
+    cases: ApiCoordinatorCase[],
+  ) => ApiCoordinatorCase[],
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => {
+    onSuccess: (_data, args) => {
+      if (optimisticPatch) {
+        qc.setQueryData<ApiCoordinatorCase[]>(qk.coordinatorCases, (prev) =>
+          prev ? optimisticPatch(args, prev) : prev,
+        );
+      }
       qc.invalidateQueries({ queryKey: qk.coordinatorCases });
     },
   });
 }
 
 export function useSetAssessment() {
-  return useCaseMutation((args: { id: string; assessmentAt: string }) =>
-    coordinatorService.setAssessment(args.id, args.assessmentAt),
+  return useCaseMutation(
+    (args: { id: string; assessmentAt: string }) =>
+      coordinatorService.setAssessment(args.id, args.assessmentAt),
+    (args, cases) =>
+      cases.map((c) =>
+        c.id === args.id ? { ...c, assessmentAt: args.assessmentAt } : c,
+      ),
   );
 }
 
@@ -111,8 +130,13 @@ export function useChangePackage() {
 }
 
 export function useSetCareStart() {
-  return useCaseMutation((args: { id: string; careStartAt: string }) =>
-    coordinatorService.setCareStart(args.id, args.careStartAt),
+  return useCaseMutation(
+    (args: { id: string; careStartAt: string }) =>
+      coordinatorService.setCareStart(args.id, args.careStartAt),
+    (args, cases) =>
+      cases.map((c) =>
+        c.id === args.id ? { ...c, careStartAt: args.careStartAt } : c,
+      ),
   );
 }
 
