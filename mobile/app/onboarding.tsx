@@ -216,7 +216,7 @@ function SlideCareTypes({
     <View className="bg-background">
       <View className="relative" style={{ height: 390 }}>
         <ExpoImage
-          source={require("../assets/images/slide2.png")}
+          source={require("../assets/images/slide2.jpg")}
           style={{ width: "100%", height: 390 }}
           contentFit="cover"
           contentPosition="top"
