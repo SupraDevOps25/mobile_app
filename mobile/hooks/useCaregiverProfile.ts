@@ -5,6 +5,7 @@ import {
   caregiverService,
   type ApiCaregiverDocument,
   type ApiCaregiverDocumentType,
+  type ApiCaregiverEarnings,
   type ApiCaregiverProfile,
   type SchedulePayload,
   type UpdateCaregiverProfilePayload,
@@ -28,7 +29,21 @@ export function useRequestPayout() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => caregiverService.requestPayout(),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      // Reflect the request immediately so the earnings screen updates without
+      // waiting for the refetch, then invalidate to reconcile with the server.
+      qc.setQueryData<ApiCaregiverEarnings>(qk.caregiverEarnings, (old) =>
+        old
+          ? {
+              ...old,
+              availableGhs: 0,
+              requestedGhs: old.requestedGhs + res.totalGhs,
+              recentTransactions: old.recentTransactions.map((t) =>
+                t.status === "available" ? { ...t, status: "requested" } : t,
+              ),
+            }
+          : old,
+      );
       qc.invalidateQueries({ queryKey: qk.caregiverEarnings });
     },
   });

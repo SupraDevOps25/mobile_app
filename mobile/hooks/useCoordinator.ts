@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LIVE_REFETCH_MS, qk } from "@/lib/query-keys";
 import {
   coordinatorService,
+  type ApiCoordinatorEarnings,
   type ApiCoordinatorLog,
   type UpdateCoordinatorPayload,
 } from "@/services/coordinator.service";
@@ -60,7 +61,21 @@ export function useRequestCoordinatorPayout() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => coordinatorService.requestPayout(),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      // Reflect the request immediately so the earnings screen updates without
+      // waiting for the refetch, then invalidate to reconcile with the server.
+      qc.setQueryData<ApiCoordinatorEarnings>(qk.coordinatorEarnings, (old) =>
+        old
+          ? {
+              ...old,
+              availableGhs: 0,
+              requestedGhs: old.requestedGhs + res.totalGhs,
+              recentTransactions: old.recentTransactions.map((t) =>
+                t.status === "available" ? { ...t, status: "requested" } : t,
+              ),
+            }
+          : old,
+      );
       qc.invalidateQueries({ queryKey: qk.coordinatorEarnings });
     },
   });
