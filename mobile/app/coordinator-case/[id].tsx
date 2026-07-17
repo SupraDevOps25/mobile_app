@@ -299,7 +299,11 @@ export default function CoordinatorCaseScreen() {
     !!item.careStartAt &&
     item.assessmentDone &&
     !assistantReady;
-  const canInvoice = item.status === "ACTIVE" || item.status === "RENEWING";
+  // Billing is available on an active/renewing case — but hides once an invoice
+  // is already outstanding (the family must pay it before the next is issued).
+  const canInvoice =
+    (item.status === "ACTIVE" || item.status === "RENEWING") &&
+    !item.hasOpenInvoice;
   // Billing waits until this cycle's care is delivered: any visit still to come
   // or underway blocks the invoice (matches the API guard).
   const hasPendingVisits = (detail?.visits ?? []).some(
@@ -940,6 +944,21 @@ export default function CoordinatorCaseScreen() {
             )}
           </>
         )}
+
+        {/* Invoice already issued — waiting on the family to pay it */}
+        {(item.status === "ACTIVE" || item.status === "RENEWING") &&
+          item.hasOpenInvoice && (
+            <View
+              className="flex-row items-center rounded-2xl p-4 mt-1"
+              style={{ backgroundColor: "#f0fdfa", borderWidth: 1, borderColor: "#99f6e4" }}
+            >
+              <Ionicons name="checkmark-circle" size={17} color="#0d9488" />
+              <Text style={{ color: "#0f766e", fontSize: 13, lineHeight: 19, marginLeft: 8, flex: 1 }}>
+                Invoice issued — awaiting the family&apos;s payment. You can issue
+                the next one once it&apos;s settled.
+              </Text>
+            </View>
+          )}
 
         {/* Care visits & logs — every visit on the case, active or not */}
         <SectionLabel title="Care visits & logs" />

@@ -11,6 +11,7 @@ import {
   CareRecipient,
   NotificationType,
   PackageType,
+  PaymentStatus,
   Subscription,
   SubscriptionStatus,
   VisitKind,
@@ -722,6 +723,12 @@ export class SubscriptionsService {
           where: { kind: VisitKind.INITIAL_ASSESSMENT },
           select: { status: true },
         },
+        // An open (unpaid) invoice, so the UI can hide "Issue invoice" once one
+        // is already outstanding for this cycle.
+        payments: {
+          where: { status: PaymentStatus.PENDING },
+          select: { id: true },
+        },
       },
     });
 
@@ -741,6 +748,7 @@ export class SubscriptionsService {
           priceGhs: s.priceGhs.toNumber(),
           coordinatorFeeGhs: coordinatorFeeGhs(s.priceGhs.toNumber()),
           assessmentDone,
+          hasOpenInvoice: s.payments.length > 0,
           needsAssistant: s.needsAssistant,
           createdAt: s.createdAt,
           assessmentAt: s.assessmentAt,

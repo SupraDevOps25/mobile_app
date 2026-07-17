@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { PACKAGE_LABELS } from "@/constants/package-presentation";
 import type { ApiPastCare } from "@/services/subscription.service";
 
@@ -32,7 +33,7 @@ export function PastCareCard({
     <Pressable
       onPress={onPress ? () => onPress(item) : undefined}
       className="bg-card rounded-2xl p-4 mb-3"
-      style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+      style={CARD_SURFACE}
     >
       <View className="flex-row items-start justify-between">
         <View className="flex-row items-center flex-1 pr-3">

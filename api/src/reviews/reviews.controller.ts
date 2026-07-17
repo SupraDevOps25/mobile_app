@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Request,
   UseGuards,
@@ -27,6 +28,20 @@ export class ReviewsController {
   @Get('pending')
   pending(@Request() req: { user: { id: string } }) {
     return this.reviewsService.pendingForFamily(req.user.id);
+  }
+
+  @ApiOperation({
+    summary:
+      'Family: review state of one of my subscriptions (active or past) — ' +
+      'whether visits are done and which nurses I still need to rate',
+  })
+  @Roles('FAMILY')
+  @Get(':subscriptionId/status')
+  status(
+    @Request() req: { user: { id: string } },
+    @Param('subscriptionId') subscriptionId: string,
+  ) {
+    return this.reviewsService.statusForFamily(req.user.id, subscriptionId);
   }
 
   @ApiOperation({

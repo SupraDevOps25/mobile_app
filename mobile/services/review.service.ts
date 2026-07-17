@@ -16,6 +16,15 @@ export interface ApiPendingReview {
   caregivers: ApiReviewNurse[];
 }
 
+// The review state of a single subscription (active or past): whether the care
+// visits are done yet, plus the nurses still awaiting a rating.
+export interface ApiReviewStatus {
+  subscriptionId: string;
+  packageName: string | null;
+  visitsComplete: boolean;
+  caregivers: ApiReviewNurse[];
+}
+
 export interface SubmitReviewPayload {
   subscriptionId: string;
   caregiverId: string;
@@ -25,6 +34,8 @@ export interface SubmitReviewPayload {
 
 export const reviewService = {
   pending: () => api.get<ApiPendingReview | null>("/reviews/pending"),
+  statusFor: (subscriptionId: string) =>
+    api.get<ApiReviewStatus>(`/reviews/${subscriptionId}/status`),
   submit: (payload: SubmitReviewPayload) =>
     api.post<{ id: string; rating: number; comment: string | null }>(
       "/reviews",

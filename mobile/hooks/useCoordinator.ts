@@ -159,8 +159,14 @@ export function useCancelAssistant() {
 }
 
 export function useIssueInvoice() {
-  return useCaseMutation((subscriptionId: string) =>
-    coordinatorService.issueInvoice(subscriptionId),
+  return useCaseMutation(
+    (subscriptionId: string) =>
+      coordinatorService.issueInvoice(subscriptionId),
+    // Hide the "Issue invoice" action immediately — an invoice is now open.
+    (subscriptionId, cases) =>
+      cases.map((c) =>
+        c.id === subscriptionId ? { ...c, hasOpenInvoice: true } : c,
+      ),
   );
 }
 

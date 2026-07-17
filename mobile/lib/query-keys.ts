@@ -14,6 +14,7 @@ export const qk = {
   pastCare: (id: string) => ["subscription", "history", id] as const,
 
   pendingReview: ["reviews", "pending"] as const,
+  reviewStatus: (id: string) => ["reviews", "status", id] as const,
 
   conversations: ["messages", "conversations"] as const,
   familyThread: ["messages", "family"] as const,

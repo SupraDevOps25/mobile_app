@@ -56,6 +56,9 @@ export interface ApiCoordinatorCase {
   createdAt: string;
   assessmentAt: string | null;
   assessmentDone: boolean;
+  // True while an unpaid invoice is already outstanding for this cycle — the
+  // "Issue invoice" action hides until the family pays it.
+  hasOpenInvoice: boolean;
   needsAssistant: boolean;
   careStartAt: string | null;
   activatedAt: string | null;

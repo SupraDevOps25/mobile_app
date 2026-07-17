@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image, Text, View } from "react-native";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { initialsOf } from "@/lib/avatar";
 import type { ApiCareRecipient } from "@/services/subscription.service";
 
@@ -14,10 +15,7 @@ export function CareRecipientCard({
   const genderLabel = client.gender === "MALE" ? "Male" : "Female";
   const showPhoto = photoUrl && client.bookingFor === "SELF";
   return (
-    <View
-      className="bg-card rounded-2xl p-4"
-      style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
-    >
+    <View className="bg-card rounded-2xl p-4" style={CARD_SURFACE}>
       <View className="flex-row items-center">
         {showPhoto ? (
           <Image

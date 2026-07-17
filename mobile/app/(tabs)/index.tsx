@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
 import { CTABanner } from "@/components/home/CTABanner";
+import { PendingInvoiceBanner } from "@/components/home/PendingInvoiceBanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { PastCareCard } from "@/components/care-plan/PastCareCard";
 import { PackageCard } from "@/components/packages/PackageCard";
@@ -129,6 +130,11 @@ export default function HomeScreen() {
             ? "Here's your care at a glance."
             : "Personalized homecare for your loved ones."}
         </Text>
+      </View>
+
+      {/* Invoice due — appears when the coordinator issues this month's invoice */}
+      <View className="px-5 mb-5">
+        <PendingInvoiceBanner />
       </View>
 
       {/* Quick search */}
