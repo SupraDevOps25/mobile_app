@@ -1,12 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -72,7 +71,6 @@ export default function CaregiverPersonalInfoScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { updateUser } = useAuth();
-  const scrollRef = useRef<ScrollView>(null);
 
   const { data: account } = useAuthProfile();
   const updateAccount = useUpdateAuthProfile();
@@ -94,7 +92,6 @@ export default function CaregiverPersonalInfoScreen() {
   const [languages, setLanguages] = useState<string[]>([]);
   const [hasExp, setHasExp] = useState(false);
   const [years, setYears] = useState("");
-  const [keyboardSpacer, setKeyboardSpacer] = useState(0);
 
   // Seed the account fields once the account loads.
   useEffect(() => {
@@ -119,34 +116,6 @@ export default function CaregiverPersonalInfoScreen() {
     setHasExp(profile.hasHomecareExp);
     setYears(profile.yearsExperience ? String(profile.yearsExperience) : "");
   }, [profile]);
-
-  useEffect(() => {
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent =
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const showSub = Keyboard.addListener(showEvent, (event) => {
-      const keyboardHeight = event.endCoordinates.height;
-      setKeyboardSpacer(
-        Platform.OS === "android"
-          ? Math.min(240, Math.max(150, keyboardHeight - bottom))
-          : 0,
-      );
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardSpacer(0));
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [bottom]);
-
-  function scrollToLowerFields() {
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, Platform.OS === "android" ? 260 : 160);
-  }
 
   const fullName = account
     ? `${account.firstName} ${account.lastName}`.trim()
@@ -302,13 +271,13 @@ export default function CaregiverPersonalInfoScreen() {
         ) : (
           <>
             <ScrollView
-              ref={scrollRef}
               showsVerticalScrollIndicator={false}
+              automaticallyAdjustKeyboardInsets
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               contentContainerStyle={{
                 paddingHorizontal: 20,
-                paddingBottom: bottom + 96 + keyboardSpacer,
+                paddingBottom: bottom + 120,
               }}
             >
               {/* Profile photo */}
@@ -421,7 +390,6 @@ export default function CaregiverPersonalInfoScreen() {
                 <TextInput
                   value={phone}
                   onChangeText={setPhone}
-                  onFocus={scrollToLowerFields}
                   placeholder="0244123456"
                   placeholderTextColor="#9ca3af"
                   keyboardType="phone-pad"
@@ -466,7 +434,6 @@ export default function CaregiverPersonalInfoScreen() {
                 <TextInput
                   value={address}
                   onChangeText={setAddress}
-                  onFocus={scrollToLowerFields}
                   placeholder="House number, street, area where you live"
                   placeholderTextColor="#9ca3af"
                   maxFontSizeMultiplier={1.2}
