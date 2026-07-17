@@ -49,8 +49,8 @@ type EarningsPeriodId = 'month' | 'all';
 // One month of earnings from a subscription the nurse serves. Supracarer bills
 // families a monthly subscription; the nurse earns their agreed monthly payout
 // (Assignment.payoutGhs) for each billing period. Lifecycle of one month:
-//   pending   → family hasn't paid yet, or the billing month hasn't ended
-//   available → paid + month ended → the nurse can now request this payout
+//   pending   → the family hasn't paid this month's invoice yet
+//   available → the family has paid → the nurse can now request this payout
 //   requested → nurse requested it; awaiting admin disbursement
 //   paid      → admin marked it disbursed
 type EarningStatus = 'pending' | 'available' | 'requested' | 'paid';
@@ -130,10 +130,10 @@ export class CaregiversService {
   }
 
   /**
-   * Request payout for every completed subscription month that is now available
-   * (billing period ended + family paid + not already requested). One payout
-   * record is created per month, so an admin can disburse and mark them
-   * individually.
+   * Request payout for every subscription month that is now available (the
+   * family has paid and it hasn't been requested yet), including earlier months
+   * the nurse never withdrew. One payout record is created per month so an admin
+   * can disburse and mark them individually.
    */
   async requestPayout(userId: string) {
     const profile = await this.requireProfile(userId);
@@ -142,13 +142,25 @@ export class CaregiversService {
 
     if (available.length === 0) {
       throw new BadRequestException(
-        'No completed months are available to withdraw yet. Payouts unlock at ' +
-          'the end of each subscription month, once the family has paid.',
+        'No earnings are available to withdraw yet. Payouts unlock once the ' +
+          'family has paid for the subscription month.',
+      );
+    }
+
+    // Security guard: only ever create a payout for a month the family has
+    // actually paid. Re-verify each payment is SUCCESS at write time, so a
+    // stale read can never turn into a payout against an unpaid invoice. The
+    // request carries no client-supplied amount or payment id — the server
+    // derives everything from this nurse's own paid subscriptions.
+    const eligible = await this.eligiblePaidEarnings(available);
+    if (eligible.length === 0) {
+      throw new BadRequestException(
+        'These earnings are no longer eligible for payout.',
       );
     }
 
     await this.prisma.payoutRequest.createMany({
-      data: available.map((e) => ({
+      data: eligible.map((e) => ({
         caregiverId: profile.id,
         paymentId: e.id,
         amountGhs: e.amountGhs,
@@ -157,9 +169,23 @@ export class CaregiversService {
     });
 
     return {
-      count: available.length,
-      totalGhs: Math.round(available.reduce((s, e) => s + e.amountGhs, 0)),
+      count: eligible.length,
+      totalGhs: Math.round(eligible.reduce((s, e) => s + e.amountGhs, 0)),
     };
+  }
+
+  /** Keep only earnings whose payment is confirmed SUCCESS (family paid). */
+  private async eligiblePaidEarnings(earnings: Earning[]): Promise<Earning[]> {
+    if (earnings.length === 0) return [];
+    const paid = await this.prisma.payment.findMany({
+      where: {
+        id: { in: earnings.map((e) => e.id) },
+        status: PaymentStatus.SUCCESS,
+      },
+      select: { id: true },
+    });
+    const paidIds = new Set(paid.map((p) => p.id));
+    return earnings.filter((e) => paidIds.has(e.id));
   }
 
   /** Build the nurse's monthly earnings list from their subscriptions' payments. */
@@ -199,18 +225,17 @@ export class CaregiversService {
     const payoutByPayment = new Map(
       payouts.map((r) => [r.paymentId, r.status]),
     );
-    const now = new Date();
-
     return payments.map((p) => {
       const a = bySub.get(p.subscriptionId)!;
       const payout = payoutByPayment.get(p.id);
-      const monthEnded = p.billingPeriodEnd <= now;
 
+      // An earning becomes withdrawable the moment the family has paid this
+      // month's invoice (Payment SUCCESS). The nurse never sees the family's
+      // payment state — the payout simply unlocks; only admins reconcile it.
       let status: EarningStatus;
       if (payout === PayoutStatus.PAID) status = 'paid';
       else if (payout === PayoutStatus.PENDING) status = 'requested';
-      else if (p.status === PaymentStatus.SUCCESS && monthEnded)
-        status = 'available';
+      else if (p.status === PaymentStatus.SUCCESS) status = 'available';
       else status = 'pending';
 
       return {

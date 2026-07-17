@@ -152,9 +152,10 @@ export class CoordinatorsService {
   }
 
   /**
-   * Request payout for every completed subscription month that is now available
-   * (billing period ended + family paid + not already requested). One record
-   * per month, so an admin can disburse and mark them individually.
+   * Request payout for every subscription month that is now available (the
+   * family has paid and it hasn't been requested yet), including earlier months
+   * the coordinator never withdrew. One record per month so an admin can
+   * disburse and mark them individually.
    */
   async requestPayout(userId: string) {
     const earningsList = await this.collectEarnings(userId);
@@ -162,13 +163,25 @@ export class CoordinatorsService {
 
     if (available.length === 0) {
       throw new BadRequestException(
-        'No completed months are available to withdraw yet. Payouts unlock at ' +
-          'the end of each subscription month, once the family has paid.',
+        'No earnings are available to withdraw yet. Payouts unlock once the ' +
+          'family has paid for the subscription month.',
+      );
+    }
+
+    // Security guard: only ever create a payout for a month the family has
+    // actually paid. Re-verify each payment is SUCCESS at write time, so a
+    // stale read can never turn into a payout against an unpaid invoice. The
+    // request carries no client-supplied amount or payment id — the server
+    // derives everything from this coordinator's own paid cases.
+    const eligible = await this.eligiblePaidEarnings(available);
+    if (eligible.length === 0) {
+      throw new BadRequestException(
+        'These earnings are no longer eligible for payout.',
       );
     }
 
     await this.prisma.coordinatorPayoutRequest.createMany({
-      data: available.map((e) => ({
+      data: eligible.map((e) => ({
         coordinatorId: userId,
         paymentId: e.id,
         amountGhs: e.amountGhs,
@@ -177,9 +190,23 @@ export class CoordinatorsService {
     });
 
     return {
-      count: available.length,
-      totalGhs: Math.round(available.reduce((s, e) => s + e.amountGhs, 0)),
+      count: eligible.length,
+      totalGhs: Math.round(eligible.reduce((s, e) => s + e.amountGhs, 0)),
     };
+  }
+
+  /** Keep only earnings whose payment is confirmed SUCCESS (family paid). */
+  private async eligiblePaidEarnings(earnings: Earning[]): Promise<Earning[]> {
+    if (earnings.length === 0) return [];
+    const paid = await this.prisma.payment.findMany({
+      where: {
+        id: { in: earnings.map((e) => e.id) },
+        status: PaymentStatus.SUCCESS,
+      },
+      select: { id: true },
+    });
+    const paidIds = new Set(paid.map((p) => p.id));
+    return earnings.filter((e) => paidIds.has(e.id));
   }
 
   /** Build the coordinator's monthly earnings from their cases' payments. */
@@ -209,18 +236,17 @@ export class CoordinatorsService {
     const payoutByPayment = new Map(
       payouts.map((r) => [r.paymentId, r.status]),
     );
-    const now = new Date();
-
     return payments.map((p) => {
       const s = subById.get(p.subscriptionId)!;
       const payout = payoutByPayment.get(p.id);
-      const monthEnded = p.billingPeriodEnd <= now;
 
+      // Withdrawable the moment the family has paid this month's invoice
+      // (Payment SUCCESS). The coordinator never sees the family's payment
+      // state — the payout simply unlocks; only admins reconcile it.
       let status: EarningStatus;
       if (payout === PayoutStatus.PAID) status = 'paid';
       else if (payout === PayoutStatus.PENDING) status = 'requested';
-      else if (p.status === PaymentStatus.SUCCESS && monthEnded)
-        status = 'available';
+      else if (p.status === PaymentStatus.SUCCESS) status = 'available';
       else status = 'pending';
 
       return {
