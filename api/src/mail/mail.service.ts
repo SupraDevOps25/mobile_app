@@ -75,6 +75,71 @@ export class MailService {
     });
   }
 
+  /** Forward a family's "no package fits" request to the admin team. */
+  async sendPackageRequestEmail(params: {
+    familyName: string;
+    familyEmail: string;
+    phone?: string | null;
+    message: string;
+  }): Promise<void> {
+    const adminEmail =
+      process.env.ADMIN_EMAIL ??
+      process.env.SUPPORT_EMAIL ??
+      'support@supracarer.com';
+    const contact = [params.familyEmail, params.phone]
+      .filter(Boolean)
+      .join(' · ');
+
+    await this.sendMail({
+      to: adminEmail,
+      subject: `Custom care request — ${params.familyName}`,
+      html: this.buildPackageRequestHtml({ ...params, contact }),
+      text: [
+        'A family says no catalog package fits their situation.',
+        '',
+        `Family: ${params.familyName}`,
+        `Contact: ${contact}`,
+        '',
+        'What they need:',
+        params.message,
+      ].join('\n'),
+    });
+  }
+
+  private buildPackageRequestHtml(params: {
+    familyName: string;
+    contact: string;
+    message: string;
+  }): string {
+    const familyName = this.escapeHtml(params.familyName);
+    const contact = this.escapeHtml(params.contact);
+    const message = this.escapeHtml(params.message).replaceAll('\n', '<br>');
+
+    return this.emailShell({
+      preview: `Custom care request from ${familyName}`,
+      eyebrow: 'Custom care request',
+      title: 'A family needs a tailored package',
+      body: `
+        <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 18px">
+          <strong>${familyName}</strong> couldn't find a catalog package that fits
+          their situation and told us what they need.
+        </p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:18px;margin:2px 0 18px">
+          <p style="color:#0f172a;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">
+            Contact
+          </p>
+          <p style="color:#475569;font-size:15px;line-height:1.6;margin:0">${contact}</p>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:18px;padding:18px;margin:0">
+          <p style="color:#1e3a8a;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">
+            What they need
+          </p>
+          <p style="color:#1f2937;font-size:15px;line-height:1.6;margin:0">${message}</p>
+        </div>
+      `,
+    });
+  }
+
   private async sendMail(payload: MailPayload): Promise<void> {
     if (process.env.RESEND_API_KEY) {
       await this.sendWithResend(payload);
