@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   AssignmentStatus,
   NotificationType,
@@ -45,10 +47,94 @@ function initialsOf(name: string): string {
 
 @Injectable()
 export class VisitsService {
+  private readonly logger = new Logger(VisitsService.name);
+
+  // How long after a visit's scheduled window ends before we treat a still-open
+  // (never started, never logged) visit as missed. The window itself scales with
+  // the package — a Wellness visit is 2h, Live-In is 24h — because we key off
+  // each visit's own durationHrs, so this is just the buffer on top of that.
+  private static readonly MISSED_GRACE_HOURS = 6;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
   ) {}
+
+  /**
+   * Auto-detect missed visits. A care visit that's still SCHEDULED once its
+   * whole window (scheduledFor + durationHrs) plus a grace buffer has passed
+   * means the nurse never showed up or logged it — flag it MISSED and tell the
+   * coordinator. Runs hourly; MISSED is terminal so billing can then proceed.
+   * (The initial assessment is coordinator-managed, so it's left out.)
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async flagMissedVisits(): Promise<void> {
+    const now = Date.now();
+    const graceMs = VisitsService.MISSED_GRACE_HOURS * 60 * 60 * 1000;
+
+    const open = await this.prisma.visit.findMany({
+      where: { status: VisitStatus.SCHEDULED, kind: VisitKind.CARE_VISIT },
+      include: {
+        subscription: {
+          select: {
+            coordinatorId: true,
+            careRecipient: { select: { name: true } },
+          },
+        },
+        caregiver: {
+          include: { user: { select: { firstName: true, lastName: true } } },
+        },
+      },
+    });
+
+    const missed = open.filter((v) => {
+      const windowEnd =
+        v.scheduledFor.getTime() + v.durationHrs * 60 * 60 * 1000 + graceMs;
+      return windowEnd < now;
+    });
+    if (missed.length === 0) return;
+
+    await this.prisma.visit.updateMany({
+      where: { id: { in: missed.map((v) => v.id) } },
+      data: { status: VisitStatus.MISSED },
+    });
+    this.logger.log(`Flagged ${missed.length} missed visit(s)`);
+
+    // Let each case's coordinator know so they can follow up with the nurse.
+    for (const v of missed) {
+      if (!v.subscription.coordinatorId) continue;
+      const nurse =
+        `${v.caregiver.user.firstName} ${v.caregiver.user.lastName}`.trim();
+      await this.notifications.notify({
+        userId: v.subscription.coordinatorId,
+        type: NotificationType.GENERAL,
+        title: 'Visit missed',
+        body: `${nurse} missed the ${v.scheduledFor.toLocaleDateString()} visit for ${v.subscription.careRecipient.name}. Please follow up.`,
+      });
+    }
+  }
+
+  /**
+   * Admin-only manual override of a visit's status — the safety valve for
+   * correcting an auto-flagged miss, or recording one the cron hasn't caught
+   * yet. Only admins may change a visit's status directly.
+   */
+  async adminSetStatus(visitId: string, status: VisitStatus) {
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+    if (!visit) throw new NotFoundException('Visit not found');
+
+    const updated = await this.prisma.visit.update({
+      where: { id: visitId },
+      data: {
+        status,
+        // Keep endedAt consistent with the new status.
+        endedAt: status === VisitStatus.COMPLETED ? new Date() : null,
+      },
+    });
+    return { id: updated.id, status: updated.status };
+  }
 
   private async caregiverIdFor(userId: string): Promise<string> {
     const profile = await this.prisma.caregiverProfile.findUnique({

@@ -15,6 +15,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { CreateVisitDto } from './dto/create-visit.dto';
 import { CreateVisitLogDto } from './dto/create-visit-log.dto';
 import { RequestChangesDto } from './dto/request-changes.dto';
+import { UpdateVisitStatusDto } from './dto/update-visit-status.dto';
 import { VisitsService } from './visits.service';
 
 @ApiBearerAuth()
@@ -129,5 +130,14 @@ export class VisitsController {
     @Body() dto: RequestChangesDto,
   ) {
     return this.visitsService.requestChanges(req.user.id, id, dto.note);
+  }
+
+  @ApiOperation({
+    summary: 'Admin: manually set a visit status (override / correct a miss)',
+  })
+  @Roles('ADMIN')
+  @Patch(':id/status')
+  setStatus(@Param('id') id: string, @Body() dto: UpdateVisitStatusDto) {
+    return this.visitsService.adminSetStatus(id, dto.status);
   }
 }
