@@ -37,6 +37,8 @@ export function useSubscribe() {
     onSuccess: (sub) => {
       qc.setQueryData(qk.activeSubscription, sub);
       qc.invalidateQueries({ queryKey: qk.activeSubscription });
+      // A new booking bumps the dashboard's "Total bookings" stat.
+      qc.invalidateQueries({ queryKey: qk.familyStats });
     },
   });
 }

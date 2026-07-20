@@ -18,7 +18,6 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   useAddresses,
   useFamilyProfile,
-  useFamilyStats,
   usePaymentMethods,
   useUploadFamilyPhoto,
 } from "@/hooks/useFamily";
@@ -123,81 +122,16 @@ function Section({ items }: { items: RowItem[] }) {
   );
 }
 
-function StatItem({
-  icon,
-  tint,
-  bg,
-  border,
-  value,
-  label,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  tint: string;
-  bg: string;
-  border: string;
-  value: string;
-  label: string;
-}) {
-  return (
-    <View
-      className="flex-1 items-center"
-      style={{
-        backgroundColor: bg,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: border,
-        paddingVertical: 12,
-        paddingHorizontal: 6,
-      }}
-    >
-      <View
-        className="items-center justify-center"
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 12,
-          backgroundColor: "rgba(255,255,255,0.7)",
-        }}
-      >
-        <Ionicons name={icon} size={17} color={tint} />
-      </View>
-      <Text
-        style={{ color: tint, fontSize: 16, fontWeight: "800", marginTop: 7 }}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-      >
-        {value}
-      </Text>
-      <Text
-        style={{
-          color: tint,
-          fontSize: 10,
-          fontWeight: "700",
-          opacity: 0.85,
-          marginTop: 2,
-          textAlign: "center",
-          lineHeight: 13,
-        }}
-        numberOfLines={2}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 export default function ProfileScreen() {
   const { top } = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const { data: stats, refetch: refetchStats } = useFamilyStats();
   const { data: profile, refetch: refetchProfile } = useFamilyProfile();
   const { data: addresses, refetch: refetchAddresses } = useAddresses();
   const { data: paymentMethods, refetch: refetchMethods } = usePaymentMethods();
   const uploadPhoto = useUploadFamilyPhoto();
   const { refreshing, onRefresh } = useRefresh([
-    refetchStats,
     refetchProfile,
     refetchAddresses,
     refetchMethods,
@@ -232,13 +166,6 @@ export default function ProfileScreen() {
       { text: "Cancel", style: "cancel" },
     ]);
   }
-
-  const memberSince = stats?.memberSince
-    ? new Date(stats.memberSince).toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
 
   // TODO: replace with real navigation as each editable screen is built.
   const soon = (label: string) =>
@@ -493,37 +420,6 @@ export default function ProfileScreen() {
               Edit profile
             </Text>
           </Pressable>
-
-          {/* Stats */}
-          <View
-            className="flex-row w-full mt-5 pt-5"
-            style={{ borderTopWidth: 1, borderTopColor: "#f3f4f6", gap: 8 }}
-          >
-            <StatItem
-              value={String(stats?.carePlans ?? 0)}
-              label="Total bookings"
-              icon="briefcase"
-              tint="#1e3a8a"
-              bg="#eef2ff"
-              border="#bfdbfe"
-            />
-            <StatItem
-              value={String(stats?.caregivers ?? 0)}
-              label="Caregivers used"
-              icon="people"
-              tint="#16a34a"
-              bg="#f0fdf4"
-              border="#bbf7d0"
-            />
-            <StatItem
-              value={memberSince}
-              label="Member since "
-              icon="ribbon"
-              tint="#d97706"
-              bg="#fffbeb"
-              border="#fde68a"
-            />
-          </View>
         </View>
       </View>
 

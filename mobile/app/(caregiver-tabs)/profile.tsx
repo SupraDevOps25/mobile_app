@@ -125,69 +125,6 @@ function Section({ items }: { items: RowItem[] }) {
   );
 }
 
-function StatItem({
-  icon,
-  tint,
-  bg,
-  border,
-  value,
-  label,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  tint: string;
-  bg: string;
-  border: string;
-  value: string;
-  label: string;
-}) {
-  return (
-    <View
-      className="flex-1 items-center"
-      style={{
-        backgroundColor: bg,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: border,
-        paddingVertical: 12,
-        paddingHorizontal: 6,
-      }}
-    >
-      <View
-        className="items-center justify-center"
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 12,
-          backgroundColor: "rgba(255,255,255,0.7)",
-        }}
-      >
-        <Ionicons name={icon} size={17} color={tint} />
-      </View>
-      <Text
-        style={{ color: tint, fontSize: 16, fontWeight: "800", marginTop: 7 }}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-      >
-        {value}
-      </Text>
-      <Text
-        style={{
-          color: tint,
-          fontSize: 10,
-          fontWeight: "700",
-          opacity: 0.85,
-          marginTop: 2,
-          textAlign: "center",
-          lineHeight: 13,
-        }}
-        numberOfLines={2}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 export default function CaregiverProfileScreen() {
   const { top } = useSafeAreaInsets();
   const { user, logout } = useAuth();
@@ -206,18 +143,9 @@ export default function CaregiverProfileScreen() {
   const initials = initialsOf(fullName || "Caregiver");
   const photoUrl = profile?.photoUrl ?? null;
 
-  const memberSince = account?.createdAt
-    ? new Date(account.createdAt).toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
-
   const verification = verificationMeta(
     profile?.verificationStatus ?? "UNVERIFIED",
   );
-  const rating = profile?.rating ? profile.rating.toFixed(1) : "—";
-  const reviews = profile?.totalReviews ?? 0;
 
   async function handleLogout() {
     Alert.alert("Log out", "Are you sure you want to log out?", [
@@ -457,34 +385,6 @@ export default function CaregiverProfileScreen() {
                 Edit profile
               </Text>
             </Pressable>
-
-            {/* Stats */}
-            <View className="flex-row w-full mt-5" style={{ gap: 8 }}>
-              <StatItem
-                icon="star"
-                tint="#b45309"
-                bg="#fffbeb"
-                border="#fde68a"
-                value={rating}
-                label="Ratings"
-              />
-              <StatItem
-                icon="chatbubble-ellipses"
-                tint="#1d4ed8"
-                bg="#eff6ff"
-                border="#bfdbfe"
-                value={String(reviews)}
-                label="Reviews"
-              />
-              <StatItem
-                icon="calendar"
-                tint="#15803d"
-                bg="#f0fdf4"
-                border="#bbf7d0"
-                value={memberSince}
-                label="Member since"
-              />
-            </View>
           </View>
         </View>
 

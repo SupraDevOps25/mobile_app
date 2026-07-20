@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
 import { CTABanner } from "@/components/home/CTABanner";
+import { FamilyStatsRow } from "@/components/home/FamilyStatsRow";
 import { PendingInvoiceBanner } from "@/components/home/PendingInvoiceBanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { PastCareCard } from "@/components/care-plan/PastCareCard";
@@ -26,7 +27,7 @@ import {
   useSubscriptionHistory,
 } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
-import { useFamilyProfile } from "@/hooks/useFamily";
+import { useFamilyProfile, useFamilyStats } from "@/hooks/useFamily";
 import { useRefresh } from "@/hooks/useRefresh";
 
 // How many packages to preview on the home screen (full list is on /packages).
@@ -49,11 +50,13 @@ export default function HomeScreen() {
     usePackages();
   const { data: pastCare, refetch: refetchPast } = useSubscriptionHistory();
   const { data: familyProfile, refetch: refetchProfile } = useFamilyProfile();
+  const { data: stats, refetch: refetchStats } = useFamilyStats();
   const { refreshing, onRefresh } = useRefresh([
     refetchSub,
     refetchPackages,
     refetchPast,
     refetchProfile,
+    refetchStats,
   ]);
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
@@ -132,12 +135,7 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* Invoice due — appears when the coordinator issues this month's invoice */}
-      <View className="px-5 mb-5">
-        <PendingInvoiceBanner />
-      </View>
-
-      {/* Quick search */}
+       {/* Quick search */}
       <View className="px-5 mb-5">
         <SearchInput
           value={query}
@@ -146,6 +144,18 @@ export default function HomeScreen() {
           placeholder="Search care packages"
         />
       </View>
+
+      {/* At-a-glance stats — painted from cache the moment the dashboard loads */}
+      <View className="px-5 mb-3">
+        <FamilyStatsRow stats={stats} />
+      </View>
+
+      {/* Invoice due — appears when the coordinator issues this month's invoice */}
+      <View className="px-5 mb-2">
+        <PendingInvoiceBanner />
+      </View>
+
+     
 
       {searching ? (
         /* Search results — matching care packages */

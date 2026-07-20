@@ -307,7 +307,6 @@ export default function CaregiverHomeScreen() {
           icon="calendar-outline"
           tint="#1d4ed8"
           bg="#eff6ff"
-          border="#bfdbfe"
         />
         <StatCard
           value={String(completedCount)}
@@ -316,7 +315,6 @@ export default function CaregiverHomeScreen() {
           icon="checkmark-done-outline"
           tint="#15803d"
           bg="#f0fdf4"
-          border="#bbf7d0"
         />
         <StatCard
           value={ratingLabel}
@@ -325,7 +323,6 @@ export default function CaregiverHomeScreen() {
           icon="star"
           tint="#b45309"
           bg="#fffbeb"
-          border="#fde68a"
         />
       </View>
 

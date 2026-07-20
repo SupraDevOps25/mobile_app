@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CaseCard } from "@/components/coordinator/CaseCard";
 import { CoordinatorLogRow } from "@/components/coordinator/CoordinatorLogRow";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { CardPattern } from "@/components/ui/CardPattern";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -53,7 +54,6 @@ function StatTile({
   icon,
   tint,
   bg,
-  border,
   monthValue,
   monthLabel,
   onPress,
@@ -63,7 +63,6 @@ function StatTile({
   icon: keyof typeof Ionicons.glyphMap;
   tint: string;
   bg: string;
-  border: string;
   monthValue: number;
   monthLabel: string;
   onPress: () => void;
@@ -73,62 +72,45 @@ function StatTile({
       onPress={onPress}
       style={({ pressed }) => ({
         width: "48%",
-        backgroundColor: bg,
+        ...CARD_SURFACE,
+        backgroundColor: "#ffffff",
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: border,
         paddingHorizontal: 12,
         paddingVertical: 10,
         opacity: pressed ? 0.9 : 1,
         transform: [{ scale: pressed ? 0.98 : 1 }],
-        shadowColor: "#0f172a",
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 1,
       })}
     >
       <View className="flex-row items-start justify-between">
         <View
           className="w-8 h-8 rounded-xl items-center justify-center"
-          style={{ backgroundColor: "rgba(255,255,255,0.7)" }}
+          style={{ backgroundColor: bg }}
         >
           <Ionicons name={icon} size={17} color={tint} />
         </View>
         <Ionicons
           name="arrow-forward"
           size={14}
-          color={tint}
-          style={{ opacity: 0.45, marginTop: 2 }}
+          color="#9ca3af"
+          style={{ marginTop: 2 }}
         />
       </View>
-      <Text style={{ color: tint, fontSize: 22, fontWeight: "800", marginTop: 6 }}>
+      <Text className="text-foreground" style={{ fontSize: 22, fontWeight: "800", marginTop: 6 }}>
         {value}
       </Text>
-      <Text
-        style={{ color: tint, fontSize: 11.5, marginTop: 1, fontWeight: "700", opacity: 0.85 }}
-      >
+      <Text className="text-muted" style={{ fontSize: 11.5, marginTop: 1, fontWeight: "700" }}>
         {label}
       </Text>
 
-      {/* This-month sub-metric */}
+      {/* Sub-metric */}
       <View
         className="flex-row items-center"
-        style={{
-          marginTop: 7,
-          paddingTop: 6,
-          borderTopWidth: 1,
-          borderTopColor: border,
-        }}
+        style={{ marginTop: 7, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#eef0f3" }}
       >
-        <View
-          className="rounded-full items-center justify-center"
-          style={{ width: 16, height: 16, backgroundColor: "rgba(255,255,255,0.7)" }}
-        >
-          <Ionicons name="trending-up" size={10} color={tint} />
-        </View>
+        <Ionicons name="trending-up" size={11} color={tint} />
         <Text
-          style={{ color: tint, fontSize: 10, fontWeight: "700", marginLeft: 5, opacity: 0.9 }}
+          className="text-muted"
+          style={{ fontSize: 10, fontWeight: "700", marginLeft: 5 }}
           numberOfLines={1}
         >
           {monthValue} {monthLabel}
@@ -170,6 +152,7 @@ export default function CoordinatorHomeScreen() {
     (c) => c.status === "AWAITING_ACTIVATION",
   ).length;
   const activeCases = list.filter((c) => c.status === "ACTIVE").length;
+  const totalCases = list.length; // every case ever coordinated
   const allLogs = logs ?? [];
   const logsToReview = allLogs.filter((l) => !l.reviewedAt).length;
   const logsPreview = allLogs.slice(0, 3); // pending-first from the API
@@ -181,9 +164,6 @@ export default function CoordinatorHomeScreen() {
   ).length;
   const reviewedThisMonth = allLogs.filter((l) =>
     inThisMonth(l.reviewedAt),
-  ).length;
-  const logsThisMonth = allLogs.filter((l) =>
-    inThisMonth(l.submittedAt),
   ).length;
 
   const attention = list.filter((c) => caseAction(c.status) !== "NONE");
@@ -344,7 +324,6 @@ export default function CoordinatorHomeScreen() {
               icon="calendar-outline"
               tint="#92400e"
               bg="#fffbeb"
-              border="#fde68a"
               monthValue={newThisMonth}
               monthLabel="new this month"
               onPress={() => router.push("/(coordinator-tabs)/cases" as any)}
@@ -355,7 +334,6 @@ export default function CoordinatorHomeScreen() {
               icon="pulse-outline"
               tint="#1d4ed8"
               bg="#eff6ff"
-              border="#bfdbfe"
               monthValue={activatedThisMonth}
               monthLabel="activated this month"
               onPress={() => router.push("/(coordinator-tabs)/cases" as any)}
@@ -366,7 +344,6 @@ export default function CoordinatorHomeScreen() {
               icon="clipboard-outline"
               tint="#7c3aed"
               bg="#f5f3ff"
-              border="#ddd6fe"
               monthValue={reviewedThisMonth}
               monthLabel="reviewed this month"
               onPress={() => router.push("/(coordinator-tabs)/logs" as any)}
@@ -377,9 +354,8 @@ export default function CoordinatorHomeScreen() {
               icon="heart-outline"
               tint="#15803d"
               bg="#f0fdf4"
-              border="#bbf7d0"
-              monthValue={logsThisMonth}
-              monthLabel="logs this month"
+              monthValue={totalCases}
+              monthLabel="cases coordinated"
               onPress={() => router.push("/(coordinator-tabs)/cases" as any)}
             />
           </View>

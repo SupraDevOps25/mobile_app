@@ -119,6 +119,12 @@ export default function CaregiverPersonalInfoScreen() {
     ? `${account.firstName} ${account.lastName}`.trim()
     : "";
   const photoUrl = profile?.photoUrl ?? null;
+  const memberSince = account?.createdAt
+    ? new Date(account.createdAt).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   // Every field is local state, so compare the whole form to the loaded values
   // to keep "Save" disabled until something actually changes. (The photo saves
@@ -323,6 +329,14 @@ export default function CaregiverPersonalInfoScreen() {
                 <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
                   Tap to {photoUrl ? "change" : "add a"} profile photo
                 </Text>
+                {memberSince && (
+                  <View className="flex-row items-center" style={{ marginTop: 4, gap: 4 }}>
+                    <Ionicons name="ribbon-outline" size={13} color="#9ca3af" />
+                    <Text className="text-muted" style={{ fontSize: 12 }}>
+                      Member since {memberSince}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Account details: name + phone */}

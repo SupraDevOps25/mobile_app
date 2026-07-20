@@ -173,6 +173,12 @@ export default function CoordinatorPersonalInformationScreen() {
     ? `${profile.firstName} ${profile.lastName}`.trim()
     : "";
   const photoUrl = profile?.photoUrl ?? null;
+  const memberSince = profile?.memberSince
+    ? new Date(profile.memberSince).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   // The profile-only fields live outside react-hook-form, so compare them to
   // the loaded values; combined with the form's isDirty this keeps "Save" off
@@ -274,6 +280,14 @@ export default function CoordinatorPersonalInformationScreen() {
                 <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
                   Tap to {photoUrl ? "change" : "add a"} profile photo
                 </Text>
+                {memberSince && (
+                  <View className="flex-row items-center" style={{ marginTop: 4, gap: 4 }}>
+                    <Ionicons name="ribbon-outline" size={13} color="#9ca3af" />
+                    <Text className="text-muted" style={{ fontSize: 12 }}>
+                      Coordinating since {memberSince}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Name — first & last side by side */}

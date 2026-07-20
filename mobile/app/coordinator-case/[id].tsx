@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { PACKAGE_LABELS } from "@/constants/package-presentation";
 import { rosterStatus } from "@/constants/coordinator-presentation";
@@ -431,7 +432,7 @@ export default function CoordinatorCaseScreen() {
 
         {/* Care recipient */}
         <SectionLabel title="Care recipient" />
-        <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+        <View className="bg-card rounded-2xl p-4" style={CARD_SURFACE}>
           {/* Gender · age · who care is for */}
           <View
             className="flex-row items-center rounded-2xl p-3"
@@ -496,7 +497,7 @@ export default function CoordinatorCaseScreen() {
         <SectionLabel title="Family contact" />
         <View
           className="flex-row items-center bg-card rounded-2xl p-4"
-          style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+          style={CARD_SURFACE}
         >
           <Avatar
             name={item.family.name}
@@ -528,7 +529,7 @@ export default function CoordinatorCaseScreen() {
             <SectionLabel title="What's included" />
             <View
               className="bg-card rounded-2xl"
-              style={{ borderWidth: 1, borderColor: "#f3f4f6", overflow: "hidden" }}
+              style={{ ...CARD_SURFACE, overflow: "hidden" }}
             >
               <Pressable
                 onPress={() => setShowIncluded((s) => !s)}
@@ -583,7 +584,7 @@ export default function CoordinatorCaseScreen() {
                 <View
                   key={m.assignmentId}
                   className="flex-row items-center bg-card rounded-2xl p-3 mb-3"
-                  style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+                  style={CARD_SURFACE}
                 >
                   <Avatar
                     name={m.name}
@@ -668,7 +669,7 @@ export default function CoordinatorCaseScreen() {
         {item.needsAssistant && (
           <>
             <SectionLabel title="Second nurse" />
-            <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4" style={CARD_SURFACE}>
               {assistantActive ? (
                 <View className="flex-row items-center" style={{ gap: 8 }}>
                   <Ionicons name="people" size={17} color="#15803d" />
@@ -739,7 +740,7 @@ export default function CoordinatorCaseScreen() {
         {canSetCareStart && (
           <>
             {/* 1. Initial home visit (assessment) — item 4 */}
-            <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4" style={CARD_SURFACE}>
               <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
                 Initial home visit
               </Text>
@@ -789,7 +790,7 @@ export default function CoordinatorCaseScreen() {
             </View>
 
             {/* 2. Package recommendation — item 5a */}
-            <View className="bg-card rounded-2xl p-4 mt-3" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4 mt-3" style={CARD_SURFACE}>
               <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
                 Care package
               </Text>
@@ -833,7 +834,7 @@ export default function CoordinatorCaseScreen() {
             </View>
 
             {/* 3. Care start / commencement — item 5b */}
-            <View className="bg-card rounded-2xl p-4 mt-3" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4 mt-3" style={CARD_SURFACE}>
               <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
                 Care start date
               </Text>
@@ -967,7 +968,7 @@ export default function CoordinatorCaseScreen() {
         ) : detail.visits.length === 0 ? (
           <View
             className="bg-card rounded-2xl p-5 items-center"
-            style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            style={CARD_SURFACE}
           >
             <Ionicons name="calendar-clear-outline" size={22} color="#9ca3af" />
             <Text className="text-muted text-center" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 18 }}>
@@ -992,7 +993,7 @@ export default function CoordinatorCaseScreen() {
                 const row = (
                   <View
                     className="flex-row items-center bg-card rounded-2xl p-3 mb-2.5"
-                    style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+                    style={CARD_SURFACE}
                   >
                     <Avatar
                       name={v.nurseName}
