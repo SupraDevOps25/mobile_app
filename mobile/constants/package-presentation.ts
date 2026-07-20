@@ -44,10 +44,6 @@ export const PACKAGE_PRESENTATION: Record<ApiPackageType, PackagePresentation> =
   },
 };
 
-export function packagePresentation(type: ApiPackageType): PackagePresentation {
-  return PACKAGE_PRESENTATION[type];
-}
-
 // Static display names for compact UI (e.g. the home card) that only has the
 // package type and shouldn't trigger a fetch just for a label.
 export const PACKAGE_LABELS: Record<ApiPackageType, string> = {

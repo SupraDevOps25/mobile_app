@@ -157,5 +157,4 @@ export const visitService = {
     api.post<ApiVisitLog>(`/visits/${id}/log`, payload),
   editLog: (id: string, payload: SubmitLogPayload) =>
     api.patch<ApiVisitLog>(`/visits/${id}/log`, payload),
-  carePlan: () => api.get<ApiCarePlanVisit[]>("/visits/care-plan"),
 };

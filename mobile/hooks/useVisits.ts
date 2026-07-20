@@ -28,13 +28,6 @@ export function useCaregiverAssignments() {
   });
 }
 
-export function useCarePlan() {
-  return useQuery({
-    queryKey: qk.carePlan,
-    queryFn: () => visitService.carePlan(),
-  });
-}
-
 export function useVisit(id: string | undefined) {
   return useQuery({
     queryKey: qk.visit(id ?? ""),

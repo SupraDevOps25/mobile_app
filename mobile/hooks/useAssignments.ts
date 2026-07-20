@@ -11,13 +11,6 @@ export function useOffers() {
   });
 }
 
-export function useMyAssignments() {
-  return useQuery({
-    queryKey: qk.myAssignments,
-    queryFn: () => assignmentService.mine(),
-  });
-}
-
 export function useAssignment(id: string | undefined) {
   return useQuery({
     queryKey: qk.assignment(id ?? ""),
