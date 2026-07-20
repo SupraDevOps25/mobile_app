@@ -49,11 +49,14 @@ function initialsOf(name: string): string {
 export class VisitsService {
   private readonly logger = new Logger(VisitsService.name);
 
-  // How long after a visit's scheduled window ends before we treat a still-open
-  // (never started, never logged) visit as missed. The window itself scales with
-  // the package — a Wellness visit is 2h, Live-In is 24h — because we key off
-  // each visit's own durationHrs, so this is just the buffer on top of that.
+  // How long after a visit's window (scheduledFor + durationHrs) closes before
+  // we give up on it. The window itself scales with the package — Wellness 2h,
+  // Live-In 24h — since we key off each visit's own durationHrs, so these are
+  // just the buffer on top. A no-show (still SCHEDULED) is flagged quickly; a
+  // visit the nurse started but never logged (IN_PROGRESS) gets a longer grace,
+  // a full extra day, to let them submit before we mark it missed.
   private static readonly MISSED_GRACE_HOURS = 6;
+  private static readonly IN_PROGRESS_GRACE_HOURS = 24;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -61,19 +64,24 @@ export class VisitsService {
   ) {}
 
   /**
-   * Auto-detect missed visits. A care visit that's still SCHEDULED once its
-   * whole window (scheduledFor + durationHrs) plus a grace buffer has passed
-   * means the nurse never showed up or logged it — flag it MISSED and tell the
-   * coordinator. Runs hourly; MISSED is terminal so billing can then proceed.
-   * (The initial assessment is coordinator-managed, so it's left out.)
+   * Auto-resolve stale visits. A care visit whose whole window (scheduledFor +
+   * durationHrs) plus a grace buffer has passed but that never reached a log is
+   * flagged MISSED: either the nurse never showed (still SCHEDULED) or they
+   * started but never submitted the log (IN_PROGRESS, given a longer grace).
+   * Runs hourly; MISSED is terminal so billing can proceed. The coordinator is
+   * always told; the nurse is told when their started visit lapsed. (The initial
+   * assessment is coordinator-managed, so it's left out.)
    */
   @Cron(CronExpression.EVERY_HOUR)
   async flagMissedVisits(): Promise<void> {
     const now = Date.now();
-    const graceMs = VisitsService.MISSED_GRACE_HOURS * 60 * 60 * 1000;
+    const hour = 60 * 60 * 1000;
 
     const open = await this.prisma.visit.findMany({
-      where: { status: VisitStatus.SCHEDULED, kind: VisitKind.CARE_VISIT },
+      where: {
+        status: { in: [VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS] },
+        kind: VisitKind.CARE_VISIT,
+      },
       include: {
         subscription: {
           select: {
@@ -82,14 +90,21 @@ export class VisitsService {
           },
         },
         caregiver: {
-          include: { user: { select: { firstName: true, lastName: true } } },
+          select: {
+            userId: true,
+            user: { select: { firstName: true, lastName: true } },
+          },
         },
       },
     });
 
     const missed = open.filter((v) => {
+      const graceHrs =
+        v.status === VisitStatus.IN_PROGRESS
+          ? VisitsService.IN_PROGRESS_GRACE_HOURS
+          : VisitsService.MISSED_GRACE_HOURS;
       const windowEnd =
-        v.scheduledFor.getTime() + v.durationHrs * 60 * 60 * 1000 + graceMs;
+        v.scheduledFor.getTime() + (v.durationHrs + graceHrs) * hour;
       return windowEnd < now;
     });
     if (missed.length === 0) return;
@@ -100,17 +115,35 @@ export class VisitsService {
     });
     this.logger.log(`Flagged ${missed.length} missed visit(s)`);
 
-    // Let each case's coordinator know so they can follow up with the nurse.
     for (const v of missed) {
-      if (!v.subscription.coordinatorId) continue;
       const nurse =
         `${v.caregiver.user.firstName} ${v.caregiver.user.lastName}`.trim();
-      await this.notifications.notify({
-        userId: v.subscription.coordinatorId,
-        type: NotificationType.GENERAL,
-        title: 'Visit missed',
-        body: `${nurse} missed the ${v.scheduledFor.toLocaleDateString()} visit for ${v.subscription.careRecipient.name}. Please follow up.`,
-      });
+      const recipient = v.subscription.careRecipient.name;
+      const dateLabel = v.scheduledFor.toLocaleDateString();
+      // IN_PROGRESS = the nurse started the visit but never submitted a log.
+      const startedNotLogged = v.status === VisitStatus.IN_PROGRESS;
+
+      if (v.subscription.coordinatorId) {
+        await this.notifications.notify({
+          userId: v.subscription.coordinatorId,
+          type: NotificationType.GENERAL,
+          title: startedNotLogged ? 'Visit not logged' : 'Visit missed',
+          body: startedNotLogged
+            ? `${nurse} started but never logged the ${dateLabel} visit for ${recipient}. It's been marked missed — please follow up.`
+            : `${nurse} missed the ${dateLabel} visit for ${recipient}. Please follow up.`,
+        });
+      }
+
+      // Nudge the nurse when their own started visit lapsed unlogged, so they
+      // know and can ask the coordinator/admin to correct it if care happened.
+      if (startedNotLogged) {
+        await this.notifications.notify({
+          userId: v.caregiver.userId,
+          type: NotificationType.GENERAL,
+          title: 'Visit marked missed',
+          body: `Your ${dateLabel} visit for ${recipient} was never logged and has been marked missed. Contact your coordinator if this is a mistake.`,
+        });
+      }
     }
   }
 
