@@ -16,6 +16,8 @@ import {
   Prisma,
   Role,
   SubscriptionStatus,
+  VisitKind,
+  VisitStatus,
 } from '@prisma/client';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -176,11 +178,32 @@ export class AssignmentsService {
       priorAssignments.map((a) => a.caregiverId),
     );
 
+    // Reliability inputs: completed vs missed care visits per eligible nurse.
+    const visitStats = await this.prisma.visit.groupBy({
+      by: ['caregiverId', 'status'],
+      where: {
+        caregiverId: { in: eligible.map((c) => c.id) },
+        kind: VisitKind.CARE_VISIT,
+        status: { in: [VisitStatus.COMPLETED, VisitStatus.MISSED] },
+      },
+      _count: { _all: true },
+    });
+    const completedBy = new Map<string, number>();
+    const missedBy = new Map<string, number>();
+    for (const s of visitStats) {
+      const target =
+        s.status === VisitStatus.COMPLETED ? completedBy : missedBy;
+      target.set(s.caregiverId, s._count._all);
+    }
+
     const ranked = rankCaregivers(
       eligible.map((c) => ({
         id: c.id,
         yearsExperience: c.yearsExperience,
-        reliabilityScore: c.reliabilityScore,
+        completedVisits: completedBy.get(c.id) ?? 0,
+        missedVisits: missedBy.get(c.id) ?? 0,
+        rating: Number(c.rating),
+        totalReviews: c.totalReviews,
         serviceAreas: c.serviceAreas,
       })),
       { recipientArea: subscription.careRecipient.area, priorCaregiverIds },
