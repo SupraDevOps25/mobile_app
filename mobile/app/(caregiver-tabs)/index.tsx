@@ -323,6 +323,7 @@ export default function CaregiverHomeScreen() {
           icon="star"
           tint="#b45309"
           bg="#fffbeb"
+          onPress={() => router.push("/caregiver-reviews" as any)}
         />
       </View>
 

@@ -68,6 +68,12 @@ export class CaregiversController {
     return this.caregiversService.earnings(req.user.id);
   }
 
+  @ApiOperation({ summary: 'Nurse: my ratings & individual reviews' })
+  @Get('me/reviews')
+  reviews(@Request() req: { user: { id: string } }) {
+    return this.caregiversService.myReviews(req.user.id);
+  }
+
   @ApiOperation({ summary: 'Nurse: request a payout of my available balance' })
   @Post('me/payouts')
   requestPayout(@Request() req: { user: { id: string } }) {

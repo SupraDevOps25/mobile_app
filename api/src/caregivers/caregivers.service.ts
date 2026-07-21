@@ -96,6 +96,35 @@ export class CaregiversService {
    * agreed monthly payout (Assignment.payoutGhs). See EarningStatus for the
    * per-month lifecycle.
    */
+  /** The nurse's own ratings + individual reviews, newest first. */
+  async myReviews(userId: string) {
+    const profile = await this.requireProfile(userId);
+    const reviews = await this.prisma.review.findMany({
+      where: { caregiverId: profile.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        subscription: {
+          select: {
+            packageType: true,
+            careRecipient: { select: { name: true } },
+          },
+        },
+      },
+    });
+    return {
+      rating: Number(profile.rating),
+      totalReviews: profile.totalReviews,
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        recipientName: r.subscription.careRecipient.name,
+        packageType: r.subscription.packageType,
+      })),
+    };
+  }
+
   async earnings(userId: string) {
     const profile = await this.requireProfile(userId);
     const earningsList = await this.collectEarnings(profile.id);

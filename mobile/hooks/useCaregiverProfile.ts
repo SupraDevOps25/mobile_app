@@ -25,6 +25,13 @@ export function useCaregiverEarnings() {
   });
 }
 
+export function useCaregiverReviews() {
+  return useQuery({
+    queryKey: qk.caregiverReviews,
+    queryFn: () => caregiverService.reviews(),
+  });
+}
+
 export function useRequestPayout() {
   const qc = useQueryClient();
   return useMutation({

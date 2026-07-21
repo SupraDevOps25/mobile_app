@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { fileForm, type PickedFile } from "@/lib/pick";
+import type { ApiPackageType } from "@/services/package.service";
 import type { ApiGender } from "@/services/subscription.service";
 
 // Clinical competency enum values from the backend.
@@ -129,6 +130,22 @@ export interface ApiPayoutResult {
   totalGhs: number;
 }
 
+// One review a family left for this nurse.
+export interface ApiCaregiverReview {
+  id: string;
+  rating: number; // 1..5
+  comment: string | null;
+  createdAt: string;
+  recipientName: string;
+  packageType: ApiPackageType;
+}
+
+export interface ApiCaregiverReviews {
+  rating: number; // running average
+  totalReviews: number;
+  reviews: ApiCaregiverReview[];
+}
+
 export const caregiverService = {
   me: () => api.get<ApiCaregiverProfile>("/caregivers/me"),
   setAvailability: (isAvailable: boolean) =>
@@ -146,6 +163,9 @@ export const caregiverService = {
 
   earnings: () =>
     api.get<ApiCaregiverEarnings>("/caregivers/me/earnings"),
+
+  reviews: () =>
+    api.get<ApiCaregiverReviews>("/caregivers/me/reviews"),
 
   requestPayout: () =>
     api.post<ApiPayoutResult>("/caregivers/me/payouts"),

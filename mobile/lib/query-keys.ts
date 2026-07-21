@@ -33,6 +33,7 @@ export const qk = {
   caregiverProfile: ["caregivers", "me"] as const,
   caregiverDocuments: ["caregivers", "documents"] as const,
   caregiverEarnings: ["caregivers", "earnings"] as const,
+  caregiverReviews: ["caregivers", "reviews"] as const,
 
   invoices: ["billing", "invoices"] as const,
 

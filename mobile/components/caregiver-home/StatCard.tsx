@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { CARD_SURFACE } from "@/components/ui/AppCard";
 
 type Props = {
@@ -11,21 +11,30 @@ type Props = {
   tint: string;
   /** Pastel background for the icon chip. */
   bg: string;
+  /** When set, the card is tappable (shows a chevron) and calls this on press. */
+  onPress?: () => void;
 };
 
 // A dashboard stat on a white card (shared border + shadow), with a small
 // tinted icon chip for identity. Matches the family dashboard's stat cards.
-export function StatCard({ value, label, trend, icon, tint, bg }: Props) {
+export function StatCard({ value, label, trend, icon, tint, bg, onPress }: Props) {
+  const Container = onPress ? Pressable : View;
   return (
-    <View
+    <Container
+      onPress={onPress}
       className="flex-1 bg-card"
       style={{ ...CARD_SURFACE, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12 }}
     >
-      <View
-        className="items-center justify-center"
-        style={{ width: 32, height: 32, borderRadius: 11, backgroundColor: bg }}
-      >
-        <Ionicons name={icon} size={17} color={tint} />
+      <View className="flex-row items-start justify-between">
+        <View
+          className="items-center justify-center"
+          style={{ width: 32, height: 32, borderRadius: 11, backgroundColor: bg }}
+        >
+          <Ionicons name={icon} size={17} color={tint} />
+        </View>
+        {onPress && (
+          <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
+        )}
       </View>
       <Text
         className="text-foreground"
@@ -58,6 +67,6 @@ export function StatCard({ value, label, trend, icon, tint, bg }: Props) {
           {trend}
         </Text>
       </View>
-    </View>
+    </Container>
   );
 }
