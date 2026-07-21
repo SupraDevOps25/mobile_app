@@ -13,6 +13,7 @@
 // nurse with no visits/reviews starts at a fair neutral score (not zero) and
 // converges to their real record as data accrues — otherwise newcomers would be
 // permanently buried under established nurses.
+import { reliabilityRate } from '../common/reliability';
 
 export type RankableCaregiver = {
   id: string;
@@ -39,23 +40,12 @@ const WEIGHTS = {
   continuity: 40,
 };
 
-// Reliability prior: treat a new nurse as if they had a few visits at an 80%
-// completion rate, so they start neutral-high and move with their real record.
-const RELIABILITY_PRIOR = { rate: 0.8, pseudoVisits: 5 };
 // Rating prior: treat a new nurse as if they had a few reviews averaging 4.0.
 const RATING_PRIOR = { mean: 4.0, pseudoReviews: 3 };
 
 function servesArea(serviceAreas: string[], area: string): boolean {
   const target = area.trim().toLowerCase();
   return serviceAreas.some((a) => a.trim().toLowerCase() === target);
-}
-
-/** Smoothed completion rate (0–1) from completed vs missed visits. */
-function reliabilityRate(completed: number, missed: number): number {
-  const { rate, pseudoVisits } = RELIABILITY_PRIOR;
-  return (
-    (completed + pseudoVisits * rate) / (completed + missed + pseudoVisits)
-  );
 }
 
 /** Smoothed average rating (0–5) from the running average + review count. */

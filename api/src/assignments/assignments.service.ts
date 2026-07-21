@@ -16,10 +16,9 @@ import {
   Prisma,
   Role,
   SubscriptionStatus,
-  VisitKind,
-  VisitStatus,
 } from '@prisma/client';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
+import { caregiverVisitCounts } from '../common/reliability';
 import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -179,38 +178,23 @@ export class AssignmentsService {
       priorAssignments.map((a) => a.caregiverId),
     );
 
-    // Reliability inputs: completed vs missed care visits per eligible nurse.
-    const visitStats = await this.prisma.visit.groupBy({
-      by: ['caregiverId', 'status'],
-      where: {
-        caregiverId: { in: eligible.map((c) => c.id) },
-        kind: VisitKind.CARE_VISIT,
-        status: { in: [VisitStatus.COMPLETED, VisitStatus.MISSED] },
-      },
-      _count: { _all: true },
-    });
-    const completedBy = new Map<string, number>();
-    const missedBy = new Map<string, number>();
-    for (const s of visitStats) {
-      const target =
-        s.status === VisitStatus.COMPLETED ? completedBy : missedBy;
-      target.set(s.caregiverId, s._count._all);
-    }
-
-    // Rating inputs live from the Review table (source of truth).
-    const reviewStats = await caregiverReviewStats(
-      this.prisma,
-      eligible.map((c) => c.id),
-    );
+    // Reliability inputs (completed vs missed visits) + rating inputs (live from
+    // the Review table) per eligible nurse — the source of truth for both.
+    const eligibleIds = eligible.map((c) => c.id);
+    const [visitCounts, reviewStats] = await Promise.all([
+      caregiverVisitCounts(this.prisma, eligibleIds),
+      caregiverReviewStats(this.prisma, eligibleIds),
+    ]);
 
     const ranked = rankCaregivers(
       eligible.map((c) => {
+        const counts = visitCounts.get(c.id);
         const stats = reviewStatsFor(reviewStats, c.id);
         return {
           id: c.id,
           yearsExperience: c.yearsExperience,
-          completedVisits: completedBy.get(c.id) ?? 0,
-          missedVisits: missedBy.get(c.id) ?? 0,
+          completedVisits: counts?.completed ?? 0,
+          missedVisits: counts?.missed ?? 0,
           rating: stats.rating,
           totalReviews: stats.totalReviews,
           serviceAreas: c.serviceAreas,

@@ -11,6 +11,8 @@ export function useActiveSubscription() {
   return useQuery({
     queryKey: qk.activeSubscription,
     queryFn: () => subscriptionService.getActive(),
+    // Serve from cache on quick re-navigations (mutations invalidate anyway).
+    staleTime: 60_000,
   });
 }
 
@@ -26,6 +28,8 @@ export function usePastCareDetail(id: string | undefined) {
     queryKey: qk.pastCare(id ?? ""),
     queryFn: () => subscriptionService.historyDetail(id as string),
     enabled: !!id,
+    // Opening a nurse from the care team reuses this cache instead of refetching.
+    staleTime: 60_000,
   });
 }
 

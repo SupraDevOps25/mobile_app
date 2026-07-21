@@ -20,6 +20,10 @@ import {
 import { AssignmentsService } from '../assignments/assignments.service';
 import { coordinatorFeeGhs } from '../common/economics';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
+import {
+  caregiverVisitCounts,
+  reliabilityPercent,
+} from '../common/reliability';
 import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -868,11 +872,50 @@ export class SubscriptionsService {
       }),
     ]);
 
-    // Ratings the family sees come live from the Review table (source of truth).
-    const reviewStats = await caregiverReviewStats(
-      this.prisma,
-      assignments.map((a) => a.caregiver.id),
-    );
+    // Ratings + reliability the family sees are derived live — ratings from the
+    // Review table, reliability from completed vs missed visits (source of truth).
+    const caregiverIds = assignments.map((a) => a.caregiver.id);
+    const [reviewStats, visitCounts, reviewRows] = await Promise.all([
+      caregiverReviewStats(this.prisma, caregiverIds),
+      caregiverVisitCounts(this.prisma, caregiverIds),
+      this.prisma.review.findMany({
+        where: { caregiverId: { in: caregiverIds } },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          caregiverId: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          subscription: { select: { packageType: true } },
+        },
+      }),
+    ]);
+    // Group each nurse's recent reviews — privacy-safe: rating, comment, date and
+    // package only, never who left it.
+    const reviewsByCaregiver = new Map<
+      string,
+      {
+        id: string;
+        rating: number;
+        comment: string | null;
+        createdAt: Date;
+        packageType: PackageType;
+      }[]
+    >();
+    for (const r of reviewRows) {
+      const list = reviewsByCaregiver.get(r.caregiverId) ?? [];
+      if (list.length < 10) {
+        list.push({
+          id: r.id,
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt,
+          packageType: r.subscription.packageType,
+        });
+      }
+      reviewsByCaregiver.set(r.caregiverId, list);
+    }
     const nurses = assignments
       .map((a) => {
         const u = a.caregiver.user;
@@ -888,7 +931,7 @@ export class SubscriptionsService {
           qualification: a.caregiver.qualification,
           yearsExperience: a.caregiver.yearsExperience,
           rating: stats.rating,
-          reliabilityScore: a.caregiver.reliabilityScore,
+          reliabilityScore: reliabilityPercent(visitCounts.get(a.caregiver.id)),
           serviceAreas: a.caregiver.serviceAreas,
           // Extra profile the family sees when they open a nurse.
           gender: a.caregiver.gender,
@@ -896,6 +939,7 @@ export class SubscriptionsService {
           languages: a.caregiver.languages,
           hasHomecareExp: a.caregiver.hasHomecareExp,
           totalReviews: stats.totalReviews,
+          reviews: reviewsByCaregiver.get(a.caregiver.id) ?? [],
           photoUrl: a.caregiver.photoUrl,
           licenseVerified: a.caregiver.licenseVerified,
         };
