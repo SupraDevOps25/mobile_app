@@ -20,6 +20,7 @@ import {
 import { AssignmentsService } from '../assignments/assignments.service';
 import { coordinatorFeeGhs } from '../common/economics';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
+import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReviewsService } from '../reviews/reviews.service';
@@ -867,9 +868,15 @@ export class SubscriptionsService {
       }),
     ]);
 
+    // Ratings the family sees come live from the Review table (source of truth).
+    const reviewStats = await caregiverReviewStats(
+      this.prisma,
+      assignments.map((a) => a.caregiver.id),
+    );
     const nurses = assignments
       .map((a) => {
         const u = a.caregiver.user;
+        const stats = reviewStatsFor(reviewStats, a.caregiver.id);
         return {
           assignmentId: a.id,
           role: a.role,
@@ -880,7 +887,7 @@ export class SubscriptionsService {
           phone: u.phone,
           qualification: a.caregiver.qualification,
           yearsExperience: a.caregiver.yearsExperience,
-          rating: a.caregiver.rating.toNumber(),
+          rating: stats.rating,
           reliabilityScore: a.caregiver.reliabilityScore,
           serviceAreas: a.caregiver.serviceAreas,
           // Extra profile the family sees when they open a nurse.
@@ -888,7 +895,7 @@ export class SubscriptionsService {
           bio: a.caregiver.bio,
           languages: a.caregiver.languages,
           hasHomecareExp: a.caregiver.hasHomecareExp,
-          totalReviews: a.caregiver.totalReviews,
+          totalReviews: stats.totalReviews,
           photoUrl: a.caregiver.photoUrl,
           licenseVerified: a.caregiver.licenseVerified,
         };

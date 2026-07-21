@@ -20,6 +20,7 @@ import {
   VisitStatus,
 } from '@prisma/client';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
+import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { rankCaregivers } from './matching';
@@ -196,16 +197,25 @@ export class AssignmentsService {
       target.set(s.caregiverId, s._count._all);
     }
 
+    // Rating inputs live from the Review table (source of truth).
+    const reviewStats = await caregiverReviewStats(
+      this.prisma,
+      eligible.map((c) => c.id),
+    );
+
     const ranked = rankCaregivers(
-      eligible.map((c) => ({
-        id: c.id,
-        yearsExperience: c.yearsExperience,
-        completedVisits: completedBy.get(c.id) ?? 0,
-        missedVisits: missedBy.get(c.id) ?? 0,
-        rating: Number(c.rating),
-        totalReviews: c.totalReviews,
-        serviceAreas: c.serviceAreas,
-      })),
+      eligible.map((c) => {
+        const stats = reviewStatsFor(reviewStats, c.id);
+        return {
+          id: c.id,
+          yearsExperience: c.yearsExperience,
+          completedVisits: completedBy.get(c.id) ?? 0,
+          missedVisits: missedBy.get(c.id) ?? 0,
+          rating: stats.rating,
+          totalReviews: stats.totalReviews,
+          serviceAreas: c.serviceAreas,
+        };
+      }),
       { recipientArea: subscription.careRecipient.area, priorCaregiverIds },
     );
     const byId = new Map(eligible.map((c) => [c.id, c]));

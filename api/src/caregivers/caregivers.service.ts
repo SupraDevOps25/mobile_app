@@ -12,6 +12,7 @@ import {
   PayoutStatus,
   VerificationStatus,
 } from '@prisma/client';
+import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../storage/cloudinary.service';
 import { UpdateCaregiverProfileDto } from './dto/update-caregiver-profile.dto';
@@ -87,7 +88,7 @@ export class CaregiversService {
       include: { documents: true },
     });
     if (!profile) throw new NotFoundException('Caregiver profile not found');
-    return this.toResponse(profile, profile.documents);
+    return this.profileResponse(profile, profile.documents);
   }
 
   /**
@@ -111,9 +112,16 @@ export class CaregiversService {
         },
       },
     });
+    const totalReviews = reviews.length;
+    const rating =
+      totalReviews > 0
+        ? Math.round(
+            (reviews.reduce((s, r) => s + r.rating, 0) / totalReviews) * 100,
+          ) / 100
+        : 0;
     return {
-      rating: Number(profile.rating),
-      totalReviews: profile.totalReviews,
+      rating,
+      totalReviews,
       reviews: reviews.map((r) => ({
         id: r.id,
         rating: r.rating,
@@ -128,6 +136,10 @@ export class CaregiversService {
   async earnings(userId: string) {
     const profile = await this.requireProfile(userId);
     const earningsList = await this.collectEarnings(profile.id);
+    const { rating } = reviewStatsFor(
+      await caregiverReviewStats(this.prisma, [profile.id]),
+      profile.id,
+    );
 
     const now = new Date();
     const periods = (['month', 'all'] as EarningsPeriodId[]).map((id) =>
@@ -142,7 +154,7 @@ export class CaregiversService {
       );
 
     return {
-      rating: Number(profile.rating),
+      rating,
       availableGhs: sumBy('available'), // withdrawable now
       requestedGhs: sumBy('requested'), // awaiting admin disbursement
       paidOutGhs: sumBy('paid'), // disbursed all-time
@@ -361,7 +373,7 @@ export class CaregiversService {
       },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
   }
 
   async setAvailability(userId: string, isAvailable: boolean) {
@@ -371,7 +383,7 @@ export class CaregiversService {
       data: { isAvailable },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
   }
 
   async setSchedule(userId: string, schedule: UpdateScheduleDto) {
@@ -387,7 +399,7 @@ export class CaregiversService {
       },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
   }
 
   // ── Profile photo ──────────────────────────────────────────────────────────
@@ -407,7 +419,7 @@ export class CaregiversService {
       data: { photoUrl: stored.url, photoPublicId: stored.publicId },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
   }
 
   // ── Credentials (documents) ─────────────────────────────────────────────────
@@ -498,6 +510,19 @@ export class CaregiversService {
       reviewedAt: d.reviewedAt,
       createdAt: d.createdAt,
     };
+  }
+
+  /** Profile response with rating + review count taken live from the Review
+   * table (single source of truth), not the denormalized profile columns. */
+  private async profileResponse(
+    p: ProfileWithDocs,
+    documents?: CaregiverDocument[],
+  ) {
+    const stats = reviewStatsFor(
+      await caregiverReviewStats(this.prisma, [p.id]),
+      p.id,
+    );
+    return { ...this.toResponse(p, documents), ...stats };
   }
 
   private toResponse(p: ProfileWithDocs, documents?: CaregiverDocument[]) {

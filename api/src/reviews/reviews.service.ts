@@ -205,7 +205,7 @@ export class ReviewsService {
 
     const caregiver = await this.prisma.caregiverProfile.findUnique({
       where: { id: dto.caregiverId },
-      select: { rating: true, totalReviews: true, userId: true },
+      select: { userId: true },
     });
     if (!caregiver) throw new NotFoundException('Nurse not found');
 
@@ -222,29 +222,17 @@ export class ReviewsService {
     }
 
     const comment = dto.comment?.trim() || null;
-    const review = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.review.create({
-        data: {
-          subscriptionId: dto.subscriptionId,
-          caregiverId: dto.caregiverId,
-          familyId,
-          rating: dto.rating,
-          comment,
-        },
-      });
-      // Fold the new rating into the caregiver's running average.
-      const total = caregiver.totalReviews;
-      const newTotal = total + 1;
-      const newAvg =
-        (caregiver.rating.toNumber() * total + dto.rating) / newTotal;
-      await tx.caregiverProfile.update({
-        where: { id: dto.caregiverId },
-        data: {
-          rating: Math.round(newAvg * 100) / 100,
-          totalReviews: newTotal,
-        },
-      });
-      return created;
+    // The Review row is the single source of truth for a nurse's rating; the
+    // average + count are derived from it on read (see common/review-stats),
+    // so there's no denormalized profile field to keep in sync here.
+    const review = await this.prisma.review.create({
+      data: {
+        subscriptionId: dto.subscriptionId,
+        caregiverId: dto.caregiverId,
+        familyId,
+        rating: dto.rating,
+        comment,
+      },
     });
 
     await this.notifications.notify({
