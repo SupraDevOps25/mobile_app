@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -10,6 +11,10 @@ export class NotificationsService {
   private readonly twilioAuthToken: string | undefined;
   private readonly twilioFrom: string | undefined;
 
+  // The in-app inbox only ever shows the latest 50 per user, so notifications
+  // older than this are dead weight — purged nightly to keep the table small.
+  private static readonly RETENTION_DAYS = 30;
+
   constructor(
     private readonly prisma: PrismaService,
     config: ConfigService,
@@ -17,6 +22,24 @@ export class NotificationsService {
     this.twilioAccountSid = config.get<string>('TWILIO_ACCOUNT_SID');
     this.twilioAuthToken = config.get<string>('TWILIO_AUTH_TOKEN');
     this.twilioFrom = config.get<string>('TWILIO_WHATSAPP_FROM');
+  }
+
+  // ─── Maintenance ──────────────────────────────────────────────────────────
+
+  /** Delete notifications older than the retention window (runs nightly). */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async purgeOldNotifications(): Promise<void> {
+    const cutoff = new Date(
+      Date.now() - NotificationsService.RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const { count } = await this.prisma.notification.deleteMany({
+      where: { sentAt: { lt: cutoff } },
+    });
+    if (count > 0) {
+      this.logger.log(
+        `Purged ${count} notification(s) older than ${NotificationsService.RETENTION_DAYS} days`,
+      );
+    }
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
