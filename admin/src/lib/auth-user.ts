@@ -1,7 +1,6 @@
-import { api, setToken } from "./api";
-
-// The API returns only { accessToken }; the user's role and name live inside
-// the JWT payload, so we decode it client-side to gate the portal to admins.
+// Decode the signed-in admin from the JWT. The API returns only { accessToken };
+// the user's role and name live in the token payload, so we decode it here to
+// gate the portal to admins without an extra round-trip.
 
 export interface AdminUser {
   id: string;
@@ -28,6 +27,7 @@ function decodeJwt(token: string): JwtPayload | null {
   }
 }
 
+/** Decoded admin, or null if the token is missing, malformed, or expired. */
 export function userFromToken(token: string | null): AdminUser | null {
   if (!token) return null;
   const payload = decodeJwt(token);
@@ -41,21 +41,6 @@ export function userFromToken(token: string | null): AdminUser | null {
   };
 }
 
-/** Logs in and returns the decoded user. Throws if the account isn't an admin. */
-export async function login(emailOrPhone: string, password: string) {
-  const { accessToken } = await api.post<{ accessToken: string }>(
-    "/auth/login",
-    { emailOrPhone, password },
-    false,
-  );
-  const user = userFromToken(accessToken);
-  if (!user || user.role !== "ADMIN") {
-    throw new Error("This account is not an admin.");
-  }
-  setToken(accessToken);
-  return user;
-}
-
-export function logout() {
-  setToken(null);
+export function isAdmin(user: AdminUser | null): boolean {
+  return user?.role === "ADMIN";
 }

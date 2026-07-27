@@ -1,30 +1,25 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getToken } from "./api";
-import { userFromToken } from "./auth";
+import { useAuth } from "@/context/AuthContext";
+import { getToken } from "./token";
+import { userFromToken } from "./auth-user";
 
-// Subscribe to cross-tab token changes so signing out in one tab updates here.
-function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
-}
-
-// Client-side route guard. Reads the JWT from localStorage via
-// useSyncExternalStore (correct for external, client-only state — renders the
-// server snapshot `null` first, then syncs to the real token after hydration
-// without a mismatch), decodes the admin, and redirects out if it's missing,
-// expired, or not an admin. `ready` gates the shell's spinner.
+// Client-side complement to the edge middleware. Middleware is the primary
+// route gate (redirects before the page renders); this hook covers in-session
+// changes — e.g. signing out in another tab — by re-checking the fresh cookie
+// whenever the reactive user changes and bouncing to /login if it's gone.
+// Reading the cookie fresh (not the hydration snapshot) avoids falsely
+// redirecting a signed-in admin on the first render.
 export function useRequireAdmin() {
   const router = useRouter();
-  const token = useSyncExternalStore(subscribe, getToken, () => null);
-  const user = userFromToken(token);
-  const isAdmin = user?.role === "ADMIN";
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (!isAdmin) router.replace("/login");
-  }, [isAdmin, router]);
+    const fresh = userFromToken(getToken());
+    if (!fresh || fresh.role !== "ADMIN") router.replace("/login");
+  }, [user, router]);
 
-  return { user: isAdmin ? user : null, ready: isAdmin };
+  return { user, ready: Boolean(user) };
 }

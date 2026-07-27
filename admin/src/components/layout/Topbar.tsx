@@ -2,8 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui";
-import { BellIcon, SearchIcon } from "@/components/icons";
-import type { AdminUser } from "@/lib/auth";
+import { BellIcon, MenuIcon, SearchIcon } from "@/components/icons";
+import type { AdminUser } from "@/lib/auth-user";
 import { NAV_ITEMS } from "./nav";
 
 // Derive the page title from the active nav route so we don't have to thread a
@@ -16,11 +16,26 @@ function titleFor(pathname: string): string {
   return match?.label ?? "Supracarer";
 }
 
-export function Topbar({ user }: { user: AdminUser }) {
+export function Topbar({
+  user,
+  onMenuClick,
+}: {
+  user: AdminUser;
+  onMenuClick: () => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b border-line bg-white px-6">
+    <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-line bg-white px-4 sm:px-6">
+      {/* Hamburger — opens the sidebar overlay below lg */}
+      <button
+        onClick={onMenuClick}
+        aria-label="Open menu"
+        className="rounded-md p-2 text-ink transition-colors hover:bg-page lg:hidden"
+      >
+        <MenuIcon size={22} />
+      </button>
+
       <h2 className="text-lg font-bold text-ink">{titleFor(pathname)}</h2>
 
       <div className="relative ml-auto hidden max-w-sm flex-1 sm:block">
@@ -36,7 +51,7 @@ export function Topbar({ user }: { user: AdminUser }) {
       </div>
 
       <button
-        className="relative rounded-full p-2 text-muted transition-colors hover:bg-page"
+        className="relative ml-auto rounded-full p-2 text-muted transition-colors hover:bg-page sm:ml-0"
         title="Notifications"
       >
         <BellIcon size={20} />

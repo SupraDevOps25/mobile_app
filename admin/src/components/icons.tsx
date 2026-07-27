@@ -61,6 +61,12 @@ export const BellIcon = (p: IconProps) => (
   </Base>
 );
 
+export const MenuIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M3 6h18M3 12h18M3 18h18" />
+  </Base>
+);
+
 export const SearchIcon = (p: IconProps) => (
   <Base {...p}>
     <circle cx="11" cy="11" r="8" />

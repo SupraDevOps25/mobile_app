@@ -40,7 +40,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center rounded-[10px] font-semibold transition-colors",
+        "inline-flex items-center justify-center rounded-field font-semibold transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
         "disabled:cursor-not-allowed",
         VARIANTS[variant],

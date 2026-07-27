@@ -1,38 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Logo } from "@/components/Logo";
 import { Badge, Button, Field, Input } from "@/components/ui";
-import { getToken } from "@/lib/api";
-import { login, userFromToken } from "@/lib/auth";
+import { useLoginMutation } from "@/services/auth/auth.queries";
+import { loginSchema, type LoginInput } from "@/schemas/auth/login.schema";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { emailOrPhone: "", password: "" },
+  });
 
-  // Already signed in? Skip the form.
-  useEffect(() => {
-    const u = userFromToken(getToken());
-    if (u?.role === "ADMIN") router.replace("/");
-  }, [router]);
+  const loginMutation = useLoginMutation();
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await login(email.trim(), password);
-      router.replace("/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const onSubmit = handleSubmit((values) => loginMutation.mutate(values));
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
@@ -54,22 +41,25 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="mt-7 space-y-4">
-          <Field label="Email address" htmlFor="email">
+        <form onSubmit={onSubmit} className="mt-7 space-y-4" noValidate>
+          <Field
+            label="Email address"
+            htmlFor="emailOrPhone"
+            error={errors.emailOrPhone?.message}
+          >
             <Input
-              id="email"
+              id="emailOrPhone"
               type="text"
               autoComplete="username"
               placeholder="admin@supracarer.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              {...register("emailOrPhone")}
             />
           </Field>
 
           <Field
             label="Password"
             htmlFor="password"
+            error={errors.password?.message}
             hint={
               <button
                 type="button"
@@ -84,19 +74,17 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              {...register("password")}
             />
           </Field>
 
-          {error && (
+          {loginMutation.isError && (
             <p className="rounded-field bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
+              {loginMutation.error.message}
             </p>
           )}
 
-          <Button type="submit" fullWidth loading={loading}>
+          <Button type="submit" fullWidth loading={loginMutation.isPending}>
             Sign In
           </Button>
         </form>

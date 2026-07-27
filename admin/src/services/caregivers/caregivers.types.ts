@@ -1,4 +1,5 @@
-import { api } from "./api";
+// Response shapes for the admin caregivers API. Request bodies are validated by
+// the Zod schemas in schemas/caregivers; these describe what the API returns.
 
 export type VerificationStatus =
   | "UNVERIFIED"
@@ -35,7 +36,8 @@ export interface CaregiverListItem {
   createdAt: string;
 }
 
-export interface CaregiverDetail extends Omit<CaregiverListItem, "documentsCount" | "submittedAt"> {
+export interface CaregiverDetail
+  extends Omit<CaregiverListItem, "documentsCount" | "submittedAt"> {
   bio: string | null;
   gender: "MALE" | "FEMALE" | null;
   dateOfBirth: string | null;
@@ -50,16 +52,3 @@ export interface VerificationResult {
   verificationStatus: VerificationStatus;
   documents: CaregiverDocument[];
 }
-
-export const caregivers = {
-  list: (status?: VerificationStatus) =>
-    api.get<CaregiverListItem[]>(
-      `/admin/caregivers${status ? `?status=${status}` : ""}`,
-    ),
-  getOne: (id: string) => api.get<CaregiverDetail>(`/admin/caregivers/${id}`),
-  setVerification: (id: string, status: "VERIFIED" | "REJECTED", note?: string) =>
-    api.patch<VerificationResult>(`/admin/caregivers/${id}/verification`, {
-      status,
-      note,
-    }),
-};
