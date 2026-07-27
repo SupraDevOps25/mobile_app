@@ -61,7 +61,7 @@ export function Sidebar({
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 mx-auto">
           <Logo variant="dark" size="md" />
         </div>
 

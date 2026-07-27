@@ -20,3 +20,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Local DB dump from Neon — contains production data, never commit
+neon-dump.sql
+*.dump

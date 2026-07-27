@@ -1,0 +1,32 @@
+# Local development Postgres for Supracarer.
+#
+# Production stays on Neon (configured via Railway env vars). This container is
+# ONLY for local dev, so query volume never touches the paid Neon plan.
+#
+#   Start:  docker compose up -d
+#   Stop:   docker compose down            (data is kept in the named volume)
+#   Reset:  docker compose down -v         (deletes all local data)
+#   Shell:  docker compose exec postgres psql -U supracarer -d supracarer
+#
+# Postgres 17 matches Neon's default major version so dumps restore cleanly.
+services:
+  postgres:
+    image: postgres:17
+    container_name: supracarer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: supracarer
+      POSTGRES_PASSWORD: supracarer
+      POSTGRES_DB: supracarer
+    ports:
+      - "5432:5432"
+    volumes:
+      - supracarer_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supracarer -d supracarer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  supracarer_pgdata:
