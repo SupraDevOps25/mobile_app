@@ -9,3 +9,4 @@ export { Spinner } from "./Spinner";
 export { StatCard } from "./StatCard";
 export { StatusBadge } from "./StatusBadge";
 export { Table, Thead, Th, Tbody, Tr, Td } from "./Table";
+export { Tabs } from "./Tabs";
