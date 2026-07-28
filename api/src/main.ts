@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { cronsEnabled } from './common/crons';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
@@ -29,5 +30,11 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
+
+  // Surface cron state — when disabled, scheduled jobs skip all DB work so a
+  // scale-to-zero database (Neon) can stay suspended and not accrue charges.
+  console.log(
+    `[startup] Scheduled crons ${cronsEnabled() ? 'ENABLED' : 'DISABLED (set CRONS_ENABLED=true to run)'}`,
+  );
 }
 void bootstrap();

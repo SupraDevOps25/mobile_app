@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { cronsEnabled } from '../common/crons';
 import {
   AssignmentRole,
   AssignmentStatus,
@@ -357,8 +358,9 @@ export class AssignmentsService {
 
   // ── Escalation cron — runs every minute ───────────────────────────────────
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   async escalateExpiredOffers() {
+    if (!cronsEnabled()) return;
     const now = new Date();
     // expiresAt: { lt: now } only matches live offers (nulls excluded).
     const expired = await this.prisma.assignment.findMany({

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { cronsEnabled } from '../common/crons';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -29,6 +30,7 @@ export class NotificationsService {
   /** Delete notifications older than the retention window (runs nightly). */
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async purgeOldNotifications(): Promise<void> {
+    if (!cronsEnabled()) return;
     const cutoff = new Date(
       Date.now() - NotificationsService.RETENTION_DAYS * 24 * 60 * 60 * 1000,
     );

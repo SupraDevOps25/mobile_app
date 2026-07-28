@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { cronsEnabled } from '../common/crons';
 import {
   AssignmentStatus,
   NotificationType,
@@ -74,6 +75,7 @@ export class VisitsService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async flagMissedVisits(): Promise<void> {
+    if (!cronsEnabled()) return;
     const now = Date.now();
     const hour = 60 * 60 * 1000;
 

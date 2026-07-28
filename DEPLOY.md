@@ -40,6 +40,11 @@ Copy values from `api/.env`. Required: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET
 (`CLOUDINARY_*`), mail (`RESEND_API_KEY`/SMTP), Twilio (`TWILIO_*`).
 Set `API_URL` and `PAYSTACK_CALLBACK_URL` to the Railway public URL.
 
+**`CRONS_ENABLED`** — leave **unset** pre-launch. Scheduled jobs (offer
+escalation, missed-visit flagging, notification purge) poll the DB and would
+keep Neon's compute awake 24/7 (real charges with no users). Set to `true` in
+production **at launch**, once there's real traffic to act on.
+
 ### Migrations
 The container runs `npx prisma migrate deploy` on start (see the Dockerfile `CMD`).
 Migrations are hand-written and committed under `api/prisma/migrations/`. Never run
@@ -47,7 +52,16 @@ Migrations are hand-written and committed under `api/prisma/migrations/`. Never 
 
 ### Health checks
 - `GET /api/v1/health` — liveness (no DB). Use as Railway's health-check path and for uptime pings.
-- `GET /api/v1/health/ready` — pings Postgres; confirms Neon connectivity.
+- `GET /api/v1/health/ready` — pings Postgres; confirms Neon connectivity. **Do
+  NOT** point a recurring uptime pinger here: each call runs `SELECT 1` and
+  wakes Neon, defeating scale-to-zero. Use `/health` for pings.
+
+### Keeping Neon costs near-zero (pre-launch)
+Neon (Launch plan) bills active compute. With no users, keep it asleep:
+1. `CRONS_ENABLED` unset (default) — no periodic DB polling.
+2. Uptime pings (if any) hit `/health`, never `/health/ready`.
+3. Confirm Neon's **"Scale to zero"** (autosuspend) is on in the Neon dashboard.
+Alternatively, pause the Railway service entirely when not testing.
 
 ### First-time setup (recap)
 1. New Web Service → connect repo → **Root Directory `api`**, Branch `dev`.
