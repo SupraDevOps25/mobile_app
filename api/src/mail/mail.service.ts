@@ -82,10 +82,7 @@ export class MailService {
     phone?: string | null;
     message: string;
   }): Promise<void> {
-    const adminEmail =
-      process.env.ADMIN_EMAIL ??
-      process.env.SUPPORT_EMAIL ??
-      'support@supracarer.com';
+    const adminEmail = process.env.ADMIN_EMAIL ?? this.supportEmail;
     const contact = [params.familyEmail, params.phone]
       .filter(Boolean)
       .join(' · ');
@@ -189,6 +186,11 @@ export class MailService {
       process.env.SMTP_FROM ??
       'Supracarer <onboarding@resend.dev>'
     );
+  }
+
+  /** Public-facing support inbox shown in emails; overridable via env. */
+  private get supportEmail(): string {
+    return process.env.SUPPORT_EMAIL ?? 'support@supracarer.app';
   }
 
   private logDevEmail(payload: MailPayload): void {
@@ -317,8 +319,8 @@ export class MailService {
               <div style="border-top:1px solid #e2e8f0;padding-top:18px">
                 <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0">
                   Need help? Please email
-                  <a href="mailto:support@supracarer.com" style="color:#2563eb;text-decoration:none;font-weight:700">
-                    support@supracarer.com
+                  <a href="mailto:${this.supportEmail}" style="color:#2563eb;text-decoration:none;font-weight:700">
+                    ${this.supportEmail}
                   </a>.
                   Do not reply to this automated email.
                 </p>
