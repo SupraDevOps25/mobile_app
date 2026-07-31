@@ -9,6 +9,7 @@ import {
   CaregiverDocumentType,
   CaregiverProfile,
   PaymentStatus,
+  PayoutMethod,
   PayoutStatus,
   VerificationStatus,
 } from '@prisma/client';
@@ -16,6 +17,7 @@ import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../storage/cloudinary.service';
 import { UpdateCaregiverProfileDto } from './dto/update-caregiver-profile.dto';
+import { UpdatePayoutMethodDto } from './dto/update-payout-method.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 
 // Minimal shape of a multer-uploaded file (avoids depending on @types/multer).
@@ -376,6 +378,52 @@ export class CaregiversService {
     return this.profileResponse(updated, updated.documents);
   }
 
+  async updatePayoutMethod(userId: string, dto: UpdatePayoutMethodDto) {
+    await this.requireProfile(userId);
+
+    // Require the fields for the chosen channel; clear the other channel so we
+    // never keep stale details for a method the nurse isn't using.
+    const data =
+      dto.method === PayoutMethod.MOMO
+        ? {
+            payoutMethod: PayoutMethod.MOMO,
+            momoNetwork: this.required(dto.momoNetwork, 'mobile money network'),
+            momoNumber: this.required(dto.momoNumber, 'mobile money number'),
+            momoName: this.required(dto.momoName, 'mobile money account name'),
+            bankName: null,
+            bankAccountNumber: null,
+            bankAccountName: null,
+          }
+        : {
+            payoutMethod: PayoutMethod.BANK,
+            bankName: this.required(dto.bankName, 'bank name'),
+            bankAccountNumber: this.required(
+              dto.bankAccountNumber,
+              'bank account number',
+            ),
+            bankAccountName: this.required(
+              dto.bankAccountName,
+              'account holder name',
+            ),
+            momoNetwork: null,
+            momoNumber: null,
+            momoName: null,
+          };
+
+    const updated = await this.prisma.caregiverProfile.update({
+      where: { userId },
+      data,
+      include: { documents: true },
+    });
+    return this.profileResponse(updated, updated.documents);
+  }
+
+  private required(value: string | undefined, label: string): string {
+    const trimmed = value?.trim();
+    if (!trimmed) throw new BadRequestException(`Please enter your ${label}.`);
+    return trimmed;
+  }
+
   async setAvailability(userId: string, isAvailable: boolean) {
     await this.requireProfile(userId);
     const updated = await this.prisma.caregiverProfile.update({
@@ -551,6 +599,15 @@ export class CaregiversService {
       rating: p.rating.toNumber(),
       reliabilityScore: p.reliabilityScore,
       totalReviews: p.totalReviews,
+      payout: {
+        method: p.payoutMethod,
+        momoNetwork: p.momoNetwork,
+        momoNumber: p.momoNumber,
+        momoName: p.momoName,
+        bankName: p.bankName,
+        bankAccountNumber: p.bankAccountNumber,
+        bankAccountName: p.bankAccountName,
+      },
       documents: (documents ?? []).map((d) => this.toDocument(d)),
     };
   }

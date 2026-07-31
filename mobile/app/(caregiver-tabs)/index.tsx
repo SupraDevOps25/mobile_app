@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { isOnboardingSeen } from "@/lib/onboarding";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -104,14 +104,14 @@ export default function CaregiverHomeScreen() {
   // afterwards they finish from the profile tab's verification nudge.
   const redirected = useRef(false);
   useEffect(() => {
-    if (!profile || redirected.current) return;
+    if (!profile || !user || redirected.current) return;
     if (profile.verificationStatus !== "UNVERIFIED") return;
     redirected.current = true;
     void (async () => {
-      const seen = await AsyncStorage.getItem("cg_onboarding_seen");
+      const seen = await isOnboardingSeen("cg", user.id);
       if (!seen) router.replace("/caregiver-onboarding" as any);
     })();
-  }, [profile, router]);
+  }, [profile, user, router]);
 
   return (
     <View className="flex-1 bg-background">

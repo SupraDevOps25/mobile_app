@@ -396,6 +396,10 @@ export default function PersonalInformationScreen() {
                     setCoords({ lat: loc.lat, lng: loc.lng });
                   }}
                 />
+                <Text className="text-muted ml-1" style={{ fontSize: 12, marginTop: 6, lineHeight: 17 }}>
+                  Helps your coordinator know where you&apos;re based. The location
+                  we match nurses on is the one you enter when you book care.
+                </Text>
               </View>
 
               {/* Read-only email */}

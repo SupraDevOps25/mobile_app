@@ -136,6 +136,12 @@ enum PayoutStatus {
   PAID // disbursed to the nurse
 }
 
+// How a nurse chooses to receive their payouts.
+enum PayoutMethod {
+  MOMO // mobile money
+  BANK // bank transfer
+}
+
 enum NotificationType {
   SUBSCRIPTION_CREATED
   TEAM_ASSIGNED
@@ -229,6 +235,15 @@ model CaregiverProfile {
   rating             Decimal            @default(0) @db.Decimal(3, 2)
   reliabilityScore   Int                @default(0) // 0–100
   totalReviews       Int                @default(0)
+  // Payout destination (how the nurse gets paid). One channel is used at a
+  // time (payoutMethod); the other channel's fields may sit unused.
+  payoutMethod       PayoutMethod?
+  momoNetwork        String? // MTN, Telecel, AirtelTigo
+  momoNumber         String?
+  momoName           String? // registered mobile-money account name
+  bankName           String?
+  bankAccountNumber  String?
+  bankAccountName    String?
   lat                Float?
   lng                Float?
   fcmToken           String?

@@ -25,6 +25,7 @@ import {
 } from './caregivers.service';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateCaregiverProfileDto } from './dto/update-caregiver-profile.dto';
+import { UpdatePayoutMethodDto } from './dto/update-payout-method.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 
@@ -103,6 +104,15 @@ export class CaregiversController {
       dto.idNumber,
       file,
     );
+  }
+
+  @ApiOperation({ summary: 'Nurse: set my payout method (MoMo or bank)' })
+  @Patch('me/payout-method')
+  setPayoutMethod(
+    @Request() req: { user: { id: string } },
+    @Body() dto: UpdatePayoutMethodDto,
+  ) {
+    return this.caregiversService.updatePayoutMethod(req.user.id, dto);
   }
 
   @ApiOperation({ summary: 'Nurse: set my availability' })

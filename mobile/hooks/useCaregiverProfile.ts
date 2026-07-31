@@ -9,6 +9,7 @@ import {
   type ApiCaregiverProfile,
   type SchedulePayload,
   type UpdateCaregiverProfilePayload,
+  type UpdatePayoutMethodPayload,
 } from "@/services/caregiver.service";
 
 export function useCaregiverProfile() {
@@ -83,6 +84,16 @@ export function useUpdateCaregiverProfile() {
   return useMutation({
     mutationFn: (payload: UpdateCaregiverProfilePayload) =>
       caregiverService.updateProfile(payload),
+    onSuccess: (profile: ApiCaregiverProfile) =>
+      qc.setQueryData(qk.caregiverProfile, profile),
+  });
+}
+
+export function useUpdateCaregiverPayoutMethod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdatePayoutMethodPayload) =>
+      caregiverService.updatePayoutMethod(payload),
     onSuccess: (profile: ApiCaregiverProfile) =>
       qc.setQueryData(qk.caregiverProfile, profile),
   });

@@ -206,6 +206,15 @@ export default function CaregiverProfileScreen() {
       subtitle: "Days, hours and visit limit",
       onPress: () => router.push("/(caregiver-tabs)/schedule" as any),
     },
+    {
+      key: "payment",
+      icon: "card-outline",
+      tint: "#2563eb",
+      bg: "#eff6ff",
+      title: "Payment method",
+      subtitle: "How you receive your payouts",
+      onPress: () => router.push("/caregiver-payment-method" as any),
+    },
   ];
 
   const security: RowItem[] = [
@@ -252,6 +261,15 @@ export default function CaregiverProfileScreen() {
   ];
 
   const support: RowItem[] = [
+    {
+      key: "conduct",
+      icon: "shield-checkmark-outline",
+      tint: GREEN,
+      bg: "#f0fdf4",
+      title: "Code of conduct",
+      subtitle: "Standards for Supracarer nurses",
+      onPress: () => router.push("/caregiver-code-of-conduct" as any),
+    },
     {
       key: "help",
       icon: "help-circle-outline",

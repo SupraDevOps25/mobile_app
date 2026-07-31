@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ActiveCarePlanCard } from "@/components/home/ActiveCarePlanCard";
+import { CompleteProfilePrompt } from "@/components/home/CompleteProfilePrompt";
 import { CTABanner } from "@/components/home/CTABanner";
 import { FamilyStatsRow } from "@/components/home/FamilyStatsRow";
 import { PendingInvoiceBanner } from "@/components/home/PendingInvoiceBanner";
@@ -61,6 +62,34 @@ export default function HomeScreen() {
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const initials = firstName.slice(0, 2).toUpperCase();
   const photoUrl = familyProfile?.photoUrl ?? null;
+
+  // Nudge families whose profile is still missing the details the care team
+  // relies on — gender, date of birth and home area. The prompt names exactly
+  // what's outstanding and, once those fields are filled, never shows again.
+  const missingProfileFields = useMemo(() => {
+    if (!familyProfile) return [];
+    const missing: string[] = [];
+    if (!familyProfile.gender) missing.push("Gender");
+    if (!familyProfile.dateOfBirth) missing.push("Date of birth");
+    if (!familyProfile.address || familyProfile.address.trim() === "")
+      missing.push("Home area");
+    return missing;
+  }, [familyProfile]);
+
+  const [showProfilePrompt, setShowProfilePrompt] = useState(false);
+  const promptChecked = useRef(false);
+  useEffect(() => {
+    // Wait for the profile to load, then decide once per session so closing the
+    // sheet doesn't immediately re-open it on the next render.
+    if (promptChecked.current || !familyProfile) return;
+    promptChecked.current = true;
+    if (missingProfileFields.length > 0) setShowProfilePrompt(true);
+  }, [familyProfile, missingProfileFields]);
+
+  function completeProfile() {
+    setShowProfilePrompt(false);
+    router.push("/personal-information" as any);
+  }
 
   // Dashboard quick search — filter care packages by name, tagline or fit.
   const [query, setQuery] = useState("");
@@ -245,6 +274,13 @@ export default function HomeScreen() {
         </>
       )}
       </ScrollView>
+
+      <CompleteProfilePrompt
+        visible={showProfilePrompt}
+        missing={missingProfileFields}
+        onClose={() => setShowProfilePrompt(false)}
+        onComplete={completeProfile}
+      />
     </View>
   );
 }

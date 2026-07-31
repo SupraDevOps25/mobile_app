@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -7,15 +6,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCaregiverDocuments,
@@ -31,6 +28,7 @@ import {
   ServiceAreaField,
 } from "@/components/caregiver/profile-fields";
 import { initialsOf } from "@/lib/avatar";
+import { markOnboardingSeen } from "@/lib/onboarding";
 import { pickDocument, pickImageFromLibrary, takePhoto } from "@/lib/pick";
 import { toE164Phone, toLocalPhone } from "@/schemas/profile.schemas";
 import type {
@@ -40,7 +38,6 @@ import type {
 import type { ApiGender } from "@/services/subscription.service";
 
 const GREEN = "#16a34a";
-export const CG_ONBOARDING_SEEN = "cg_onboarding_seen";
 const LANGUAGE_OPTIONS = ["English", "Twi", "Ga", "Hausa", "French", "Ewe"];
 
 const STEP_TITLES = [
@@ -71,18 +68,34 @@ const INPUT_STYLE = {
   borderRadius: 9999,
   paddingVertical: 14,
   paddingHorizontal: 18,
-  fontSize: 14,
+  fontSize: 16,
   color: "#111827",
 } as const;
 
-function Label({ children }: { children: string }) {
+// Matches the label used on the Personal information screen (supports a hint
+// line) so the onboarding fields read identically.
+function Label({ children, hint }: { children: string; hint?: string }) {
   return (
-    <Text
-      className="text-muted font-semibold"
-      style={{ fontSize: 11, letterSpacing: 1, marginTop: 20, marginBottom: 10 }}
-    >
-      {children.toUpperCase()}
-    </Text>
+    <>
+      <Text
+        className="text-muted font-semibold"
+        style={{
+          fontSize: 11,
+          letterSpacing: 1,
+          marginTop: 20,
+          marginBottom: hint ? 4 : 10,
+        }}
+      >
+        {children.toUpperCase()}
+      </Text>
+      {hint ? (
+        <Text
+          style={{ color: "#6b7280", fontSize: 12.5, lineHeight: 17, marginBottom: 10 }}
+        >
+          {hint}
+        </Text>
+      ) : null}
+    </>
   );
 }
 
@@ -95,7 +108,7 @@ function docStatusMeta(status: ApiDocumentStatus) {
 export default function CaregiverOnboardingScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const { data: account } = useAuthProfile();
   const updateAccount = useUpdateAuthProfile();
@@ -114,6 +127,7 @@ export default function CaregiverOnboardingScreen() {
   // Step 2 — profile
   const [gender, setGender] = useState<ApiGender | null>(null);
   const [dob, setDob] = useState<string | null>(null);
+  const [address, setAddress] = useState("");
   const [bio, setBio] = useState("");
   const [serviceArea, setServiceArea] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -136,6 +150,7 @@ export default function CaregiverOnboardingScreen() {
     if (!profile) return;
     setGender(profile.gender);
     setDob(profile.dateOfBirth ? profile.dateOfBirth.slice(0, 10) : null);
+    setAddress(profile.address ?? "");
     setBio(profile.bio ?? "");
     setServiceArea(profile.serviceAreas.join(", "));
     if (profile.lat != null && profile.lng != null) {
@@ -160,7 +175,7 @@ export default function CaregiverOnboardingScreen() {
   const allDocsUploaded = DOCS.every((d) => docByType(d.type));
 
   async function finish() {
-    await AsyncStorage.setItem(CG_ONBOARDING_SEEN, "true");
+    if (user) await markOnboardingSeen("cg", user.id);
   }
 
   function skip() {
@@ -255,6 +270,7 @@ export default function CaregiverOnboardingScreen() {
           bio: bio.trim(),
           gender: gender ?? undefined,
           dateOfBirth: dob ?? undefined,
+          address: address.trim(),
           serviceAreas: serviceArea.split(",").map((s) => s.trim()).filter(Boolean),
           languages,
           hasHomecareExp: hasExp,
@@ -296,11 +312,7 @@ export default function CaregiverOnboardingScreen() {
   const loading = !account || !profile;
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
         <StatusBar style="dark" />
 
         {/* Header: back, progress, skip */}
@@ -352,9 +364,7 @@ export default function CaregiverOnboardingScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+            <KeyboardAwareForm
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
             >
               {/* ─── Step 1: personal details ─── */}
@@ -393,7 +403,7 @@ export default function CaregiverOnboardingScreen() {
                       placeholderTextColor="#9ca3af"
                       keyboardType="phone-pad"
                       maxFontSizeMultiplier={1.2}
-                      style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+                      style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
                     />
                   </View>
                   {account?.email ? (
@@ -404,7 +414,7 @@ export default function CaregiverOnboardingScreen() {
                       <Ionicons name="mail-outline" size={18} color="#9ca3af" />
                       <Text
                         className="flex-1 text-muted"
-                        style={{ paddingVertical: 14, marginLeft: 8, fontSize: 14 }}
+                        style={{ paddingVertical: 14, marginLeft: 8, fontSize: 16 }}
                         numberOfLines={1}
                       >
                         {account.email}
@@ -478,6 +488,24 @@ export default function CaregiverOnboardingScreen() {
                   <Label>Date of birth</Label>
                   <DateOfBirthField initialIso={dob} onChange={setDob} />
 
+                  <Label hint="Where you personally live. Kept private — used for verification only, never shown to families.">
+                    Home address
+                  </Label>
+                  <View
+                    className="flex-row items-center rounded-full px-4"
+                    style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb" }}
+                  >
+                    <Ionicons name="home-outline" size={18} color="#6b7280" />
+                    <TextInput
+                      value={address}
+                      onChangeText={setAddress}
+                      placeholder="House number, street, area where you live"
+                      placeholderTextColor="#9ca3af"
+                      maxFontSizeMultiplier={1.2}
+                      style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
+                    />
+                  </View>
+
                   <Label>Short bio</Label>
                   <TextInput
                     value={bio}
@@ -487,19 +515,21 @@ export default function CaregiverOnboardingScreen() {
                     multiline
                     maxFontSizeMultiplier={1.2}
                     style={{
-                      minHeight: 100,
+                      minHeight: 110,
                       borderWidth: 1,
                       borderColor: "#e5e7eb",
                       backgroundColor: "#f9fafb",
                       borderRadius: 16,
                       padding: 14,
-                      fontSize: 14,
+                      fontSize: 16,
                       color: "#111827",
                       textAlignVertical: "top",
                     }}
                   />
 
-                  <Label>Location / service area</Label>
+                  <Label hint="The area(s) where you want to work. We match you with families living nearby — this doesn't have to be where you live.">
+                    Service area
+                  </Label>
                   <ServiceAreaField
                     value={serviceArea}
                     onChangeText={setServiceArea}
@@ -538,7 +568,7 @@ export default function CaregiverOnboardingScreen() {
                   </View>
 
                   <Label>Experience</Label>
-                  <Text className="text-foreground" style={{ fontSize: 14, marginBottom: 10 }}>
+                  <Text className="text-foreground" style={{ fontSize: 16, marginBottom: 10 }}>
                     Have you worked as a homecare nurse before?
                   </Text>
                   <View className="flex-row" style={{ gap: 10 }}>
@@ -560,7 +590,7 @@ export default function CaregiverOnboardingScreen() {
                           }}
                         >
                           <Text
-                            style={{ fontSize: 14, fontWeight: "700", color: active ? "#15803d" : "#6b7280" }}
+                            style={{ fontSize: 16, fontWeight: "700", color: active ? "#15803d" : "#6b7280" }}
                           >
                             {opt.label}
                           </Text>
@@ -584,7 +614,7 @@ export default function CaregiverOnboardingScreen() {
                           placeholderTextColor="#9ca3af"
                           keyboardType="number-pad"
                           maxFontSizeMultiplier={1.2}
-                          style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+                          style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
                         />
                         <Text className="text-muted" style={{ fontSize: 13 }}>
                           years
@@ -624,7 +654,7 @@ export default function CaregiverOnboardingScreen() {
                             placeholderTextColor="#9ca3af"
                             autoCapitalize="characters"
                             maxFontSizeMultiplier={1.2}
-                            style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 14, color: "#111827" }}
+                            style={{ flex: 1, paddingVertical: 14, marginLeft: 8, fontSize: 16, color: "#111827" }}
                           />
                         </View>
                         <Pressable
@@ -686,7 +716,7 @@ export default function CaregiverOnboardingScreen() {
                   </View>
                 </>
               )}
-            </ScrollView>
+            </KeyboardAwareForm>
 
             {/* Footer */}
             <View
@@ -707,7 +737,6 @@ export default function CaregiverOnboardingScreen() {
             </View>
           </>
         )}
-      </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
