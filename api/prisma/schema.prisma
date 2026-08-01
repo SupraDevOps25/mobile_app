@@ -214,6 +214,7 @@ model PasswordReset {
   id        String   @id @default(uuid())
   code      String
   userId    String
+  attempts  Int      @default(0) // wrong-code tries; the code is burned past a cap
   expiresAt DateTime
   createdAt DateTime @default(now())
 

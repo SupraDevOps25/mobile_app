@@ -1,7 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AppService } from './app.service';
 import { PrismaService } from './prisma/prisma.service';
 
+// Liveness/readiness probes are hit frequently by external pingers — exempt the
+// whole controller from rate limiting so those never eat into a client's quota.
+@SkipThrottle()
 @Controller()
 export class AppController {
   constructor(

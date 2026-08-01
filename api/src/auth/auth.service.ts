@@ -35,6 +35,9 @@ const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 
 @Injectable()
 export class AuthService {
+  // Wrong password-reset code guesses allowed before the code is invalidated.
+  private static readonly MAX_RESET_ATTEMPTS = 5;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -216,22 +219,47 @@ export class AuthService {
   async resetPassword(dto: ResetPasswordDto) {
     const user = await this.findByIdentifier(dto.emailOrPhone.trim());
 
+    // Fetch the user's active code (not scoped by the submitted code) so a wrong
+    // guess can be counted against it — a 6-digit code is otherwise brute-
+    // forceable within the 15-minute window even with IP rate limiting.
     const record = user
       ? await this.prisma.passwordReset.findFirst({
-          where: { userId: user.id, code: dto.code.trim() },
+          where: { userId: user.id },
           orderBy: { createdAt: 'desc' },
         })
       : null;
 
-    // Same error whether the identifier, code, or nothing matched.
+    // Same generic error whether the identifier, code, or nothing matched.
     if (!user || !record) {
       throw new BadRequestException('Invalid or expired reset code');
     }
 
-    if (record.expiresAt < new Date()) {
+    // Expired, or already burned through too many wrong tries — force a re-request.
+    if (
+      record.expiresAt < new Date() ||
+      record.attempts >= AuthService.MAX_RESET_ATTEMPTS
+    ) {
       await this.prisma.passwordReset.deleteMany({
         where: { userId: user.id },
       });
+      throw new BadRequestException(
+        'This reset code is no longer valid. Please request a new one.',
+      );
+    }
+
+    // Wrong code — count the attempt, and burn the code once the cap is reached.
+    if (record.code !== dto.code.trim()) {
+      const attempts = record.attempts + 1;
+      if (attempts >= AuthService.MAX_RESET_ATTEMPTS) {
+        await this.prisma.passwordReset.deleteMany({
+          where: { userId: user.id },
+        });
+      } else {
+        await this.prisma.passwordReset.update({
+          where: { id: record.id },
+          data: { attempts },
+        });
+      }
       throw new BadRequestException('Invalid or expired reset code');
     }
 

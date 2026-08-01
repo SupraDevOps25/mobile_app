@@ -1,12 +1,19 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { cronsEnabled } from './common/crons';
 import { MulterExceptionFilter } from './common/multer-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
+
+  // Behind Railway's proxy — trust the first proxy hop so req.ip reflects the
+  // real client (via X-Forwarded-For), which the rate limiter keys on.
+  app.set('trust proxy', 1);
 
   app.setGlobalPrefix('api/v1');
 
