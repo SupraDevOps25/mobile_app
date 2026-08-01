@@ -7,6 +7,7 @@ import {
   type ApiCoordinatorLog,
   type UpdateCoordinatorPayload,
 } from "@/services/coordinator.service";
+import type { UpdatePayoutMethodPayload } from "@/services/caregiver.service";
 import type { ApiPackageType } from "@/services/package.service";
 
 export function useCoordinatorCases() {
@@ -47,6 +48,15 @@ export function useUpdateCoordinatorProfile() {
   return useMutation({
     mutationFn: (payload: UpdateCoordinatorPayload) =>
       coordinatorService.updateMe(payload),
+    onSuccess: (profile) => qc.setQueryData(qk.coordinatorProfile, profile),
+  });
+}
+
+export function useUpdateCoordinatorPayoutMethod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdatePayoutMethodPayload) =>
+      coordinatorService.updatePayoutMethod(payload),
     onSuccess: (profile) => qc.setQueryData(qk.coordinatorProfile, profile),
   });
 }

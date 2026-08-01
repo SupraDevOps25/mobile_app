@@ -21,6 +21,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { uploadLimits } from '../common/uploads';
 import { CreateAddressDto, UpdateAddressDto } from './dto/save-address.dto';
 import { UpdateFamilyDto } from './dto/update-family.dto';
 import {
@@ -63,7 +64,7 @@ export class FamilyController {
   @ApiConsumes('multipart/form-data')
   @Roles('FAMILY')
   @Post('me/photo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', uploadLimits))
   uploadPhoto(
     @Request() req: { user: { id: string } },
     @UploadedFile() file: MulterFile,

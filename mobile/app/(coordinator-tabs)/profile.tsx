@@ -201,6 +201,15 @@ export default function CoordinatorProfileScreen() {
       onPress: () => router.push("/coordinator-earnings" as any),
     },
     {
+      key: "payment",
+      icon: "card-outline",
+      tint: "#1d4ed8",
+      bg: "#eff6ff",
+      title: "Payment method",
+      subtitle: "Where your fee payouts are sent",
+      onPress: () => router.push("/coordinator-payment-method" as any),
+    },
+    {
       key: "cases",
       icon: "people-outline",
       tint: TEAL,

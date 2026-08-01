@@ -7,7 +7,9 @@ import type { ApiInvoice } from "@/services/billing.service";
 import type {
   ApiEarningsPeriod,
   ApiEarningsTransaction,
+  ApiPayoutMethod,
   ApiPayoutResult,
+  UpdatePayoutMethodPayload,
 } from "@/services/caregiver.service";
 import type { ApiPackageType } from "@/services/package.service";
 import type {
@@ -138,6 +140,7 @@ export interface ApiCoordinatorProfile {
   yearsExperience: number;
   bio: string | null;
   workplace: string | null;
+  payout: ApiPayoutMethod;
 }
 
 export interface UpdateCoordinatorPayload {
@@ -173,6 +176,8 @@ export const coordinatorService = {
     api.post<ApiPayoutResult>("/coordinators/me/payouts"),
   updateMe: (payload: UpdateCoordinatorPayload) =>
     api.patch<ApiCoordinatorProfile>("/coordinators/me", payload),
+  updatePayoutMethod: (payload: UpdatePayoutMethodPayload) =>
+    api.patch<ApiCoordinatorProfile>("/coordinators/me/payout-method", payload),
   caseDetail: (id: string) =>
     api.get<ApiCoordinatorCaseDetail>(`/subscriptions/coordinating/${id}`),
   setAssessment: (id: string, assessmentAt: string) =>

@@ -19,6 +19,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { uploadLimits } from '../common/uploads';
 import {
   CaregiversService,
   type UploadedFile as MulterFile,
@@ -55,7 +56,7 @@ export class CaregiversController {
   @ApiOperation({ summary: 'Nurse: upload / replace my profile photo' })
   @ApiConsumes('multipart/form-data')
   @Post('me/photo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', uploadLimits))
   uploadPhoto(
     @Request() req: { user: { id: string } },
     @UploadedFile() file: MulterFile,
@@ -92,7 +93,7 @@ export class CaregiversController {
   })
   @ApiConsumes('multipart/form-data')
   @Post('me/documents')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', uploadLimits))
   uploadDocument(
     @Request() req: { user: { id: string } },
     @Body() dto: UploadDocumentDto,

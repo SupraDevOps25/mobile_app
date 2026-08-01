@@ -10,9 +10,26 @@ export interface PickedFile {
   type: string; // mime type
 }
 
+// Keep in sync with the API's upload cap (api/src/common/uploads.ts).
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_UPLOAD_LABEL = "2 MB";
+
 function nameFromUri(uri: string, fallback: string): string {
   const last = uri.split("/").pop();
   return last && last.includes(".") ? last : fallback;
+}
+
+// Reject an over-sized file up front (when the picker reports a size) so the
+// user gets an instant, clear message instead of a failed upload round-trip.
+function withinSizeLimit(bytes: number | null | undefined, noun: string): boolean {
+  if (bytes != null && bytes > MAX_UPLOAD_BYTES) {
+    Alert.alert(
+      `${noun} is too large`,
+      `Please choose a ${noun.toLowerCase()} under ${MAX_UPLOAD_LABEL}.`,
+    );
+    return false;
+  }
+  return true;
 }
 
 /** Pick an image from the photo library. Returns null if cancelled/denied. */
@@ -32,6 +49,7 @@ export async function pickImageFromLibrary(): Promise<PickedFile | null> {
   });
   if (result.canceled || !result.assets?.length) return null;
   const asset = result.assets[0];
+  if (!withinSizeLimit(asset.fileSize, "Image")) return null;
   return {
     uri: asset.uri,
     name: asset.fileName ?? nameFromUri(asset.uri, "photo.jpg"),
@@ -52,6 +70,7 @@ export async function takePhoto(): Promise<PickedFile | null> {
   });
   if (result.canceled || !result.assets?.length) return null;
   const asset = result.assets[0];
+  if (!withinSizeLimit(asset.fileSize, "Photo")) return null;
   return {
     uri: asset.uri,
     name: asset.fileName ?? nameFromUri(asset.uri, "photo.jpg"),
@@ -67,6 +86,7 @@ export async function pickDocument(): Promise<PickedFile | null> {
   });
   if (result.canceled || !result.assets?.length) return null;
   const asset = result.assets[0];
+  if (!withinSizeLimit(asset.size, "File")) return null;
   return {
     uri: asset.uri,
     name: asset.name ?? nameFromUri(asset.uri, "document"),

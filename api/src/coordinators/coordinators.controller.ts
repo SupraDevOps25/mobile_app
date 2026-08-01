@@ -13,6 +13,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CoordinatorsService } from './coordinators.service';
 import { UpdateCoordinatorDto } from './dto/update-coordinator.dto';
+import { UpdatePayoutMethodDto } from './dto/update-payout-method.dto';
 
 @ApiBearerAuth()
 @ApiTags('Coordinators')
@@ -36,6 +37,16 @@ export class CoordinatorsController {
     @Body() dto: UpdateCoordinatorDto,
   ) {
     return this.coordinators.updateMe(req.user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Coordinator: set my payout method (momo/bank)' })
+  @Roles('CARE_COORDINATOR')
+  @Patch('me/payout-method')
+  updatePayoutMethod(
+    @Request() req: { user: { id: string } },
+    @Body() dto: UpdatePayoutMethodDto,
+  ) {
+    return this.coordinators.updatePayoutMethod(req.user.id, dto);
   }
 
   @ApiOperation({ summary: 'Coordinator: my earnings (8% fee per paid month)' })

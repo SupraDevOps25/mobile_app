@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AdminCaregiversController } from './admin-caregivers.controller';
 import { AdminCaregiversService } from './admin-caregivers.service';
@@ -7,7 +8,7 @@ import { AdminCaregiversService } from './admin-caregivers.service';
 // unblock) and will grow to cover families, subscriptions, package requests,
 // and visit-status overrides.
 @Module({
-  imports: [NotificationsModule],
+  imports: [MailModule, NotificationsModule],
   controllers: [AdminCaregiversController],
   providers: [AdminCaregiversService],
 })

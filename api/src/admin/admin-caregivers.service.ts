@@ -9,6 +9,7 @@ import {
   NotificationType,
   VerificationStatus,
 } from '@prisma/client';
+import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SetVerificationDto } from './dto/set-verification.dto';
@@ -22,6 +23,7 @@ export class AdminCaregiversService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly mail: MailService,
   ) {}
 
   /** Review queue. Defaults to everyone; filter by status for the pending tab. */
@@ -134,6 +136,7 @@ export class AdminCaregiversService {
       }),
     ]);
 
+    // Push + in-app inbox (also falls back to WhatsApp when push can't reach).
     await this.notifications.notify({
       userId: profile.userId,
       type: NotificationType.GENERAL,
@@ -144,6 +147,18 @@ export class AdminCaregiversService {
             dto.note ? ` Reason: ${dto.note}` : ''
           } Please re-check your documents and re-upload.`,
     });
+
+    // Email the decision too. Best-effort — a mail hiccup must not fail the
+    // verification write that already succeeded above.
+    try {
+      await this.mail.sendVerificationDecisionEmail(updated.user.email, {
+        firstName: updated.user.firstName,
+        approved,
+        note: dto.note,
+      });
+    } catch {
+      // Swallowed: the in-app/push notification already went out.
+    }
 
     return {
       id: updated.id,

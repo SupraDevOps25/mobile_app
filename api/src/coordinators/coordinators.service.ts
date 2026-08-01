@@ -7,6 +7,7 @@ import {
 import {
   CoordinatorProfile,
   PaymentStatus,
+  PayoutMethod,
   PayoutStatus,
   Prisma,
   Role,
@@ -15,6 +16,7 @@ import {
 import { coordinatorFeeGhs } from '../common/economics';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCoordinatorDto } from './dto/update-coordinator.dto';
+import { UpdatePayoutMethodDto } from './dto/update-payout-method.dto';
 
 const MONTHS = [
   'Jan',
@@ -112,6 +114,51 @@ export class CoordinatorsService {
       }
       throw err;
     }
+  }
+
+  /** Set where the coordinator's fee is paid (mobile money or bank). Requires
+   * the chosen channel's fields; clears the other so no stale details linger. */
+  async updatePayoutMethod(userId: string, dto: UpdatePayoutMethodDto) {
+    await this.me(userId); // ensures the coordinator exists + has a profile row
+
+    const data =
+      dto.method === PayoutMethod.MOMO
+        ? {
+            payoutMethod: PayoutMethod.MOMO,
+            momoNetwork: this.required(dto.momoNetwork, 'mobile money network'),
+            momoNumber: this.required(dto.momoNumber, 'mobile money number'),
+            momoName: this.required(dto.momoName, 'mobile money account name'),
+            bankName: null,
+            bankAccountNumber: null,
+            bankAccountName: null,
+          }
+        : {
+            payoutMethod: PayoutMethod.BANK,
+            bankName: this.required(dto.bankName, 'bank name'),
+            bankAccountNumber: this.required(
+              dto.bankAccountNumber,
+              'bank account number',
+            ),
+            bankAccountName: this.required(
+              dto.bankAccountName,
+              'account holder name',
+            ),
+            momoNetwork: null,
+            momoNumber: null,
+            momoName: null,
+          };
+
+    const [user, profile] = await this.prisma.$transaction([
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      this.prisma.coordinatorProfile.update({ where: { userId }, data }),
+    ]);
+    return this.toProfile(user, profile);
+  }
+
+  private required(value: string | undefined, label: string): string {
+    const trimmed = value?.trim();
+    if (!trimmed) throw new BadRequestException(`Please enter your ${label}.`);
+    return trimmed;
   }
 
   /**
@@ -341,6 +388,15 @@ export class CoordinatorsService {
       yearsExperience: profile.yearsExperience,
       bio: profile.bio,
       workplace: profile.workplace,
+      payout: {
+        method: profile.payoutMethod,
+        momoNetwork: profile.momoNetwork,
+        momoNumber: profile.momoNumber,
+        momoName: profile.momoName,
+        bankName: profile.bankName,
+        bankAccountNumber: profile.bankAccountNumber,
+        bankAccountName: profile.bankAccountName,
+      },
     };
   }
 }

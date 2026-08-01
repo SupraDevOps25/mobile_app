@@ -1,7 +1,7 @@
 // Central place for support contact details. Update these with the real
 // Supracarer support channels before launch.
 export const SUPPORT = {
-  email: "support@supracarer.com",
+  email: "support@supracarer.app",
   // E.164 phone for tel: links.
   phone: "+233549148087",
   // Digits only (no +) for wa.me WhatsApp links.

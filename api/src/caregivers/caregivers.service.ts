@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -14,6 +15,8 @@ import {
   VerificationStatus,
 } from '@prisma/client';
 import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '../common/uploads';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../storage/cloudinary.service';
 import { UpdateCaregiverProfileDto } from './dto/update-caregiver-profile.dto';
@@ -28,7 +31,6 @@ export interface UploadedFile {
   size: number;
 }
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_DOC = [...ALLOWED_IMAGE, 'application/pdf'];
 
@@ -71,9 +73,12 @@ type ProfileWithDocs = CaregiverProfile & { documents?: CaregiverDocument[] };
 
 @Injectable()
 export class CaregiversService {
+  private readonly logger = new Logger(CaregiversService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: CloudinaryService,
+    private readonly mail: MailService,
   ) {}
 
   private async requireProfile(userId: string): Promise<CaregiverProfile> {
@@ -527,7 +532,41 @@ export class CaregiversService {
       });
     }
 
+    // Best-effort: alert the admin team so they can review and verify. Never
+    // let an email hiccup fail the upload itself.
+    void this.notifyAdminOfSubmission(userId, type);
+
     return this.toDocument(document);
+  }
+
+  /** Email the admin team that a nurse submitted a credential for review. */
+  private async notifyAdminOfSubmission(
+    userId: string,
+    type: CaregiverDocumentType,
+  ): Promise<void> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+      if (!user) return;
+      await this.mail.sendCaregiverDocumentSubmittedEmail({
+        nurseName: `${user.firstName} ${user.lastName}`.trim() || user.email,
+        nurseEmail: user.email,
+        documentLabel: this.documentLabel(type),
+      });
+    } catch (err) {
+      this.logger.error('Failed to email admin of credential submission', err);
+    }
+  }
+
+  /** "GHANA_CARD" → "Ghana Card" for human-readable emails. */
+  private documentLabel(type: CaregiverDocumentType): string {
+    return type
+      .toLowerCase()
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -538,8 +577,10 @@ export class CaregiversService {
     typeMessage: string,
   ) {
     if (!file) throw new BadRequestException('No file was uploaded.');
-    if (file.size > MAX_FILE_BYTES) {
-      throw new BadRequestException('File is too large (max 5 MB).');
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException(
+        `File is too large. Please choose a file under ${MAX_UPLOAD_LABEL}.`,
+      );
     }
     if (!allowed.includes(file.mimetype)) {
       throw new BadRequestException(typeMessage);

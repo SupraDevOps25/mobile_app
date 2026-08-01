@@ -17,6 +17,7 @@ import {
 import { PaystackService } from '../billing/paystack.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../storage/cloudinary.service';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '../common/uploads';
 import { CreateAddressDto, UpdateAddressDto } from './dto/save-address.dto';
 import { UpdateFamilyDto } from './dto/update-family.dto';
 
@@ -28,7 +29,6 @@ export interface UploadedFile {
   size: number;
 }
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 
 @Injectable()
@@ -127,8 +127,10 @@ export class FamilyService {
 
   private assertImage(file: UploadedFile | undefined) {
     if (!file) throw new BadRequestException('No file was uploaded.');
-    if (file.size > MAX_PHOTO_BYTES) {
-      throw new BadRequestException('Image is too large (max 5 MB).');
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException(
+        `Image is too large. Please choose an image under ${MAX_UPLOAD_LABEL}.`,
+      );
     }
     if (!ALLOWED_IMAGE.includes(file.mimetype)) {
       throw new BadRequestException('Upload a JPG, PNG or WebP image.');

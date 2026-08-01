@@ -23,11 +23,14 @@ import type { Response } from 'express';
 import { AuthService, type UploadedFile as MulterFile } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { uploadLimits } from '../common/uploads';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -70,6 +73,18 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @ApiOperation({ summary: 'Request a password reset code by email/phone' })
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @ApiOperation({ summary: 'Reset password using the emailed code' })
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get the profile of the logged-in user' })
   @UseGuards(JwtAuthGuard)
@@ -94,7 +109,7 @@ export class AuthController {
   @ApiConsumes('multipart/form-data')
   @UseGuards(JwtAuthGuard)
   @Post('profile/photo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', uploadLimits))
   uploadPhoto(
     @Request() req: { user: { id: string } },
     @UploadedFile() file: MulterFile,
