@@ -10,27 +10,32 @@ export function StatCard({
   delta,
   deltaTone = "green",
   tint = "blue",
+  icon,
 }: {
   label: string;
   value: string;
   delta?: string;
   deltaTone?: "green" | "muted";
   tint?: "blue" | "green" | "amber" | "violet";
+  icon?: React.ReactNode;
 }) {
   const tints = {
-    blue: "bg-blue-100",
-    green: "bg-emerald-100",
-    amber: "bg-amber-100",
-    violet: "bg-violet-100",
+    blue: "bg-blue-100 text-blue-600",
+    green: "bg-emerald-100 text-emerald-600",
+    amber: "bg-amber-100 text-amber-600",
+    violet: "bg-violet-100 text-violet-600",
   };
   return (
     <Card className="relative overflow-hidden">
       <span
         className={cn(
-          "absolute right-4 top-4 size-10 rounded-full opacity-70",
+          "absolute right-4 top-4 flex size-10 items-center justify-center rounded-full",
           tints[tint],
+          icon ? "opacity-100" : "opacity-70",
         )}
-      />
+      >
+        {icon}
+      </span>
       <p className="text-sm text-muted">{label}</p>
       <p className="mt-3 text-3xl font-bold tracking-tight text-ink">{value}</p>
       {delta && (

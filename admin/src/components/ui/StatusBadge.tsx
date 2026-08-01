@@ -22,6 +22,9 @@ const MAP: Record<string, { tone: Tone; label: string }> = {
   PENDING_REVIEW: { tone: "amber", label: "Pending review" },
   UNVERIFIED: { tone: "gray", label: "Unverified" },
   REJECTED: { tone: "red", label: "Rejected" },
+
+  // Payouts
+  PAID: { tone: "green", label: "Paid" },
 };
 
 export function StatusBadge({ status }: { status: string }) {

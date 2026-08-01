@@ -61,6 +61,13 @@ export const BellIcon = (p: IconProps) => (
   </Base>
 );
 
+export const WalletIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <path d="M3 10h18M16 14h2" />
+  </Base>
+);
+
 export const MenuIcon = (p: IconProps) => (
   <Base {...p}>
     <path d="M3 6h18M3 12h18M3 18h18" />
