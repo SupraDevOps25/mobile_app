@@ -3,13 +3,14 @@ import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AdminCaregiversController } from './admin-caregivers.controller';
 import { AdminCaregiversService } from './admin-caregivers.service';
+import { AdminUsersController } from './admin-users.controller';
+import { AdminUsersService } from './admin-users.service';
 
-// Admin portal API. Starts with caregiver verification (the onboarding
-// unblock) and will grow to cover families, subscriptions, package requests,
-// and visit-status overrides.
+// Admin portal API. Caregiver verification (the onboarding unblock), a user
+// search used by the notification recipient picker, and growing from there.
 @Module({
   imports: [MailModule, NotificationsModule],
-  controllers: [AdminCaregiversController],
-  providers: [AdminCaregiversService],
+  controllers: [AdminCaregiversController, AdminUsersController],
+  providers: [AdminCaregiversService, AdminUsersService],
 })
 export class AdminModule {}
