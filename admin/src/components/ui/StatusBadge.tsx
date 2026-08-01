@@ -25,6 +25,11 @@ const MAP: Record<string, { tone: Tone; label: string }> = {
 
   // Payouts
   PAID: { tone: "green", label: "Paid" },
+
+  // Visits
+  SCHEDULED: { tone: "blue", label: "Scheduled" },
+  IN_PROGRESS: { tone: "amber", label: "In progress" },
+  MISSED: { tone: "red", label: "Missed" },
 };
 
 export function StatusBadge({ status }: { status: string }) {

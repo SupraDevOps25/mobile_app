@@ -61,6 +61,13 @@ export const BellIcon = (p: IconProps) => (
   </Base>
 );
 
+export const VisitsIcon = (p: IconProps) => (
+  <Base {...p}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4" />
+  </Base>
+);
+
 export const WalletIcon = (p: IconProps) => (
   <Base {...p}>
     <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />

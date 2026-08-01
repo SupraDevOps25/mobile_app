@@ -11,6 +11,20 @@ export function formatDate(iso: string | null | undefined): string {
   });
 }
 
+// Date + time, e.g. "3 Jul 2026, 2:30 PM".
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 // Ghana cedi amount, e.g. "GHS 1,250".
 export function formatGhs(amount: number): string {
   return `GHS ${amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
