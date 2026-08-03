@@ -1,6 +1,7 @@
 import {
   AnalyticsIcon,
   BellIcon,
+  BookingsIcon,
   CaregiversIcon,
   DashboardIcon,
   FamiliesIcon,
@@ -13,6 +14,7 @@ import {
 // the sidebar and any breadcrumbs stay in sync.
 export const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: DashboardIcon },
+  { label: "Bookings", href: "/bookings", icon: BookingsIcon },
   { label: "Families", href: "/families", icon: FamiliesIcon },
   { label: "Caregivers", href: "/caregivers", icon: CaregiversIcon },
   { label: "Visits", href: "/visits", icon: VisitsIcon },

@@ -12,6 +12,7 @@ import {
   NotificationType,
   PackageType,
   PaymentStatus,
+  Role,
   Subscription,
   SubscriptionStatus,
   VisitKind,
@@ -230,7 +231,14 @@ export class SubscriptionsService {
     });
     if (!subscription) throw new NotFoundException('Subscription not found');
     if (subscription.coordinatorId !== coordinatorUserId) {
-      throw new ForbiddenException('This case is not yours to coordinate');
+      // Platform admins can manage any case; a coordinator only their own.
+      const actor = await this.prisma.user.findUnique({
+        where: { id: coordinatorUserId },
+        select: { role: true },
+      });
+      if (actor?.role !== Role.ADMIN) {
+        throw new ForbiddenException('This case is not yours to coordinate');
+      }
     }
     return subscription;
   }
