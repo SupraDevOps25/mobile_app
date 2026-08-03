@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Header,
+  Ip,
   Patch,
   Post,
   Query,
@@ -74,8 +75,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Login and receive a JWT token' })
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Ip() ip: string) {
+    return this.authService.login(dto, ip);
   }
 
   @ApiOperation({ summary: 'Request a password reset code by email/phone' })

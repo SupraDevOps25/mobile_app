@@ -30,6 +30,9 @@ const MAP: Record<string, { tone: Tone; label: string }> = {
   SCHEDULED: { tone: "blue", label: "Scheduled" },
   IN_PROGRESS: { tone: "amber", label: "In progress" },
   MISSED: { tone: "red", label: "Missed" },
+
+  // User account standing
+  BANNED: { tone: "red", label: "Banned" },
 };
 
 export function StatusBadge({ status }: { status: string }) {

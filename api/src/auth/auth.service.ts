@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '../common/uploads';
 import { MailService } from '../mail/mail.service';
@@ -276,7 +276,7 @@ export class AuthService {
     return { reset: true };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ip?: string) {
     const isEmail = dto.emailOrPhone.includes('@');
 
     const user = await this.prisma.user.findFirst({
@@ -290,11 +290,25 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.status === UserStatus.BANNED) {
+      throw new ForbiddenException(
+        'Your account has been suspended. Please contact support.',
+      );
+    }
+
     if (!user.emailVerified) {
       throw new ForbiddenException(
         'Please verify your email address before signing in',
       );
     }
+
+    // Record the successful login for admin oversight (best-effort).
+    await this.prisma.user
+      .update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date(), lastLoginIp: ip ?? null },
+      })
+      .catch(() => undefined);
 
     return this.signToken(user.id, user.email, user.role, user.firstName);
   }

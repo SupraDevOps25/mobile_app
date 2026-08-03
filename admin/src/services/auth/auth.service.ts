@@ -7,7 +7,38 @@ interface LoginResponse {
   accessToken: string;
 }
 
+export interface AdminProfile {
+  id: string;
+  email: string;
+  phone: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  photoUrl: string | null;
+  createdAt: string;
+}
+
+export interface UpdateProfileInput {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export const authService = {
   login: (input: LoginInput) =>
     http.post<LoginResponse>("/auth/login", input, false),
+
+  profile: (signal?: AbortSignal) =>
+    http.get<AdminProfile>("/auth/profile", signal),
+
+  updateProfile: (input: UpdateProfileInput) =>
+    http.patch<AdminProfile>("/auth/profile", input),
+
+  changePassword: (input: ChangePasswordInput) =>
+    http.patch<{ changed: boolean }>("/auth/change-password", input),
 };

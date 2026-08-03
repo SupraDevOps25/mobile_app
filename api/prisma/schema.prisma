@@ -15,6 +15,11 @@ enum Role {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -167,6 +172,14 @@ model User {
   lastName      String
   role          Role
   emailVerified Boolean  @default(false)
+  // Account standing. BANNED accounts can't log in and are rejected on every
+  // authenticated request.
+  status        UserStatus @default(ACTIVE)
+  banReason     String?
+  bannedAt      DateTime?
+  // Last successful login — captured for admin oversight/security.
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
   // Outbound notification channels (the in-app inbox is always on).
   notifyPush    Boolean  @default(true)
   notifySms     Boolean  @default(true)
