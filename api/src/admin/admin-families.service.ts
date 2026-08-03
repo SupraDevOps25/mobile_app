@@ -69,7 +69,26 @@ export class AdminFamiliesService {
         },
         subscriptions: {
           orderBy: { createdAt: 'desc' },
-          include: { careRecipient: { select: { name: true } } },
+          include: {
+            careRecipient: { select: { name: true } },
+            assignments: {
+              orderBy: { createdAt: 'asc' },
+              include: {
+                caregiver: {
+                  select: {
+                    photoUrl: true,
+                    user: {
+                      select: {
+                        firstName: true,
+                        lastName: true,
+                        phone: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     });
@@ -113,6 +132,15 @@ export class AdminFamiliesService {
         startedAt: s.startedAt.toISOString(),
         careStartAt: s.careStartAt ? s.careStartAt.toISOString() : null,
         renewsAt: s.renewsAt ? s.renewsAt.toISOString() : null,
+        // Every nurse the system offered/assigned for this case, so the admin
+        // can see who handled it (and who declined / was replaced).
+        nurses: s.assignments.map((a) => ({
+          name: `${a.caregiver.user.firstName} ${a.caregiver.user.lastName}`.trim(),
+          phone: a.caregiver.user.phone,
+          photoUrl: a.caregiver.photoUrl,
+          role: a.role,
+          status: a.status,
+        })),
       })),
     };
   }

@@ -2,21 +2,14 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  Avatar,
-  Card,
-  CardHeader,
-  Spinner,
-  StatusBadge,
-  Table,
-  Thead,
-  Th,
-  Tbody,
-  Tr,
-  Td,
-} from "@/components/ui";
+import { Avatar, Badge, Card, Spinner, StatusBadge } from "@/components/ui";
 import { ChevronLeftIcon } from "@/components/icons";
 import { useFamily } from "@/services/families/families.queries";
+import {
+  ASSIGNMENT_STATUS_TONE,
+  ROLE_LABELS,
+  type FamilySubscription,
+} from "@/services/families/families.types";
 import { PACKAGE_TYPE_LABELS } from "@/services/packages/packages.types";
 import { formatDate, formatGhs } from "@/lib/format";
 
@@ -73,49 +66,72 @@ export default function FamilyDetailPage() {
           </dl>
         </Card>
 
-        <div className="lg:col-span-2">
-          <Card padded={false} className="overflow-hidden">
-            <div className="px-5 pt-5">
-              <CardHeader title={`Subscriptions (${family.subscriptions.length})`} />
-            </div>
-            {family.subscriptions.length === 0 ? (
-              <p className="px-5 py-12 text-center text-sm text-muted">
+        <div className="space-y-4 lg:col-span-2">
+          <h3 className="text-sm font-semibold text-ink">
+            Subscriptions ({family.subscriptions.length})
+          </h3>
+          {family.subscriptions.length === 0 ? (
+            <Card>
+              <p className="py-8 text-center text-sm text-muted">
                 This family has no subscriptions yet.
               </p>
-            ) : (
-              <Table>
-                <Thead>
-                  <Tr>
-                    <Th>Care recipient</Th>
-                    <Th>Package</Th>
-                    <Th>Coordinator</Th>
-                    <Th>Price</Th>
-                    <Th>Started</Th>
-                    <Th>Status</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {family.subscriptions.map((s) => (
-                    <Tr key={s.id}>
-                      <Td className="font-medium text-ink">{s.recipientName}</Td>
-                      <Td className="text-muted">
-                        {PACKAGE_TYPE_LABELS[s.packageType]}
-                      </Td>
-                      <Td className="text-muted">{s.coordinatorName ?? "—"}</Td>
-                      <Td className="text-muted">{formatGhs(s.priceGhs)}</Td>
-                      <Td className="text-muted">{formatDate(s.startedAt)}</Td>
-                      <Td>
-                        <StatusBadge status={s.status} />
-                      </Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            )}
-          </Card>
+            </Card>
+          ) : (
+            family.subscriptions.map((s) => (
+              <SubscriptionCard key={s.id} sub={s} />
+            ))
+          )}
         </div>
       </div>
     </>
+  );
+}
+
+function SubscriptionCard({ sub }: { sub: FamilySubscription }) {
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h4 className="font-bold text-ink">{sub.recipientName}</h4>
+            <StatusBadge status={sub.status} />
+          </div>
+          <p className="mt-0.5 text-sm text-muted">
+            {PACKAGE_TYPE_LABELS[sub.packageType]} · {formatGhs(sub.priceGhs)}/mo
+          </p>
+        </div>
+        <div className="text-right text-xs text-muted">
+          <p>Coordinator: {sub.coordinatorName ?? "—"}</p>
+          <p>Started {formatDate(sub.startedAt)}</p>
+          {sub.careStartAt && <p>Care start {formatDate(sub.careStartAt)}</p>}
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-line pt-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">
+          Care team ({sub.nurses.length})
+        </p>
+        {sub.nurses.length === 0 ? (
+          <p className="text-sm text-muted">No nurses assigned yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {sub.nurses.map((n, i) => (
+              <li key={i} className="flex items-center gap-3">
+                <Avatar name={n.name} photoUrl={n.photoUrl} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">
+                    {n.name}
+                  </p>
+                  <p className="truncate text-xs text-muted">{n.phone}</p>
+                </div>
+                <Badge tone="slate">{ROLE_LABELS[n.role]}</Badge>
+                <Badge tone={ASSIGNMENT_STATUS_TONE[n.status]}>{n.status}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Card>
   );
 }
 
