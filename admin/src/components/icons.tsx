@@ -61,6 +61,21 @@ export const BellIcon = (p: IconProps) => (
   </Base>
 );
 
+export const FamiliesIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+  </Base>
+);
+
+export const PackagesIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" />
+  </Base>
+);
+
 export const VisitsIcon = (p: IconProps) => (
   <Base {...p}>
     <rect x="3" y="4" width="18" height="18" rx="2" />

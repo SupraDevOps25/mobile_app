@@ -55,4 +55,5 @@ export const http = {
     apiFetch<T>(path, { method: "POST", body, auth }),
   patch: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: "PATCH", body }),
+  del: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
 };
