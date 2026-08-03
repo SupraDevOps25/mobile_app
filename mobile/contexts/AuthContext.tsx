@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import {
   createContext,
@@ -7,6 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Alert } from "react-native";
+import { setUnauthorizedHandler } from "@/lib/api";
 import { registerForPushToken } from "@/lib/push";
 import { notificationService } from "@/services/notification.service";
 import type { Role, User } from "@/types/auth";
@@ -98,6 +101,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // dashboard/cases from the account that just signed out).
     queryClient.clear();
   }, [queryClient]);
+
+  // Force a sign-out when an authenticated request comes back 401 — the account
+  // was banned/deleted mid-session, or the token expired. The api layer fires
+  // this once; we clear the session, explain, and send them to sign-in.
+  useEffect(() => {
+    setUnauthorizedHandler((message) => {
+      void (async () => {
+        await logout();
+        const suspended = message?.toLowerCase().includes("suspend");
+        Alert.alert(
+          suspended ? "Account suspended" : "Signed out",
+          suspended
+            ? "Your account has been suspended. Please contact support."
+            : "Your session has ended. Please sign in again.",
+        );
+        router.replace("/sign-in");
+      })();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
 
   const value = useMemo(
     () => ({ user, token, isLoading, saveSession, updateUser, logout }),
