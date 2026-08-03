@@ -7,6 +7,8 @@ import { AdminFamiliesController } from './admin-families.controller';
 import { AdminFamiliesService } from './admin-families.service';
 import { AdminPackagesController } from './admin-packages.controller';
 import { AdminPackagesService } from './admin-packages.service';
+import { AdminStatsController } from './admin-stats.controller';
+import { AdminStatsService } from './admin-stats.service';
 import { AdminSubscriptionsController } from './admin-subscriptions.controller';
 import { AdminSubscriptionsService } from './admin-subscriptions.service';
 import { AdminUsersController } from './admin-users.controller';
@@ -23,6 +25,7 @@ import { AdminVisitsService } from './admin-visits.service';
     AdminCaregiversController,
     AdminFamiliesController,
     AdminPackagesController,
+    AdminStatsController,
     AdminSubscriptionsController,
     AdminUsersController,
     AdminVisitsController,
@@ -31,6 +34,7 @@ import { AdminVisitsService } from './admin-visits.service';
     AdminCaregiversService,
     AdminFamiliesService,
     AdminPackagesService,
+    AdminStatsService,
     AdminSubscriptionsService,
     AdminUsersService,
     AdminVisitsService,
