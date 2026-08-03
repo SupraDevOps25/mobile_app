@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MailModule } from '../mail/mail.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AdminAnalyticsController } from './admin-analytics.controller';
+import { AdminAnalyticsService } from './admin-analytics.service';
 import { AdminCaregiversController } from './admin-caregivers.controller';
 import { AdminCaregiversService } from './admin-caregivers.service';
 import { AdminFamiliesController } from './admin-families.controller';
@@ -22,6 +24,7 @@ import { AdminVisitsService } from './admin-visits.service';
 @Module({
   imports: [MailModule, NotificationsModule],
   controllers: [
+    AdminAnalyticsController,
     AdminCaregiversController,
     AdminFamiliesController,
     AdminPackagesController,
@@ -31,6 +34,7 @@ import { AdminVisitsService } from './admin-visits.service';
     AdminVisitsController,
   ],
   providers: [
+    AdminAnalyticsService,
     AdminCaregiversService,
     AdminFamiliesService,
     AdminPackagesService,

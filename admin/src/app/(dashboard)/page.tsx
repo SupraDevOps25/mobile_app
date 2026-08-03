@@ -9,6 +9,16 @@ import {
   StatCard,
   StatusBadge,
 } from "@/components/ui";
+import {
+  FiCalendar,
+  FiClock,
+  FiDollarSign,
+  FiHeadphones,
+  FiHeart,
+  FiRepeat,
+  FiUserCheck,
+  FiUsers,
+} from "react-icons/fi";
 import { useDashboardStats } from "@/services/stats/stats.queries";
 import { PACKAGE_TYPE_LABELS } from "@/services/packages/packages.types";
 import { formatDate, formatGhs } from "@/lib/format";
@@ -43,21 +53,25 @@ export default function DashboardPage() {
               label="Bookings this month"
               value={String(data.bookingsThisMonth)}
               tint="blue"
+              icon={<FiCalendar className="size-5" />}
             />
             <StatCard
               label="Active caregivers"
               value={String(data.activeCaregivers)}
               tint="green"
+              icon={<FiUserCheck className="size-5" />}
             />
             <StatCard
               label="Revenue this month"
               value={formatGhs(data.revenueThisMonthGhs)}
               tint="violet"
+              icon={<FiDollarSign className="size-5" />}
             />
             <StatCard
               label="Pending approvals"
               value={String(data.pendingApprovals)}
               tint="amber"
+              icon={<FiClock className="size-5" />}
             />
           </div>
 
@@ -66,21 +80,25 @@ export default function DashboardPage() {
               label="Families"
               value={String(data.totals.families)}
               tint="blue"
+              icon={<FiUsers className="size-5" />}
             />
             <StatCard
               label="Nurses"
               value={String(data.totals.caregivers)}
               tint="green"
+              icon={<FiHeart className="size-5" />}
             />
             <StatCard
               label="Coordinators"
               value={String(data.totals.coordinators)}
               tint="violet"
+              icon={<FiHeadphones className="size-5" />}
             />
             <StatCard
               label="Active subscriptions"
               value={String(data.totals.activeSubscriptions)}
               tint="amber"
+              icon={<FiRepeat className="size-5" />}
             />
           </div>
 
