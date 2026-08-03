@@ -9,10 +9,14 @@ import {
   Button,
   Card,
   CardHeader,
+  Field,
+  Input,
+  Modal,
   Spinner,
   StatusBadge,
 } from "@/components/ui";
-import { ChevronLeftIcon } from "@/components/icons";
+import { ChevronLeftIcon, SearchIcon } from "@/components/icons";
+import { useCaregivers } from "@/services/caregivers/caregivers.queries";
 import {
   useCase,
   useCaseActions,
@@ -30,9 +34,10 @@ import {
 } from "@/services/packages/packages.types";
 import type {
   CaseDetail,
+  CasePayment,
   CaseVisit,
 } from "@/services/subscriptions/subscriptions.types";
-import { formatDate, formatDateTime, formatGhs } from "@/lib/format";
+import { formatDate, formatDateTime, formatGhs, formatPeriod } from "@/lib/format";
 
 const inputClass =
   "rounded-field bg-field px-2.5 py-1.5 text-sm text-ink border border-transparent focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/15";
@@ -97,6 +102,7 @@ export default function CaseDetailPage() {
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <JourneyActions caseData={c} />
+          <PaymentsCard payments={c.payments} priceGhs={c.priceGhs} />
           <VisitsCard visits={c.visits} />
         </div>
 
@@ -123,7 +129,8 @@ function JourneyActions({ caseData: c }: { caseData: CaseDetail }) {
     a.setCareStart.isPending ||
     a.changePackage.isPending ||
     a.rematch.isPending ||
-    a.activate.isPending;
+    a.activate.isPending ||
+    a.cancel.isPending;
 
   const err =
     a.setAssessment.error ??
@@ -131,7 +138,8 @@ function JourneyActions({ caseData: c }: { caseData: CaseDetail }) {
     a.setCareStart.error ??
     a.changePackage.error ??
     a.rematch.error ??
-    a.activate.error;
+    a.activate.error ??
+    a.cancel.error;
 
   return (
     <Card>
@@ -256,6 +264,22 @@ function JourneyActions({ caseData: c }: { caseData: CaseDetail }) {
             onClick={() => a.activate.mutate()}
           >
             Activate care
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={busy || c.status === "CANCELLED"}
+            loading={a.cancel.isPending}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Force-cancel this case? The subscription will be marked CANCELLED.",
+                )
+              )
+                a.cancel.mutate();
+            }}
+          >
+            {c.status === "CANCELLED" ? "Cancelled" : "Cancel case"}
           </Button>
         </div>
       </div>
@@ -393,11 +417,128 @@ function Vital({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ── Billing / payments ────────────────────────────────────────────────────────
+const PAYMENT_TONE: Record<CasePayment["status"], "green" | "amber" | "red" | "gray"> =
+  {
+    SUCCESS: "green",
+    PENDING: "amber",
+    FAILED: "red",
+    ABANDONED: "gray",
+  };
+
+function PaymentsCard({
+  payments,
+  priceGhs,
+}: {
+  payments: CasePayment[];
+  priceGhs: number;
+}) {
+  const paid = payments.filter((p) => p.status === "SUCCESS").length;
+  const outstanding = payments
+    .filter((p) => p.status !== "SUCCESS")
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  return (
+    <Card padded={false} className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5">
+        <CardHeader title={`Billing (${payments.length} month${payments.length === 1 ? "" : "s"})`} />
+        <p className="pb-3 text-sm text-muted">
+          {paid} paid · {formatGhs(outstanding)} outstanding · {formatGhs(priceGhs)}
+          /mo
+        </p>
+      </div>
+      {payments.length === 0 ? (
+        <p className="px-5 py-8 text-center text-sm text-muted">
+          No invoices yet — the coordinator issues these month by month.
+        </p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {payments.map((p) => (
+            <li
+              key={p.id}
+              className="flex items-center justify-between gap-3 px-5 py-3"
+            >
+              <div>
+                <p className="text-sm font-medium text-ink">
+                  {formatPeriod(p.billingPeriodStart, p.billingPeriodEnd)}
+                </p>
+                <p className="text-xs text-muted">
+                  {formatGhs(p.amount)}
+                  {p.paidAt ? ` · paid ${formatDate(p.paidAt)}` : ""}
+                </p>
+              </div>
+              <Badge tone={PAYMENT_TONE[p.status]}>
+                {p.status === "SUCCESS" ? "Paid" : p.status.toLowerCase()}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 // ── Right column cards ────────────────────────────────────────────────────────
 function RecipientCard({ caseData: c }: { caseData: CaseDetail }) {
+  const actions = useCaseActions(c.id);
+  const [open, setOpen] = useState(false);
+  const r = c.recipient;
+  const [form, setForm] = useState({
+    name: r.name,
+    age: String(r.age),
+    gender: r.gender,
+    relationToAccount: r.relationToAccount,
+    area: r.area,
+    city: r.city,
+    address: r.address,
+    conditions: r.conditions.join(", "),
+    basicCareNeeds: r.basicCareNeeds,
+  });
+
+  function openEdit() {
+    setForm({
+      name: r.name,
+      age: String(r.age),
+      gender: r.gender,
+      relationToAccount: r.relationToAccount,
+      area: r.area,
+      city: r.city,
+      address: r.address,
+      conditions: r.conditions.join(", "),
+      basicCareNeeds: r.basicCareNeeds,
+    });
+    actions.updateRecipient.reset();
+    setOpen(true);
+  }
+
+  async function save() {
+    await actions.updateRecipient
+      .mutateAsync({
+        name: form.name.trim(),
+        age: Number(form.age) || 0,
+        gender: form.gender,
+        relationToAccount: form.relationToAccount.trim(),
+        area: form.area.trim(),
+        city: form.city.trim(),
+        address: form.address.trim(),
+        conditions: form.conditions
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
+        basicCareNeeds: form.basicCareNeeds.trim(),
+      })
+      .then(() => setOpen(false))
+      .catch(() => undefined);
+  }
+
   return (
     <Card>
-      <CardHeader title="Care recipient" />
+      <div className="mb-3 flex items-center justify-between">
+        <CardHeader title="Care recipient" />
+        <Button size="sm" variant="subtle" onClick={openEdit}>
+          Edit
+        </Button>
+      </div>
       <dl className="space-y-3 text-sm">
         <Fact label="Name" value={c.recipient.name} />
         <Fact label="Age" value={String(c.recipient.age)} />
@@ -434,6 +575,104 @@ function RecipientCard({ caseData: c }: { caseData: CaseDetail }) {
           <p className="text-sm text-muted">{c.recipient.basicCareNeeds}</p>
         </div>
       )}
+
+      <Modal open={open} onClose={() => setOpen(false)} title="Edit care recipient">
+        {actions.updateRecipient.isError && (
+          <p className="mb-4 rounded-field bg-red-50 px-3 py-2 text-sm text-red-600">
+            {actions.updateRecipient.error instanceof Error
+              ? actions.updateRecipient.error.message
+              : "Couldn't save."}
+          </p>
+        )}
+        <div className="space-y-4">
+          <Field label="Name">
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Age">
+              <Input
+                type="number"
+                value={form.age}
+                onChange={(e) => setForm({ ...form, age: e.target.value })}
+              />
+            </Field>
+            <Field label="Gender">
+              <select
+                value={form.gender}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    gender: e.target.value as "MALE" | "FEMALE",
+                  })
+                }
+                className="w-full rounded-field bg-field px-3.5 py-2.5 text-sm text-ink border border-transparent focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/15"
+              >
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+              </select>
+            </Field>
+          </div>
+          <Field label="Relation to account">
+            <Input
+              value={form.relationToAccount}
+              onChange={(e) =>
+                setForm({ ...form, relationToAccount: e.target.value })
+              }
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Area">
+              <Input
+                value={form.area}
+                onChange={(e) => setForm({ ...form, area: e.target.value })}
+              />
+            </Field>
+            <Field label="City">
+              <Input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+              />
+            </Field>
+          </div>
+          <Field label="Address">
+            <Input
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+            />
+          </Field>
+          <Field label="Conditions (comma separated)">
+            <Input
+              value={form.conditions}
+              onChange={(e) => setForm({ ...form, conditions: e.target.value })}
+            />
+          </Field>
+          <Field label="Care needs">
+            <textarea
+              rows={3}
+              value={form.basicCareNeeds}
+              onChange={(e) =>
+                setForm({ ...form, basicCareNeeds: e.target.value })
+              }
+              className="w-full rounded-field bg-field px-3.5 py-2.5 text-sm text-ink border border-transparent focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/15"
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              disabled={actions.updateRecipient.isPending}
+            >
+              Cancel
+            </Button>
+            <Button onClick={save} loading={actions.updateRecipient.isPending}>
+              Save changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Card>
   );
 }
@@ -471,9 +710,46 @@ function PackageCard({ caseData: c }: { caseData: CaseDetail }) {
 }
 
 function TeamCard({ caseData: c }: { caseData: CaseDetail }) {
+  const actions = useCaseActions(c.id);
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const { data: caregivers, isLoading } = useCaregivers();
+
+  const verified = (caregivers ?? []).filter(
+    (cg) => cg.verificationStatus === "VERIFIED",
+  );
+  const q = term.trim().toLowerCase();
+  const results = q
+    ? verified.filter(
+        (cg) =>
+          cg.name.toLowerCase().includes(q) ||
+          cg.email.toLowerCase().includes(q),
+      )
+    : verified;
+
+  async function assign(caregiverId: string) {
+    await actions.reassignNurse
+      .mutateAsync(caregiverId)
+      .then(() => setOpen(false))
+      .catch(() => undefined);
+  }
+
   return (
     <Card>
-      <CardHeader title={`Care team (${c.team.length})`} />
+      <div className="mb-1 flex items-center justify-between">
+        <CardHeader title={`Care team (${c.team.length})`} />
+        <Button
+          size="sm"
+          variant="subtle"
+          onClick={() => {
+            setTerm("");
+            actions.reassignNurse.reset();
+            setOpen(true);
+          }}
+        >
+          Assign nurse
+        </Button>
+      </div>
       <p className="mb-3 text-xs text-muted">
         Coordinator: {c.coordinator?.name ?? "—"}
         {c.coordinator?.phone ? ` · ${c.coordinator.phone}` : ""}
@@ -495,6 +771,66 @@ function TeamCard({ caseData: c }: { caseData: CaseDetail }) {
           ))}
         </ul>
       )}
+
+      <Modal open={open} onClose={() => setOpen(false)} title="Assign a nurse (lead)">
+        <p className="mb-3 text-sm text-muted">
+          Assigns a verified nurse as the lead and moves upcoming visits to them.
+        </p>
+        {actions.reassignNurse.isError && (
+          <p className="mb-3 rounded-field bg-red-50 px-3 py-2 text-sm text-red-600">
+            {actions.reassignNurse.error instanceof Error
+              ? actions.reassignNurse.error.message
+              : "Couldn't assign that nurse."}
+          </p>
+        )}
+        <div className="mb-3 flex items-center gap-2 rounded-field bg-field px-3 py-2">
+          <SearchIcon size={16} className="shrink-0 text-faint" />
+          <input
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder="Search verified nurses…"
+            className="w-full bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
+          />
+        </div>
+        {isLoading ? (
+          <div className="flex justify-center py-8 text-brand">
+            <Spinner size={22} />
+          </div>
+        ) : results.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted">
+            No verified nurses match.
+          </p>
+        ) : (
+          <ul className="max-h-72 divide-y divide-line overflow-y-auto">
+            {results.map((cg) => (
+              <li
+                key={cg.id}
+                className="flex items-center gap-3 py-2.5"
+              >
+                <Avatar name={cg.name} photoUrl={cg.photoUrl} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">
+                    {cg.name}
+                  </p>
+                  <p className="truncate text-xs text-muted">{cg.email}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  loading={
+                    actions.reassignNurse.isPending &&
+                    actions.reassignNurse.variables === cg.id
+                  }
+                  disabled={actions.reassignNurse.isPending}
+                  onClick={() => assign(cg.id)}
+                >
+                  Assign
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </Card>
   );
 }

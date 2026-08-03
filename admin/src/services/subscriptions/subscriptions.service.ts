@@ -4,6 +4,7 @@ import type {
   BookingListItem,
   CaseDetail,
   SubscriptionStatus,
+  UpdateRecipientInput,
 } from "./subscriptions.types";
 
 // Admin bookings/cases. Reads come from the admin module; the adjust actions
@@ -40,4 +41,13 @@ export const subscriptionsService = {
   rematch: (id: string) => http.post(`/subscriptions/${id}/rematch`),
 
   activate: (id: string) => http.post(`/subscriptions/${id}/activate`),
+
+  // ── Admin-only overrides ──
+  cancel: (id: string) => http.post(`/admin/subscriptions/${id}/cancel`),
+
+  updateRecipient: (id: string, input: UpdateRecipientInput) =>
+    http.patch(`/admin/subscriptions/${id}/recipient`, input),
+
+  reassignNurse: (id: string, caregiverId: string) =>
+    http.post(`/admin/subscriptions/${id}/reassign-nurse`, { caregiverId }),
 };

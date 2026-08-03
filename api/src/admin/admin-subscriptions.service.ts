@@ -1,15 +1,32 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { SubscriptionStatus } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AssignmentRole,
+  AssignmentStatus,
+  NotificationType,
+  SubscriptionStatus,
+  VerificationStatus,
+  VisitStatus,
+} from '@prisma/client';
 import { coordinatorFeeGhs } from '../common/economics';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReassignNurseDto } from './dto/reassign-nurse.dto';
+import { UpdateRecipientDto } from './dto/update-recipient.dto';
 
-// Admin read views over subscriptions (the "cases"/"bookings"). Full case detail
-// assembles the whole journey: team matching, assessment, activation, and every
-// visit with its nurse log. Mutations reuse the coordinator endpoints (now
-// admin-capable), so this service stays read-only.
+// Admin read views + overrides over subscriptions (the "cases"/"bookings").
+// Full case detail assembles the whole journey; most adjustments reuse the
+// coordinator endpoints (now admin-capable), with the admin-only overrides
+// (cancel, edit recipient, reassign a specific nurse) handled here.
 @Injectable()
 export class AdminSubscriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async list(status?: SubscriptionStatus, q?: string) {
     const term = (q ?? '').trim();
@@ -121,6 +138,7 @@ export class AdminSubscriptionsService {
             log: true,
           },
         },
+        payments: { orderBy: { billingPeriodStart: 'desc' } },
       },
     });
     if (!s) throw new NotFoundException('Subscription not found');
@@ -176,6 +194,16 @@ export class AdminSubscriptionsService {
         status: a.status,
         offeredAt: a.createdAt.toISOString(),
       })),
+      // Billing history — one row per month, so an admin can see whether the
+      // family has paid for the full duration of the subscription.
+      payments: s.payments.map((p) => ({
+        id: p.id,
+        amount: p.amount.toNumber(),
+        status: p.status,
+        billingPeriodStart: p.billingPeriodStart.toISOString(),
+        billingPeriodEnd: p.billingPeriodEnd.toISOString(),
+        paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+      })),
       visits: s.visits.map((v) => ({
         id: v.id,
         kind: v.kind,
@@ -208,5 +236,120 @@ export class AdminSubscriptionsService {
           : null,
       })),
     };
+  }
+
+  // ── Admin-only overrides ────────────────────────────────────────────────────
+
+  /** Force-cancel a case regardless of who owns it. */
+  async cancel(id: string) {
+    const sub = await this.prisma.subscription.findUnique({ where: { id } });
+    if (!sub) throw new NotFoundException('Subscription not found');
+    if (sub.status === SubscriptionStatus.CANCELLED) {
+      throw new BadRequestException('This case is already cancelled.');
+    }
+    await this.prisma.subscription.update({
+      where: { id },
+      data: { status: SubscriptionStatus.CANCELLED },
+    });
+    return { id, status: SubscriptionStatus.CANCELLED };
+  }
+
+  /** Edit the case's care recipient (only the fields provided). */
+  async updateRecipient(id: string, dto: UpdateRecipientDto) {
+    const sub = await this.prisma.subscription.findUnique({
+      where: { id },
+      select: { careRecipientId: true },
+    });
+    if (!sub) throw new NotFoundException('Subscription not found');
+
+    const updated = await this.prisma.careRecipient.update({
+      where: { id: sub.careRecipientId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.age !== undefined && { age: dto.age }),
+        ...(dto.gender !== undefined && { gender: dto.gender }),
+        ...(dto.relationToAccount !== undefined && {
+          relationToAccount: dto.relationToAccount.trim(),
+        }),
+        ...(dto.area !== undefined && { area: dto.area.trim() }),
+        ...(dto.city !== undefined && { city: dto.city.trim() }),
+        ...(dto.address !== undefined && { address: dto.address.trim() }),
+        ...(dto.conditions !== undefined && {
+          conditions: dto.conditions.map((c) => c.trim()).filter(Boolean),
+        }),
+        ...(dto.basicCareNeeds !== undefined && {
+          basicCareNeeds: dto.basicCareNeeds.trim(),
+        }),
+      },
+    });
+    return { id: updated.id, name: updated.name };
+  }
+
+  /**
+   * Manually put a specific (verified) nurse on a case. Swaps the nurse in the
+   * given slot (default PRIMARY) and moves this case's still-scheduled visits to
+   * them, so the change takes effect going forward. Past visits keep their nurse.
+   */
+  async reassignNurse(id: string, dto: ReassignNurseDto) {
+    const role = dto.role ?? AssignmentRole.PRIMARY;
+
+    const sub = await this.prisma.subscription.findUnique({ where: { id } });
+    if (!sub) throw new NotFoundException('Subscription not found');
+
+    const caregiver = await this.prisma.caregiverProfile.findUnique({
+      where: { id: dto.caregiverId },
+      include: { user: { select: { id: true } } },
+    });
+    if (!caregiver) throw new NotFoundException('Nurse not found');
+    if (
+      !caregiver.licenseVerified ||
+      caregiver.verificationStatus !== VerificationStatus.VERIFIED
+    ) {
+      throw new BadRequestException(
+        'That nurse is not verified, so they can’t be assigned.',
+      );
+    }
+
+    // Reuse the unique (subscription, role) slot: update it in place, or create
+    // it if this case never had a nurse in that slot.
+    const existing = await this.prisma.assignment.findUnique({
+      where: { subscriptionId_role: { subscriptionId: id, role } },
+    });
+    const assignment = existing
+      ? await this.prisma.assignment.update({
+          where: { id: existing.id },
+          data: {
+            caregiverId: caregiver.id,
+            status: AssignmentStatus.ACTIVE,
+            respondedAt: new Date(),
+          },
+        })
+      : await this.prisma.assignment.create({
+          data: {
+            subscriptionId: id,
+            caregiverId: caregiver.id,
+            role,
+            status: AssignmentStatus.ACTIVE,
+            respondedAt: new Date(),
+          },
+        });
+
+    // Move upcoming (still-scheduled) visits to the new nurse.
+    await this.prisma.visit.updateMany({
+      where: { subscriptionId: id, status: VisitStatus.SCHEDULED },
+      data: { caregiverId: caregiver.id, assignmentId: assignment.id },
+    });
+
+    // Let the nurse know (best-effort).
+    await this.notifications
+      .notify({
+        userId: caregiver.user.id,
+        type: NotificationType.ASSIGNMENT_ACCEPTED,
+        title: 'You’ve been assigned to a case',
+        body: 'An administrator assigned you to a care case. Check your visits for the schedule.',
+      })
+      .catch(() => undefined);
+
+    return { assignmentId: assignment.id, caregiverId: caregiver.id, role };
   }
 }

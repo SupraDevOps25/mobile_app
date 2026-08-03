@@ -8,7 +8,10 @@ import {
 } from "@tanstack/react-query";
 import { subscriptionsService } from "./subscriptions.service";
 import type { PackageType } from "@/services/packages/packages.types";
-import type { SubscriptionStatus } from "./subscriptions.types";
+import type {
+  SubscriptionStatus,
+  UpdateRecipientInput,
+} from "./subscriptions.types";
 
 export const bookingKeys = {
   all: ["subscriptions"] as const,
@@ -71,6 +74,20 @@ export function useCaseActions(id: string) {
     mutationFn: () => subscriptionsService.activate(id),
     onSuccess: invalidate,
   });
+  const cancel = useMutation({
+    mutationFn: () => subscriptionsService.cancel(id),
+    onSuccess: invalidate,
+  });
+  const updateRecipient = useMutation({
+    mutationFn: (input: UpdateRecipientInput) =>
+      subscriptionsService.updateRecipient(id, input),
+    onSuccess: invalidate,
+  });
+  const reassignNurse = useMutation({
+    mutationFn: (caregiverId: string) =>
+      subscriptionsService.reassignNurse(id, caregiverId),
+    onSuccess: invalidate,
+  });
 
   return {
     setAssessment,
@@ -79,5 +96,8 @@ export function useCaseActions(id: string) {
     changePackage,
     rematch,
     activate,
+    cancel,
+    updateRecipient,
+    reassignNurse,
   };
 }

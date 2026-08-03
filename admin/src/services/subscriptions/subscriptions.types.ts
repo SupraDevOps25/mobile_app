@@ -68,6 +68,29 @@ export interface CaseTeamMember {
   offeredAt: string;
 }
 
+export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "ABANDONED";
+
+export interface CasePayment {
+  id: string;
+  amount: number;
+  status: PaymentStatus;
+  billingPeriodStart: string;
+  billingPeriodEnd: string;
+  paidAt: string | null;
+}
+
+export interface UpdateRecipientInput {
+  name?: string;
+  age?: number;
+  gender?: "MALE" | "FEMALE";
+  relationToAccount?: string;
+  area?: string;
+  city?: string;
+  address?: string;
+  conditions?: string[];
+  basicCareNeeds?: string;
+}
+
 export interface CaseRecipient {
   name: string;
   age: number;
@@ -98,5 +121,6 @@ export interface CaseDetail {
   recipient: CaseRecipient;
   coordinator: { name: string; phone: string } | null;
   team: CaseTeamMember[];
+  payments: CasePayment[];
   visits: CaseVisit[];
 }
