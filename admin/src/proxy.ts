@@ -40,7 +40,11 @@ export function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-// Run on everything except Next internals and static assets.
+// Run on everything except Next internals and static assets. Image files in
+// /public (png/jpg/svg/…) must be excluded too, or the proxy redirects the
+// asset request to /login — e.g. the logo 307s and never renders.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };
