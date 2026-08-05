@@ -31,7 +31,7 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-md rounded-card border border-line bg-white p-8 shadow-[0_10px_40px_rgba(15,23,42,0.08)]">
         <div className="flex flex-col items-center text-center">
-          <Logo variant="light" size="lg" />
+          <Logo variant="light" size="md" />
           <Badge tone="green" dot className="mt-4">
             Admin Portal
           </Badge>
