@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import {
+  Avatar,
   Card,
-  CardHeader,
   PageHeader,
   Spinner,
   StatCard,
@@ -104,8 +104,9 @@ export default function DashboardPage() {
 
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
             <Card padded={false} className="overflow-hidden lg:col-span-2">
-              <div className="px-5 pt-5">
-                <CardHeader title="Recent bookings" />
+              <div className="flex items-center gap-2 border-b border-line bg-blue-50 px-5 py-3.5">
+                <FiCalendar className="size-4 text-blue-600" />
+                <h3 className="font-semibold text-blue-900">Recent bookings</h3>
               </div>
               {data.recentBookings.length === 0 ? (
                 <p className="px-5 py-10 text-center text-sm text-muted">
@@ -141,8 +142,11 @@ export default function DashboardPage() {
             </Card>
 
             <Card padded={false} className="overflow-hidden">
-              <div className="px-5 pt-5">
-                <CardHeader title="Pending approvals" />
+              <div className="flex items-center gap-2 border-b border-line bg-amber-50 px-5 py-3.5">
+                <FiClock className="size-4 text-amber-600" />
+                <h3 className="font-semibold text-amber-900">
+                  Pending approvals
+                </h3>
               </div>
               {data.pendingCaregivers.length === 0 ? (
                 <p className="px-5 py-10 text-center text-sm text-muted">
@@ -154,9 +158,10 @@ export default function DashboardPage() {
                     <li key={c.id}>
                       <Link
                         href={`/caregivers/${c.id}`}
-                        className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-page"
+                        className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-page"
                       >
-                        <p className="truncate text-sm font-medium text-ink">
+                        <Avatar name={c.name} photoUrl={c.photoUrl} size="sm" />
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                           {c.name}
                         </p>
                         <span className="shrink-0 text-xs text-muted">
