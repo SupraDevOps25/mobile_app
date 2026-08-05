@@ -7,6 +7,8 @@ import { userFromToken } from "@/lib/auth-user";
 import { authService } from "./auth.service";
 import type {
   ChangePasswordInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
   UpdateProfileInput,
 } from "./auth.service";
 import type { LoginInput } from "@/schemas/auth/login.schema";
@@ -31,6 +33,19 @@ export function useLoginMutation() {
       signIn(accessToken);
       router.replace("/");
     },
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (input: ForgotPasswordInput) =>
+      authService.forgotPassword(input),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (input: ResetPasswordInput) => authService.resetPassword(input),
   });
 }
 

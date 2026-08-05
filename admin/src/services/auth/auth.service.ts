@@ -29,9 +29,27 @@ export interface ChangePasswordInput {
   newPassword: string;
 }
 
+export interface ForgotPasswordInput {
+  emailOrPhone: string;
+}
+
+export interface ResetPasswordInput {
+  emailOrPhone: string;
+  code: string;
+  newPassword: string;
+}
+
 export const authService = {
   login: (input: LoginInput) =>
     http.post<LoginResponse>("/auth/login", input, false),
+
+  // Public reset flow. forgot emails a 6-digit code (always resolves
+  // generically); reset sets the new password using that code.
+  forgotPassword: (input: ForgotPasswordInput) =>
+    http.post<{ message: string }>("/auth/forgot-password", input, false),
+
+  resetPassword: (input: ResetPasswordInput) =>
+    http.post<{ reset: boolean }>("/auth/reset-password", input, false),
 
   profile: (signal?: AbortSignal) =>
     http.get<AdminProfile>("/auth/profile", signal),
