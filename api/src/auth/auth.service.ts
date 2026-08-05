@@ -33,6 +33,14 @@ export interface UploadedFile {
 
 const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 
+// Human-readable role names for admin alert emails.
+const ROLE_LABEL: Record<Role, string> = {
+  [Role.FAMILY]: 'Family',
+  [Role.CAREGIVER]: 'Nurse',
+  [Role.CARE_COORDINATOR]: 'Care Coordinator',
+  [Role.ADMIN]: 'Admin',
+};
+
 @Injectable()
 export class AuthService {
   // Wrong password-reset code guesses allowed before the code is invalidated.
@@ -114,6 +122,19 @@ export class AuthService {
     await this.mail.sendVerificationEmail(user.email, verification.token, {
       firstName: user.firstName,
       role: user.role,
+    });
+
+    // Alert the admin team that a new account was created (not persisted).
+    await this.mail.sendAdminAlertEmail({
+      eyebrow: 'New registration',
+      title: 'A new account was created',
+      intro: `A new ${ROLE_LABEL[user.role]} just registered on Supracarer.`,
+      rows: [
+        { label: 'Name', value: `${user.firstName} ${user.lastName}`.trim() },
+        { label: 'Role', value: ROLE_LABEL[user.role] },
+        { label: 'Email', value: user.email },
+        { label: 'Phone', value: user.phone },
+      ],
     });
 
     return { message: `Verification email sent to ${user.email}` };
