@@ -24,6 +24,7 @@ export interface DashboardStats {
   pendingCaregivers: {
     id: string;
     name: string;
+    photoUrl: string | null;
     submittedAt: string;
   }[];
 }

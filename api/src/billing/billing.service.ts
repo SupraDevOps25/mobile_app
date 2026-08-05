@@ -331,6 +331,38 @@ export class BillingService {
       title: 'Renew your care package?',
       body: 'Your care month is complete. Open the app to renew the same package or end the service.',
     });
+
+    // Alert admin that a family paid for their subscription month (email only).
+    const ctx = await this.prisma.subscription.findUnique({
+      where: { id: payment.subscriptionId },
+      select: {
+        packageType: true,
+        careRecipient: { select: { name: true } },
+        family: {
+          select: { user: { select: { firstName: true, lastName: true } } },
+        },
+      },
+    });
+    const payerName = ctx
+      ? `${ctx.family.user.firstName} ${ctx.family.user.lastName}`.trim()
+      : 'A family';
+    await this.mail.sendAdminAlertEmail({
+      eyebrow: 'Payment received',
+      title: 'A family paid for their subscription',
+      intro: `${payerName} paid GHS ${payment.amount.toNumber().toLocaleString()} for their care month.`,
+      rows: [
+        { label: 'Family', value: payerName },
+        ...(ctx?.careRecipient
+          ? [{ label: 'Care recipient', value: ctx.careRecipient.name }]
+          : []),
+        {
+          label: 'Amount',
+          value: `GHS ${payment.amount.toNumber().toLocaleString()}`,
+        },
+        ...(ctx ? [{ label: 'Package', value: ctx.packageType }] : []),
+      ],
+    });
+
     this.logger.log(`Invoice ${payment.id} marked paid`);
   }
 

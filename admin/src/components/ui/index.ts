@@ -6,6 +6,7 @@ export { Card, CardHeader } from "./Card";
 export { Field, Input } from "./Field";
 export { Modal } from "./Modal";
 export { PageHeader } from "./PageHeader";
+export { PasswordInput } from "./PasswordInput";
 export { Spinner } from "./Spinner";
 export { StatCard } from "./StatCard";
 export { StatusBadge } from "./StatusBadge";

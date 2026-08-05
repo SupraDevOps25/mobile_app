@@ -183,6 +183,76 @@ export class MailService {
     });
   }
 
+  /**
+   * Fire-and-forget alert to the admin inbox for an important platform event
+   * (new signup, booking, care-team match, first visit, payment, renewal).
+   * These are NOT persisted anywhere — email is the whole delivery. Never
+   * throws: a failed admin alert must not break the user action that triggered
+   * it, so any send error is logged and swallowed.
+   */
+  async sendAdminAlertEmail(params: {
+    eyebrow: string;
+    title: string;
+    intro: string;
+    rows: { label: string; value: string }[];
+  }): Promise<void> {
+    const adminEmail = process.env.ADMIN_EMAIL ?? this.supportEmail;
+    try {
+      await this.sendMail({
+        to: adminEmail,
+        subject: `${params.eyebrow} — Supracarer`,
+        html: this.buildAdminAlertHtml(params),
+        text: [
+          params.intro,
+          '',
+          ...params.rows.map((r) => `${r.label}: ${r.value}`),
+          '',
+          'Open the Supracarer admin portal for full details.',
+        ].join('\n'),
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Admin alert "${params.eyebrow}" failed to send: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  private buildAdminAlertHtml(params: {
+    eyebrow: string;
+    title: string;
+    intro: string;
+    rows: { label: string; value: string }[];
+  }): string {
+    const rows = params.rows
+      .map(
+        (r) => `
+        <tr>
+          <td style="padding:11px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;vertical-align:top">${this.escapeHtml(r.label)}</td>
+          <td style="padding:11px 16px;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:15px;line-height:1.5">${this.escapeHtml(r.value)}</td>
+        </tr>`,
+      )
+      .join('');
+
+    return this.emailShell({
+      preview: params.title,
+      eyebrow: params.eyebrow,
+      title: params.title,
+      body: `
+        <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 18px">
+          ${this.escapeHtml(params.intro)}
+        </p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden;margin:0">
+          ${rows}
+        </table>
+        <p style="color:#64748b;font-size:13px;line-height:1.6;margin:18px 0 0">
+          Open the Supracarer admin portal for full details.
+        </p>
+      `,
+    });
+  }
+
   private buildPackageRequestHtml(params: {
     familyName: string;
     contact: string;

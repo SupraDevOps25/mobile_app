@@ -26,6 +26,7 @@ import {
   reliabilityPercent,
 } from '../common/reliability';
 import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
+import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReviewsService } from '../reviews/reviews.service';
@@ -59,6 +60,7 @@ export class SubscriptionsService {
     private readonly assignments: AssignmentsService,
     private readonly notifications: NotificationsService,
     private readonly reviews: ReviewsService,
+    private readonly mail: MailService,
   ) {}
 
   /** Resolve the FamilyProfile id for an authenticated user. */
@@ -94,7 +96,10 @@ export class SubscriptionsService {
           priceGhs: pkg.priceGhs, // snapshot the price at subscribe time
           renewsAt: addMonths(new Date(), 1),
         },
-        include: { careRecipient: true },
+        include: {
+          careRecipient: true,
+          family: { include: { user: true } },
+        },
       });
     });
 
@@ -110,6 +115,25 @@ export class SubscriptionsService {
         }`,
       );
     }
+
+    // Alert admin of the new booking (not persisted; email only).
+    const familyName =
+      `${subscription.family.user.firstName} ${subscription.family.user.lastName}`.trim();
+    await this.mail.sendAdminAlertEmail({
+      eyebrow: 'New booking',
+      title: 'A family booked a care package',
+      intro: `${familyName} booked the ${subscription.packageType} package for ${subscription.careRecipient.name}.`,
+      rows: [
+        { label: 'Family', value: familyName },
+        { label: 'Care recipient', value: subscription.careRecipient.name },
+        { label: 'Package', value: subscription.packageType },
+        {
+          label: 'Price',
+          value: `GHS ${subscription.priceGhs.toNumber().toLocaleString()}`,
+        },
+        { label: 'Area', value: subscription.careRecipient.area || '—' },
+      ],
+    });
 
     return this.toResponse(subscription);
   }
@@ -306,7 +330,10 @@ export class SubscriptionsService {
 
     const leadProfile = await this.prisma.caregiverProfile.findUnique({
       where: { id: lead.caregiverId },
-      select: { userId: true },
+      select: {
+        userId: true,
+        user: { select: { firstName: true, lastName: true } },
+      },
     });
     if (leadProfile) {
       await this.notifications.notify({
@@ -316,6 +343,21 @@ export class SubscriptionsService {
         body: `Your initial home visit for ${updated.careRecipient.name} is set for ${when.toLocaleString()}.`,
       });
     }
+
+    // Alert admin that the coordinator scheduled the first (assessment) visit.
+    const nurseName = leadProfile
+      ? `${leadProfile.user.firstName} ${leadProfile.user.lastName}`.trim()
+      : 'the assigned nurse';
+    await this.mail.sendAdminAlertEmail({
+      eyebrow: 'First visit scheduled',
+      title: 'A coordinator scheduled the first visit',
+      intro: `The initial home visit for ${updated.careRecipient.name} has been scheduled.`,
+      rows: [
+        { label: 'Care recipient', value: updated.careRecipient.name },
+        { label: 'Nurse', value: nurseName },
+        { label: 'Scheduled for', value: when.toLocaleString() },
+      ],
+    });
 
     return this.toResponse(updated);
   }
@@ -627,7 +669,10 @@ export class SubscriptionsService {
           status: SubscriptionStatus.ACTIVE,
           renewsAt: addMonths(periodStart, 1),
         },
-        include: { careRecipient: true, family: true },
+        include: {
+          careRecipient: true,
+          family: { include: { user: true } },
+        },
       });
     });
 
@@ -636,6 +681,25 @@ export class SubscriptionsService {
       type: NotificationType.CARE_ACTIVATED,
       title: 'Care package renewed',
       body: `Your package for ${updated.careRecipient.name} is renewed. ${visits.length} visits have been scheduled.`,
+    });
+
+    // Alert admin that the family renewed for another month.
+    const renewFamilyName =
+      `${updated.family.user.firstName} ${updated.family.user.lastName}`.trim();
+    await this.mail.sendAdminAlertEmail({
+      eyebrow: 'Subscription renewed',
+      title: 'A family renewed their care package',
+      intro: `${renewFamilyName} renewed the ${updated.packageType} package for ${updated.careRecipient.name}.`,
+      rows: [
+        { label: 'Family', value: renewFamilyName },
+        { label: 'Care recipient', value: updated.careRecipient.name },
+        { label: 'Package', value: updated.packageType },
+        { label: 'Visits scheduled', value: String(visits.length) },
+        {
+          label: 'Renews again',
+          value: addMonths(periodStart, 1).toLocaleDateString(),
+        },
+      ],
     });
 
     return this.toResponse(updated);
@@ -654,11 +718,41 @@ export class SubscriptionsService {
       throw new BadRequestException('Subscription is already cancelled');
     }
 
+    const wasRenewing = subscription.status === SubscriptionStatus.RENEWING;
     const updated = await this.prisma.subscription.update({
       where: { id: subscriptionId },
       data: { status: SubscriptionStatus.CANCELLED },
-      include: { careRecipient: true },
+      include: {
+        careRecipient: true,
+        family: { include: { user: true } },
+      },
     });
+
+    // Alert admin that the family ended the service. Flag when it happened at
+    // the renewal decision point (declined to renew) vs a mid-cycle cancel.
+    const cancelFamilyName =
+      `${updated.family.user.firstName} ${updated.family.user.lastName}`.trim();
+    await this.mail.sendAdminAlertEmail({
+      eyebrow: wasRenewing
+        ? 'Subscription not renewed'
+        : 'Subscription cancelled',
+      title: wasRenewing
+        ? 'A family declined to renew'
+        : 'A family cancelled their care package',
+      intro: wasRenewing
+        ? `${cancelFamilyName} chose not to renew the ${updated.packageType} package for ${updated.careRecipient.name}.`
+        : `${cancelFamilyName} cancelled the ${updated.packageType} package for ${updated.careRecipient.name}.`,
+      rows: [
+        { label: 'Family', value: cancelFamilyName },
+        { label: 'Care recipient', value: updated.careRecipient.name },
+        { label: 'Package', value: updated.packageType },
+        {
+          label: 'Outcome',
+          value: wasRenewing ? 'Declined renewal' : 'Cancelled mid-cycle',
+        },
+      ],
+    });
+
     return this.toResponse(updated);
   }
 

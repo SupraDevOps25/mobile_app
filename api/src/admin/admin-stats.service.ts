@@ -90,6 +90,7 @@ export class AdminStatsService {
       pendingCaregivers: pending.map((c) => ({
         id: c.id,
         name: `${c.user.firstName} ${c.user.lastName}`.trim(),
+        photoUrl: c.photoUrl,
         submittedAt: c.updatedAt.toISOString(),
       })),
     };

@@ -21,6 +21,7 @@ import {
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
 import { caregiverVisitCounts } from '../common/reliability';
 import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
+import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { rankCaregivers } from './matching';
@@ -83,6 +84,7 @@ export class AssignmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly mail: MailService,
   ) {}
 
   private async caregiverIdFor(userId: string): Promise<string> {
@@ -481,7 +483,13 @@ export class AssignmentsService {
     const assignment = await this.prisma.assignment.findUnique({
       where: { id: assignmentId },
       include: {
-        subscription: { include: { careRecipient: true, family: true } },
+        subscription: {
+          include: {
+            careRecipient: true,
+            family: { include: { user: true } },
+          },
+        },
+        caregiver: { include: { user: true } },
       },
     });
     if (!assignment) throw new NotFoundException('Assignment not found');
@@ -527,6 +535,23 @@ export class AssignmentsService {
         type: NotificationType.TEAM_ASSIGNED,
         title: 'Your care team is assigned',
         body: `A nurse has been assigned for ${sub.careRecipient.name}. Your Care Coordinator will be in touch.`,
+      });
+
+      // Alert admin that the system matched a care team (lead nurse accepted).
+      const nurseName =
+        `${assignment.caregiver.user.firstName} ${assignment.caregiver.user.lastName}`.trim();
+      const familyName =
+        `${sub.family.user.firstName} ${sub.family.user.lastName}`.trim();
+      await this.mail.sendAdminAlertEmail({
+        eyebrow: 'Care team matched',
+        title: 'A care team was matched',
+        intro: `${nurseName} accepted the lead nurse role for ${sub.careRecipient.name}.`,
+        rows: [
+          { label: 'Care recipient', value: sub.careRecipient.name },
+          { label: 'Family', value: familyName },
+          { label: 'Lead nurse', value: nurseName },
+          { label: 'Package', value: sub.packageType },
+        ],
       });
     }
 
