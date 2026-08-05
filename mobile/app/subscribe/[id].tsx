@@ -498,6 +498,22 @@ export default function SubscribeScreen() {
             )}
           />
 
+          {/* Matching note — the Area entered here is what we match nurses on */}
+          <View
+            className="flex-row rounded-2xl px-4 py-3 mt-1"
+            style={{ backgroundColor: "#f0fdf4" }}
+          >
+            <Ionicons name="location-outline" size={16} color="#16a34a" />
+            <Text
+              style={{ color: "#166534", fontSize: 12, lineHeight: 18, marginLeft: 8, flex: 1 }}
+            >
+              We use the <Text style={{ fontWeight: "700" }}>Area</Text> above to
+              match nurses who serve where care is delivered. If you type it in
+              manually, please keep it accurate — “Use my current location” fills
+              it in precisely.
+            </Text>
+          </View>
+
           <SectionLabel title="Care needs" />
 
           <Controller

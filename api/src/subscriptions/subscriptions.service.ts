@@ -11,6 +11,8 @@ import {
   CareRecipient,
   NotificationType,
   PackageType,
+  PaymentStatus,
+  Role,
   Subscription,
   SubscriptionStatus,
   VisitKind,
@@ -19,6 +21,11 @@ import {
 import { AssignmentsService } from '../assignments/assignments.service';
 import { coordinatorFeeGhs } from '../common/economics';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
+import {
+  caregiverVisitCounts,
+  reliabilityPercent,
+} from '../common/reliability';
+import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReviewsService } from '../reviews/reviews.service';
@@ -224,7 +231,14 @@ export class SubscriptionsService {
     });
     if (!subscription) throw new NotFoundException('Subscription not found');
     if (subscription.coordinatorId !== coordinatorUserId) {
-      throw new ForbiddenException('This case is not yours to coordinate');
+      // Platform admins can manage any case; a coordinator only their own.
+      const actor = await this.prisma.user.findUnique({
+        where: { id: coordinatorUserId },
+        select: { role: true },
+      });
+      if (actor?.role !== Role.ADMIN) {
+        throw new ForbiddenException('This case is not yours to coordinate');
+      }
     }
     return subscription;
   }
@@ -722,6 +736,12 @@ export class SubscriptionsService {
           where: { kind: VisitKind.INITIAL_ASSESSMENT },
           select: { status: true },
         },
+        // An open (unpaid) invoice, so the UI can hide "Issue invoice" once one
+        // is already outstanding for this cycle.
+        payments: {
+          where: { status: PaymentStatus.PENDING },
+          select: { id: true },
+        },
       },
     });
 
@@ -741,6 +761,7 @@ export class SubscriptionsService {
           priceGhs: s.priceGhs.toNumber(),
           coordinatorFeeGhs: coordinatorFeeGhs(s.priceGhs.toNumber()),
           assessmentDone,
+          hasOpenInvoice: s.payments.length > 0,
           needsAssistant: s.needsAssistant,
           createdAt: s.createdAt,
           assessmentAt: s.assessmentAt,
@@ -859,9 +880,54 @@ export class SubscriptionsService {
       }),
     ]);
 
+    // Ratings + reliability the family sees are derived live — ratings from the
+    // Review table, reliability from completed vs missed visits (source of truth).
+    const caregiverIds = assignments.map((a) => a.caregiver.id);
+    const [reviewStats, visitCounts, reviewRows] = await Promise.all([
+      caregiverReviewStats(this.prisma, caregiverIds),
+      caregiverVisitCounts(this.prisma, caregiverIds),
+      this.prisma.review.findMany({
+        where: { caregiverId: { in: caregiverIds } },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          caregiverId: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          subscription: { select: { packageType: true } },
+        },
+      }),
+    ]);
+    // Group each nurse's recent reviews — privacy-safe: rating, comment, date and
+    // package only, never who left it.
+    const reviewsByCaregiver = new Map<
+      string,
+      {
+        id: string;
+        rating: number;
+        comment: string | null;
+        createdAt: Date;
+        packageType: PackageType;
+      }[]
+    >();
+    for (const r of reviewRows) {
+      const list = reviewsByCaregiver.get(r.caregiverId) ?? [];
+      if (list.length < 10) {
+        list.push({
+          id: r.id,
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt,
+          packageType: r.subscription.packageType,
+        });
+      }
+      reviewsByCaregiver.set(r.caregiverId, list);
+    }
     const nurses = assignments
       .map((a) => {
         const u = a.caregiver.user;
+        const stats = reviewStatsFor(reviewStats, a.caregiver.id);
         return {
           assignmentId: a.id,
           role: a.role,
@@ -872,15 +938,16 @@ export class SubscriptionsService {
           phone: u.phone,
           qualification: a.caregiver.qualification,
           yearsExperience: a.caregiver.yearsExperience,
-          rating: a.caregiver.rating.toNumber(),
-          reliabilityScore: a.caregiver.reliabilityScore,
+          rating: stats.rating,
+          reliabilityScore: reliabilityPercent(visitCounts.get(a.caregiver.id)),
           serviceAreas: a.caregiver.serviceAreas,
           // Extra profile the family sees when they open a nurse.
           gender: a.caregiver.gender,
           bio: a.caregiver.bio,
           languages: a.caregiver.languages,
           hasHomecareExp: a.caregiver.hasHomecareExp,
-          totalReviews: a.caregiver.totalReviews,
+          totalReviews: stats.totalReviews,
+          reviews: reviewsByCaregiver.get(a.caregiver.id) ?? [],
           photoUrl: a.caregiver.photoUrl,
           licenseVerified: a.caregiver.licenseVerified,
         };

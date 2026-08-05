@@ -199,7 +199,8 @@ function SlideIntro() {
         Reliable home care for your loved ones, anytime you need it.
       </Text>
       <Text className="text-white/65 text-[14px] text-center mt-6 leading-6 tracking-wide">
-        Book trained caregivers and nurses in real time with ease and confidence by subscribing to a monthly care plan that fits your family&apos;s needs.
+        Book trained caregivers and nurses in real time with ease and confidence by subscribing to a 
+        monthly care plan that fits both family and individual needs.
       </Text>
     </View>
   );
@@ -215,7 +216,7 @@ function SlideCareTypes({
     <View className="bg-background">
       <View className="relative" style={{ height: 390 }}>
         <ExpoImage
-          source={require("../assets/images/slide2.png")}
+          source={require("../assets/images/slide2.jpg")}
           style={{ width: "100%", height: 390 }}
           contentFit="cover"
           contentPosition="top"
@@ -268,8 +269,9 @@ function SlideCareTypes({
         </View>
 
         <Text className="text-muted text-[14px] mt-3 text-center leading-6">
-          From preventive wellness to full-time support, Supracarer meets your
-          family wherever they are.
+          From preventive wellness to full-time support, Supracarer 
+          meet individuals and families at their unique care needs, providing peace of mind and
+          support.
         </Text>
       </View>
     </View>

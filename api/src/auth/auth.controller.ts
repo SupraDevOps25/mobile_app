@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Header,
+  Ip,
   Patch,
   Post,
   Query,
@@ -19,15 +20,19 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AuthService, type UploadedFile as MulterFile } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { uploadLimits } from '../common/uploads';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -37,6 +42,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Check email and phone availability before registration',
   })
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('check-availability')
   checkAvailability(@Body() dto: CheckAvailabilityDto) {
     return this.authService.checkAvailability(dto);
@@ -45,6 +51,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Register a new account (sends verification email)',
   })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -59,15 +66,31 @@ export class AuthController {
   }
 
   @ApiOperation({ summary: 'Resend verification email' })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('resend-verification')
   resendVerification(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerification(dto);
   }
 
   @ApiOperation({ summary: 'Login and receive a JWT token' })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Ip() ip: string) {
+    return this.authService.login(dto, ip);
+  }
+
+  @ApiOperation({ summary: 'Request a password reset code by email/phone' })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @ApiOperation({ summary: 'Reset password using the emailed code' })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @ApiBearerAuth()
@@ -94,7 +117,7 @@ export class AuthController {
   @ApiConsumes('multipart/form-data')
   @UseGuards(JwtAuthGuard)
   @Post('profile/photo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', uploadLimits))
   uploadPhoto(
     @Request() req: { user: { id: string } },
     @UploadedFile() file: MulterFile,

@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Alert, Linking, Pressable, Text, View } from "react-native";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { avatarColor, initialsOf } from "@/lib/avatar";
 import type { ApiCoordinator } from "@/services/subscription.service";
 
@@ -7,7 +8,7 @@ export function CoordinatorCard({ coordinator }: { coordinator: ApiCoordinator }
   return (
     <View
       className="flex-row items-center bg-card rounded-2xl p-4"
-      style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+      style={CARD_SURFACE}
     >
       <View
         className="w-11 h-11 rounded-full items-center justify-center"

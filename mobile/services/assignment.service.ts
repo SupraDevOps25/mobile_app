@@ -58,7 +58,6 @@ export interface ApiAssignment {
 
 export const assignmentService = {
   offers: () => api.get<ApiAssignment[]>("/assignments/offers"),
-  mine: () => api.get<ApiAssignment[]>("/assignments/mine"),
   get: (id: string) => api.get<ApiAssignment>(`/assignments/${id}`),
   accept: (id: string) =>
     api.post<{ id: string; status: ApiAssignmentStatus }>(

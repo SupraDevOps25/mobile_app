@@ -8,6 +8,30 @@ import type { ApiVerificationStatus } from "@/services/caregiver.service";
 
 const NAVY = "#0f2c4d";
 
+// Actionable things a nurse can do while their documents are under review —
+// each links to the relevant screen.
+const WHILE_YOU_WAIT: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  route: string;
+}[] = [
+  {
+    label: "Set up your payment method so you get paid on time",
+    icon: "card-outline",
+    route: "/caregiver-payment-method",
+  },
+  {
+    label: "Read the caregiver code of conduct",
+    icon: "shield-checkmark-outline",
+    route: "/caregiver-code-of-conduct",
+  },
+  {
+    label: "Turn on notifications so you never miss a case offer",
+    icon: "notifications-outline",
+    route: "/notification-settings",
+  },
+];
+
 type StepState = "done" | "active" | "pending";
 type Step = {
   title: string;
@@ -204,35 +228,36 @@ export default function ApplicationSubmittedScreen() {
             );
           })}
 
-          {/* While you wait */}
+          {/* While you wait — actionable, each links to the relevant screen */}
           {!verified && (
-            <View
-              className="rounded-2xl p-5 mt-6"
-              style={{ backgroundColor: "#eff6ff" }}
-            >
-              <Text className="font-bold" style={{ color: "#1e3a8a", fontSize: 14 }}>
-                While you wait…
+            <View style={{ marginTop: 26 }}>
+              <Text
+                className="text-muted font-semibold"
+                style={{ fontSize: 11, letterSpacing: 1, marginBottom: 12 }}
+              >
+                WHILE YOU WAIT
               </Text>
-              {[
-                "Complete your availability calendar",
-                "Review the caregiver code of conduct",
-                "Set up your payment method",
-              ].map((item) => (
-                <View key={item} className="flex-row items-start" style={{ marginTop: 10 }}>
+              {WHILE_YOU_WAIT.map((item) => (
+                <Pressable
+                  key={item.label}
+                  onPress={() => router.push(item.route as any)}
+                  className="flex-row items-center rounded-2xl p-4"
+                  style={{ backgroundColor: "#eff6ff", marginBottom: 10 }}
+                >
                   <View
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: "#1e3a8a",
-                      marginTop: 6,
-                      marginRight: 10,
-                    }}
-                  />
-                  <Text style={{ color: "#1e40af", fontSize: 13, flex: 1, lineHeight: 19 }}>
-                    {item}
+                    className="items-center justify-center rounded-xl"
+                    style={{ width: 38, height: 38, backgroundColor: "#dbeafe" }}
+                  >
+                    <Ionicons name={item.icon} size={19} color="#2563eb" />
+                  </View>
+                  <Text
+                    className="flex-1"
+                    style={{ color: "#1e40af", fontSize: 13.5, fontWeight: "600", marginLeft: 12, lineHeight: 19 }}
+                  >
+                    {item.label}
                   </Text>
-                </View>
+                  <Ionicons name="chevron-forward" size={16} color="#93c5fd" />
+                </Pressable>
               ))}
             </View>
           )}

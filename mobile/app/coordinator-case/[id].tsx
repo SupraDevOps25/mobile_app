@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { PACKAGE_LABELS } from "@/constants/package-presentation";
 import { rosterStatus } from "@/constants/coordinator-presentation";
@@ -299,7 +300,16 @@ export default function CoordinatorCaseScreen() {
     !!item.careStartAt &&
     item.assessmentDone &&
     !assistantReady;
-  const canInvoice = item.status === "ACTIVE" || item.status === "RENEWING";
+  // Billing is available on an active/renewing case — but hides once an invoice
+  // is already outstanding (the family must pay it before the next is issued).
+  const canInvoice =
+    (item.status === "ACTIVE" || item.status === "RENEWING") &&
+    !item.hasOpenInvoice;
+  // Billing waits until this cycle's care is delivered: any visit still to come
+  // or underway blocks the invoice (matches the API guard).
+  const hasPendingVisits = (detail?.visits ?? []).some(
+    (v) => v.status === "SCHEDULED" || v.status === "IN_PROGRESS",
+  );
 
   function onMatchAssistant() {
     matchAssistant.mutate(item!.id, {
@@ -422,7 +432,7 @@ export default function CoordinatorCaseScreen() {
 
         {/* Care recipient */}
         <SectionLabel title="Care recipient" />
-        <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+        <View className="bg-card rounded-2xl p-4" style={CARD_SURFACE}>
           {/* Gender · age · who care is for */}
           <View
             className="flex-row items-center rounded-2xl p-3"
@@ -487,7 +497,7 @@ export default function CoordinatorCaseScreen() {
         <SectionLabel title="Family contact" />
         <View
           className="flex-row items-center bg-card rounded-2xl p-4"
-          style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+          style={CARD_SURFACE}
         >
           <Avatar
             name={item.family.name}
@@ -519,7 +529,7 @@ export default function CoordinatorCaseScreen() {
             <SectionLabel title="What's included" />
             <View
               className="bg-card rounded-2xl"
-              style={{ borderWidth: 1, borderColor: "#f3f4f6", overflow: "hidden" }}
+              style={{ ...CARD_SURFACE, overflow: "hidden" }}
             >
               <Pressable
                 onPress={() => setShowIncluded((s) => !s)}
@@ -574,7 +584,7 @@ export default function CoordinatorCaseScreen() {
                 <View
                   key={m.assignmentId}
                   className="flex-row items-center bg-card rounded-2xl p-3 mb-3"
-                  style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+                  style={CARD_SURFACE}
                 >
                   <Avatar
                     name={m.name}
@@ -586,12 +596,41 @@ export default function CoordinatorCaseScreen() {
                     <Text className="text-foreground font-bold" style={{ fontSize: 15 }}>
                       {m.name}
                     </Text>
-                    <View className="flex-row items-center mt-1" style={{ gap: 8 }}>
-                      <Text className="text-muted" style={{ fontSize: 12 }}>
+                    <View
+                      className="flex-row flex-wrap items-center mt-1"
+                      style={{ columnGap: 8, rowGap: 4, minWidth: 0 }}
+                    >
+                      <Text
+                        className="text-muted"
+                        style={{
+                          flexShrink: 0,
+                          fontSize: 12,
+                          includeFontPadding: true,
+                          lineHeight: 18,
+                          paddingRight: 3,
+                        }}
+                      >
                         {ASSIGNMENT_ROLE_LABELS[m.role]}
                       </Text>
-                      <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: st.bg }}>
-                        <Text style={{ color: st.color, fontSize: 10, fontWeight: "600" }}>
+                      <View
+                        className="rounded-full px-2"
+                        style={{
+                          alignSelf: "flex-start",
+                          backgroundColor: st.bg,
+                          minHeight: 24,
+                          paddingVertical: 4,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: st.color,
+                            fontSize: 10,
+                            fontWeight: "600",
+                            includeFontPadding: true,
+                            lineHeight: 14,
+                            paddingRight: 2,
+                          }}
+                        >
                           {st.label}
                         </Text>
                       </View>
@@ -630,7 +669,7 @@ export default function CoordinatorCaseScreen() {
         {item.needsAssistant && (
           <>
             <SectionLabel title="Second nurse" />
-            <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4" style={CARD_SURFACE}>
               {assistantActive ? (
                 <View className="flex-row items-center" style={{ gap: 8 }}>
                   <Ionicons name="people" size={17} color="#15803d" />
@@ -701,7 +740,7 @@ export default function CoordinatorCaseScreen() {
         {canSetCareStart && (
           <>
             {/* 1. Initial home visit (assessment) — item 4 */}
-            <View className="bg-card rounded-2xl p-4" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4" style={CARD_SURFACE}>
               <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
                 Initial home visit
               </Text>
@@ -751,7 +790,7 @@ export default function CoordinatorCaseScreen() {
             </View>
 
             {/* 2. Package recommendation — item 5a */}
-            <View className="bg-card rounded-2xl p-4 mt-3" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4 mt-3" style={CARD_SURFACE}>
               <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
                 Care package
               </Text>
@@ -795,7 +834,7 @@ export default function CoordinatorCaseScreen() {
             </View>
 
             {/* 3. Care start / commencement — item 5b */}
-            <View className="bg-card rounded-2xl p-4 mt-3" style={{ borderWidth: 1, borderColor: "#f3f4f6" }}>
+            <View className="bg-card rounded-2xl p-4 mt-3" style={CARD_SURFACE}>
               <Text className="text-foreground font-semibold" style={{ fontSize: 14 }}>
                 Care start date
               </Text>
@@ -867,19 +906,60 @@ export default function CoordinatorCaseScreen() {
         )}
 
         {canInvoice && (
-          <Pressable
-            onPress={onIssueInvoice}
-            disabled={issueInvoice.isPending}
-            className="rounded-2xl items-center justify-center mt-1 flex-row"
-            style={{ borderWidth: 1, borderColor: "#0d9488", paddingVertical: 15, gap: 8 }}
-          >
-            {issueInvoice.isPending && <ActivityIndicator color="#0d9488" size="small" />}
-            <Ionicons name="receipt-outline" size={17} color="#0d9488" />
-            <Text style={{ color: "#0d9488", fontWeight: "bold", fontSize: 15 }}>
-              Issue month-end invoice
-            </Text>
-          </Pressable>
+          <>
+            <Pressable
+              onPress={onIssueInvoice}
+              disabled={issueInvoice.isPending || hasPendingVisits}
+              className="rounded-2xl items-center justify-center mt-1 flex-row"
+              style={{
+                borderWidth: 1,
+                borderColor: hasPendingVisits ? "#e5e7eb" : "#0d9488",
+                paddingVertical: 15,
+                gap: 8,
+                opacity: hasPendingVisits ? 0.6 : 1,
+              }}
+            >
+              {issueInvoice.isPending && <ActivityIndicator color="#0d9488" size="small" />}
+              <Ionicons
+                name="receipt-outline"
+                size={17}
+                color={hasPendingVisits ? "#9ca3af" : "#0d9488"}
+              />
+              <Text
+                style={{
+                  color: hasPendingVisits ? "#9ca3af" : "#0d9488",
+                  fontWeight: "bold",
+                  fontSize: 15,
+                }}
+              >
+                Issue month-end invoice
+              </Text>
+            </Pressable>
+            {hasPendingVisits && (
+              <Text
+                className="text-muted"
+                style={{ fontSize: 12, marginTop: 6, textAlign: "center", lineHeight: 17 }}
+              >
+                Complete all care visits before issuing this month&apos;s invoice.
+              </Text>
+            )}
+          </>
         )}
+
+        {/* Invoice already issued — waiting on the family to pay it */}
+        {(item.status === "ACTIVE" || item.status === "RENEWING") &&
+          item.hasOpenInvoice && (
+            <View
+              className="flex-row items-center rounded-2xl p-4 mt-1"
+              style={{ backgroundColor: "#f0fdfa", borderWidth: 1, borderColor: "#99f6e4" }}
+            >
+              <Ionicons name="checkmark-circle" size={17} color="#0d9488" />
+              <Text style={{ color: "#0f766e", fontSize: 13, lineHeight: 19, marginLeft: 8, flex: 1 }}>
+                Invoice issued — awaiting the family&apos;s payment. You can issue
+                the next one once it&apos;s settled.
+              </Text>
+            </View>
+          )}
 
         {/* Care visits & logs — every visit on the case, active or not */}
         <SectionLabel title="Care visits & logs" />
@@ -888,7 +968,7 @@ export default function CoordinatorCaseScreen() {
         ) : detail.visits.length === 0 ? (
           <View
             className="bg-card rounded-2xl p-5 items-center"
-            style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+            style={CARD_SURFACE}
           >
             <Ionicons name="calendar-clear-outline" size={22} color="#9ca3af" />
             <Text className="text-muted text-center" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 18 }}>
@@ -913,7 +993,7 @@ export default function CoordinatorCaseScreen() {
                 const row = (
                   <View
                     className="flex-row items-center bg-card rounded-2xl p-3 mb-2.5"
-                    style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+                    style={CARD_SURFACE}
                   >
                     <Avatar
                       name={v.nurseName}

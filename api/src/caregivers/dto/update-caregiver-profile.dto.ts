@@ -15,7 +15,9 @@ import {
 } from 'class-validator';
 
 export class UpdateCaregiverProfileDto {
-  @ApiPropertyOptional({ example: 'Registered nurse with 5 years of experience.' })
+  @ApiPropertyOptional({
+    example: 'Registered nurse with 5 years of experience.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(600)

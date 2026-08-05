@@ -56,6 +56,28 @@ export class MailService {
     });
   }
 
+  async sendPasswordResetEmail(
+    email: string,
+    code: string,
+    params: { firstName?: string } = {},
+  ): Promise<void> {
+    const firstName = params.firstName?.trim() || 'there';
+
+    await this.sendMail({
+      to: email,
+      subject: 'Reset your Supracarer password',
+      html: this.buildPasswordResetHtml({ firstName, code }),
+      text: [
+        `Hi ${firstName},`,
+        '',
+        'Use this code to reset your Supracarer password:',
+        code,
+        '',
+        'This code expires in 15 minutes. If you did not request a password reset, you can safely ignore this email — your password will not change.',
+      ].join('\n'),
+    });
+  }
+
   async sendInvoiceEmail(
     email: string,
     params: { recipientName: string; amountGhs: number; periodLabel: string },
@@ -72,6 +94,126 @@ export class MailService {
         '',
         'Please log in to the Supracarer app to review and pay this invoice.',
       ].join('\n'),
+    });
+  }
+
+  /** Tell the admin team a nurse submitted (or re-submitted) a credential for
+   * review, so they can verify it and unblock matching. */
+  async sendCaregiverDocumentSubmittedEmail(params: {
+    nurseName: string;
+    nurseEmail: string;
+    documentLabel: string;
+  }): Promise<void> {
+    const adminEmail = process.env.ADMIN_EMAIL ?? this.supportEmail;
+
+    await this.sendMail({
+      to: adminEmail,
+      subject: `Credential submitted — ${params.nurseName}`,
+      html: this.buildDocumentSubmittedHtml(params),
+      text: [
+        'A nurse submitted a credential for verification.',
+        '',
+        `Nurse: ${params.nurseName}`,
+        `Email: ${params.nurseEmail}`,
+        `Document: ${params.documentLabel}`,
+        '',
+        'Open the Supracarer admin portal to review and verify it.',
+      ].join('\n'),
+    });
+  }
+
+  /** Tell a nurse the outcome of their credential review. */
+  async sendVerificationDecisionEmail(
+    email: string,
+    params: { firstName?: string; approved: boolean; note?: string | null },
+  ): Promise<void> {
+    const firstName = params.firstName?.trim() || 'there';
+    const subject = params.approved
+      ? 'You’re verified on Supracarer ✅'
+      : 'Your Supracarer verification update';
+
+    await this.sendMail({
+      to: email,
+      subject,
+      html: this.buildVerificationDecisionHtml({ firstName, ...params }),
+      text: params.approved
+        ? [
+            `Hi ${firstName},`,
+            '',
+            'Good news — your credentials have been approved. You can now be matched with families and start receiving care requests in the Supracarer app.',
+          ].join('\n')
+        : [
+            `Hi ${firstName},`,
+            '',
+            'We reviewed your credentials and could not approve them yet.',
+            params.note ? `Reason: ${params.note}` : '',
+            '',
+            'Please re-check your documents and re-upload them in the Supracarer app.',
+          ]
+            .filter(Boolean)
+            .join('\n'),
+    });
+  }
+
+  /** Forward a family's "no package fits" request to the admin team. */
+  async sendPackageRequestEmail(params: {
+    familyName: string;
+    familyEmail: string;
+    phone?: string | null;
+    message: string;
+  }): Promise<void> {
+    const adminEmail = process.env.ADMIN_EMAIL ?? this.supportEmail;
+    const contact = [params.familyEmail, params.phone]
+      .filter(Boolean)
+      .join(' · ');
+
+    await this.sendMail({
+      to: adminEmail,
+      subject: `Custom care request — ${params.familyName}`,
+      html: this.buildPackageRequestHtml({ ...params, contact }),
+      text: [
+        'A family says no catalog package fits their situation.',
+        '',
+        `Family: ${params.familyName}`,
+        `Contact: ${contact}`,
+        '',
+        'What they need:',
+        params.message,
+      ].join('\n'),
+    });
+  }
+
+  private buildPackageRequestHtml(params: {
+    familyName: string;
+    contact: string;
+    message: string;
+  }): string {
+    const familyName = this.escapeHtml(params.familyName);
+    const contact = this.escapeHtml(params.contact);
+    const message = this.escapeHtml(params.message).replaceAll('\n', '<br>');
+
+    return this.emailShell({
+      preview: `Custom care request from ${familyName}`,
+      eyebrow: 'Custom care request',
+      title: 'A family needs a tailored package',
+      body: `
+        <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 18px">
+          <strong>${familyName}</strong> couldn't find a catalog package that fits
+          their situation and told us what they need.
+        </p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:18px;margin:2px 0 18px">
+          <p style="color:#0f172a;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">
+            Contact
+          </p>
+          <p style="color:#475569;font-size:15px;line-height:1.6;margin:0">${contact}</p>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:18px;padding:18px;margin:0">
+          <p style="color:#1e3a8a;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">
+            What they need
+          </p>
+          <p style="color:#1f2937;font-size:15px;line-height:1.6;margin:0">${message}</p>
+        </div>
+      `,
     });
   }
 
@@ -126,6 +268,11 @@ export class MailService {
     );
   }
 
+  /** Public-facing support inbox shown in emails; overridable via env. */
+  private get supportEmail(): string {
+    return process.env.SUPPORT_EMAIL ?? 'support@supracarer.app';
+  }
+
   private logDevEmail(payload: MailPayload): void {
     this.logger.log('---------------------------------------------');
     this.logger.log(`[DEV] Email to ${payload.to}: ${payload.subject}`);
@@ -159,6 +306,121 @@ export class MailService {
         </div>
         <p style="color:#374151;font-size:15px;line-height:1.6;margin:0">
           Please log in to the Supracarer app to review and pay this invoice.
+        </p>
+      `,
+    });
+  }
+
+  private buildDocumentSubmittedHtml(params: {
+    nurseName: string;
+    nurseEmail: string;
+    documentLabel: string;
+  }): string {
+    const nurseName = this.escapeHtml(params.nurseName);
+    const nurseEmail = this.escapeHtml(params.nurseEmail);
+    const documentLabel = this.escapeHtml(params.documentLabel);
+
+    return this.emailShell({
+      preview: `${nurseName} submitted a credential for verification`,
+      eyebrow: 'Verification queue',
+      title: 'A nurse submitted a credential',
+      body: `
+        <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 18px">
+          <strong>${nurseName}</strong> uploaded a document for review. Verify it
+          in the admin portal to unblock matching for this nurse.
+        </p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:18px;margin:2px 0 18px">
+          <p style="color:#0f172a;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">
+            Nurse
+          </p>
+          <p style="color:#475569;font-size:15px;line-height:1.6;margin:0">${nurseName} · ${nurseEmail}</p>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:18px;padding:18px;margin:0">
+          <p style="color:#1e3a8a;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">
+            Document
+          </p>
+          <p style="color:#1f2937;font-size:15px;line-height:1.6;margin:0">${documentLabel}</p>
+        </div>
+      `,
+    });
+  }
+
+  private buildVerificationDecisionHtml(params: {
+    firstName: string;
+    approved: boolean;
+    note?: string | null;
+  }): string {
+    const firstName = this.escapeHtml(params.firstName);
+    const note = params.note ? this.escapeHtml(params.note) : null;
+
+    const body = params.approved
+      ? `
+        <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 18px">
+          Good news — your credentials have been <strong>approved</strong>. You
+          can now be matched with families and start receiving care requests in
+          the Supracarer app.
+        </p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:18px;padding:18px;margin:0">
+          <p style="color:#166534;font-size:15px;line-height:1.6;margin:0">
+            Make sure your availability and payout method are set up so you're
+            ready to accept your first case.
+          </p>
+        </div>`
+      : `
+        <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 18px">
+          We reviewed your credentials and could not approve them yet.
+        </p>
+        ${
+          note
+            ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:18px;padding:18px;margin:0 0 18px">
+                 <p style="color:#991b1b;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">Reason</p>
+                 <p style="color:#7f1d1d;font-size:15px;line-height:1.6;margin:0">${note}</p>
+               </div>`
+            : ''
+        }
+        <p style="color:#374151;font-size:15px;line-height:1.6;margin:0">
+          Please re-check your documents and re-upload them in the Supracarer app.
+        </p>`;
+
+    return this.emailShell({
+      preview: params.approved
+        ? 'Your Supracarer credentials were approved'
+        : 'Your Supracarer verification update',
+      eyebrow: 'Verification',
+      title: params.approved
+        ? `Hi ${firstName}, you're verified`
+        : `Hi ${firstName}, an update on your verification`,
+      body,
+    });
+  }
+
+  private buildPasswordResetHtml(params: {
+    firstName: string;
+    code: string;
+  }): string {
+    const firstName = this.escapeHtml(params.firstName);
+    const code = this.escapeHtml(params.code);
+
+    return this.emailShell({
+      preview: 'Your Supracarer password reset code',
+      eyebrow: 'Password reset',
+      title: `Hi ${firstName}, reset your password`,
+      body: `
+        <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 18px">
+          We received a request to reset your Supracarer password. Enter the code
+          below in the app to set a new one.
+        </p>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:18px;padding:22px;margin:2px 0 22px;text-align:center">
+          <p style="color:#1e3a8a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px">
+            Your reset code
+          </p>
+          <p style="color:#0f172a;font-size:38px;font-weight:800;letter-spacing:.22em;margin:0">
+            ${code}
+          </p>
+        </div>
+        <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0">
+          This code expires in 15 minutes. If you did not request a password
+          reset, you can safely ignore this email — your password will not change.
         </p>
       `,
     });
@@ -252,8 +514,8 @@ export class MailService {
               <div style="border-top:1px solid #e2e8f0;padding-top:18px">
                 <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0">
                   Need help? Please email
-                  <a href="mailto:support@supracarer.com" style="color:#2563eb;text-decoration:none;font-weight:700">
-                    support@supracarer.com
+                  <a href="mailto:${this.supportEmail}" style="color:#2563eb;text-decoration:none;font-weight:700">
+                    ${this.supportEmail}
                   </a>.
                   Do not reply to this automated email.
                 </p>

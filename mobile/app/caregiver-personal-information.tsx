@@ -1,22 +1,19 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCaregiverProfile,
@@ -72,7 +69,6 @@ export default function CaregiverPersonalInfoScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { updateUser } = useAuth();
-  const scrollRef = useRef<ScrollView>(null);
 
   const { data: account } = useAuthProfile();
   const updateAccount = useUpdateAuthProfile();
@@ -94,7 +90,6 @@ export default function CaregiverPersonalInfoScreen() {
   const [languages, setLanguages] = useState<string[]>([]);
   const [hasExp, setHasExp] = useState(false);
   const [years, setYears] = useState("");
-  const [keyboardSpacer, setKeyboardSpacer] = useState(0);
 
   // Seed the account fields once the account loads.
   useEffect(() => {
@@ -120,38 +115,16 @@ export default function CaregiverPersonalInfoScreen() {
     setYears(profile.yearsExperience ? String(profile.yearsExperience) : "");
   }, [profile]);
 
-  useEffect(() => {
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent =
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const showSub = Keyboard.addListener(showEvent, (event) => {
-      const keyboardHeight = event.endCoordinates.height;
-      setKeyboardSpacer(
-        Platform.OS === "android"
-          ? Math.min(240, Math.max(150, keyboardHeight - bottom))
-          : 0,
-      );
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardSpacer(0));
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [bottom]);
-
-  function scrollToLowerFields() {
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, Platform.OS === "android" ? 260 : 160);
-  }
-
   const fullName = account
     ? `${account.firstName} ${account.lastName}`.trim()
     : "";
   const photoUrl = profile?.photoUrl ?? null;
+  const memberSince = account?.createdAt
+    ? new Date(account.createdAt).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   // Every field is local state, so compare the whole form to the loaded values
   // to keep "Save" disabled until something actually changes. (The photo saves
@@ -270,11 +243,7 @@ export default function CaregiverPersonalInfoScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
         <StatusBar style="dark" />
 
         {/* Header */}
@@ -301,14 +270,10 @@ export default function CaregiverPersonalInfoScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
-              ref={scrollRef}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+            <KeyboardAwareForm
               contentContainerStyle={{
                 paddingHorizontal: 20,
-                paddingBottom: bottom + 96 + keyboardSpacer,
+                paddingBottom: bottom + 96,
               }}
             >
               {/* Profile photo */}
@@ -364,6 +329,14 @@ export default function CaregiverPersonalInfoScreen() {
                 <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
                   Tap to {photoUrl ? "change" : "add a"} profile photo
                 </Text>
+                {memberSince && (
+                  <View className="flex-row items-center" style={{ marginTop: 4, gap: 4 }}>
+                    <Ionicons name="ribbon-outline" size={13} color="#9ca3af" />
+                    <Text className="text-muted" style={{ fontSize: 12 }}>
+                      Member since {memberSince}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Account details: name + phone */}
@@ -421,7 +394,6 @@ export default function CaregiverPersonalInfoScreen() {
                 <TextInput
                   value={phone}
                   onChangeText={setPhone}
-                  onFocus={scrollToLowerFields}
                   placeholder="0244123456"
                   placeholderTextColor="#9ca3af"
                   keyboardType="phone-pad"
@@ -466,7 +438,6 @@ export default function CaregiverPersonalInfoScreen() {
                 <TextInput
                   value={address}
                   onChangeText={setAddress}
-                  onFocus={scrollToLowerFields}
                   placeholder="House number, street, area where you live"
                   placeholderTextColor="#9ca3af"
                   maxFontSizeMultiplier={1.2}
@@ -602,7 +573,7 @@ export default function CaregiverPersonalInfoScreen() {
                   </View>
                 </>
               )}
-            </ScrollView>
+            </KeyboardAwareForm>
 
             {/* Sticky footer */}
             <View
@@ -624,6 +595,5 @@ export default function CaregiverPersonalInfoScreen() {
           </>
         )}
       </View>
-    </KeyboardAvoidingView>
   );
 }

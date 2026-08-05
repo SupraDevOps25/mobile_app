@@ -1,16 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { qk } from "@/lib/query-keys";
+import { LIVE_REFETCH_MS, qk } from "@/lib/query-keys";
 import {
   coordinatorService,
+  type ApiCoordinatorCase,
+  type ApiCoordinatorEarnings,
   type ApiCoordinatorLog,
   type UpdateCoordinatorPayload,
 } from "@/services/coordinator.service";
+import type { UpdatePayoutMethodPayload } from "@/services/caregiver.service";
 import type { ApiPackageType } from "@/services/package.service";
 
 export function useCoordinatorCases() {
   return useQuery({
     queryKey: qk.coordinatorCases,
     queryFn: () => coordinatorService.cases(),
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 
@@ -26,6 +30,9 @@ export function useCoordinatorLogs() {
   return useQuery({
     queryKey: qk.coordinatorLogs,
     queryFn: () => coordinatorService.logs(),
+    // Polls so a nurse's revised/resubmitted log surfaces for review without a
+    // manual refresh.
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 
@@ -45,6 +52,15 @@ export function useUpdateCoordinatorProfile() {
   });
 }
 
+export function useUpdateCoordinatorPayoutMethod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdatePayoutMethodPayload) =>
+      coordinatorService.updatePayoutMethod(payload),
+    onSuccess: (profile) => qc.setQueryData(qk.coordinatorProfile, profile),
+  });
+}
+
 export function useCoordinatorEarnings() {
   return useQuery({
     queryKey: qk.coordinatorEarnings,
@@ -56,25 +72,57 @@ export function useRequestCoordinatorPayout() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => coordinatorService.requestPayout(),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      // Reflect the request immediately so the earnings screen updates without
+      // waiting for the refetch, then invalidate to reconcile with the server.
+      qc.setQueryData<ApiCoordinatorEarnings>(qk.coordinatorEarnings, (old) =>
+        old
+          ? {
+              ...old,
+              availableGhs: 0,
+              requestedGhs: old.requestedGhs + res.totalGhs,
+              recentTransactions: old.recentTransactions.map((t) =>
+                t.status === "available" ? { ...t, status: "requested" } : t,
+              ),
+            }
+          : old,
+      );
       qc.invalidateQueries({ queryKey: qk.coordinatorEarnings });
     },
   });
 }
 
-function useCaseMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
+function useCaseMutation<TArgs>(
+  fn: (args: TArgs) => Promise<unknown>,
+  // Optional optimistic patch of the cached case list, applied the moment the
+  // server confirms so the case screen updates without waiting for the refetch.
+  optimisticPatch?: (
+    args: TArgs,
+    cases: ApiCoordinatorCase[],
+  ) => ApiCoordinatorCase[],
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => {
+    onSuccess: (_data, args) => {
+      if (optimisticPatch) {
+        qc.setQueryData<ApiCoordinatorCase[]>(qk.coordinatorCases, (prev) =>
+          prev ? optimisticPatch(args, prev) : prev,
+        );
+      }
       qc.invalidateQueries({ queryKey: qk.coordinatorCases });
     },
   });
 }
 
 export function useSetAssessment() {
-  return useCaseMutation((args: { id: string; assessmentAt: string }) =>
-    coordinatorService.setAssessment(args.id, args.assessmentAt),
+  return useCaseMutation(
+    (args: { id: string; assessmentAt: string }) =>
+      coordinatorService.setAssessment(args.id, args.assessmentAt),
+    (args, cases) =>
+      cases.map((c) =>
+        c.id === args.id ? { ...c, assessmentAt: args.assessmentAt } : c,
+      ),
   );
 }
 
@@ -92,8 +140,13 @@ export function useChangePackage() {
 }
 
 export function useSetCareStart() {
-  return useCaseMutation((args: { id: string; careStartAt: string }) =>
-    coordinatorService.setCareStart(args.id, args.careStartAt),
+  return useCaseMutation(
+    (args: { id: string; careStartAt: string }) =>
+      coordinatorService.setCareStart(args.id, args.careStartAt),
+    (args, cases) =>
+      cases.map((c) =>
+        c.id === args.id ? { ...c, careStartAt: args.careStartAt } : c,
+      ),
   );
 }
 
@@ -116,8 +169,14 @@ export function useCancelAssistant() {
 }
 
 export function useIssueInvoice() {
-  return useCaseMutation((subscriptionId: string) =>
-    coordinatorService.issueInvoice(subscriptionId),
+  return useCaseMutation(
+    (subscriptionId: string) =>
+      coordinatorService.issueInvoice(subscriptionId),
+    // Hide the "Issue invoice" action immediately — an invoice is now open.
+    (subscriptionId, cases) =>
+      cases.map((c) =>
+        c.id === subscriptionId ? { ...c, hasOpenInvoice: true } : c,
+      ),
   );
 }
 

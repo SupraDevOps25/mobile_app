@@ -112,69 +112,6 @@ function Section({ items }: { items: RowItem[] }) {
   );
 }
 
-function StatItem({
-  icon,
-  tint,
-  bg,
-  border,
-  value,
-  label,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  tint: string;
-  bg: string;
-  border: string;
-  value: string;
-  label: string;
-}) {
-  return (
-    <View
-      className="flex-1 items-center"
-      style={{
-        backgroundColor: bg,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: border,
-        paddingVertical: 12,
-        paddingHorizontal: 6,
-      }}
-    >
-      <View
-        className="items-center justify-center"
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 12,
-          backgroundColor: "rgba(255,255,255,0.7)",
-        }}
-      >
-        <Ionicons name={icon} size={17} color={tint} />
-      </View>
-      <Text
-        style={{ color: tint, fontSize: 16, fontWeight: "800", marginTop: 7 }}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-      >
-        {value}
-      </Text>
-      <Text
-        style={{
-          color: tint,
-          fontSize: 10,
-          fontWeight: "700",
-          opacity: 0.85,
-          marginTop: 2,
-          textAlign: "center",
-          lineHeight: 13,
-        }}
-        numberOfLines={2}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 export default function CoordinatorProfileScreen() {
   const { top } = useSafeAreaInsets();
   const { user, logout } = useAuth();
@@ -197,15 +134,7 @@ export default function CoordinatorProfileScreen() {
     : user?.firstName || user?.email?.split("@")[0] || "Coordinator";
   const initials = initialsOf(fullName || "Coordinator");
 
-  const memberSince = profile?.createdAt
-    ? new Date(profile.createdAt).toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
-
   const list = cases ?? [];
-  const activeCases = list.filter((c) => c.status === "ACTIVE").length;
   const totalCases = list.length;
   const logsReviewed = (logs ?? []).filter((l) => l.reviewedAt).length;
 
@@ -272,6 +201,15 @@ export default function CoordinatorProfileScreen() {
       onPress: () => router.push("/coordinator-earnings" as any),
     },
     {
+      key: "payment",
+      icon: "card-outline",
+      tint: "#1d4ed8",
+      bg: "#eff6ff",
+      title: "Payment method",
+      subtitle: "Where your fee payouts are sent",
+      onPress: () => router.push("/coordinator-payment-method" as any),
+    },
+    {
       key: "cases",
       icon: "people-outline",
       tint: TEAL,
@@ -289,6 +227,18 @@ export default function CoordinatorProfileScreen() {
       title: "Daily logs",
       subtitle: "Review nurse visit reports",
       onPress: () => router.push("/(coordinator-tabs)/logs" as any),
+    },
+  ];
+
+  const security: RowItem[] = [
+    {
+      key: "password",
+      icon: "lock-closed-outline",
+      tint: "#dc2626",
+      bg: "#fef2f2",
+      title: "Change password",
+      subtitle: "Update your account password",
+      onPress: () => router.push("/change-password" as any),
     },
   ];
 
@@ -477,34 +427,6 @@ export default function CoordinatorProfileScreen() {
                 Edit profile
               </Text>
             </Pressable>
-
-            {/* Stats */}
-            <View className="flex-row w-full mt-5" style={{ gap: 8 }}>
-              <StatItem
-                icon="pulse"
-                tint="#0f766e"
-                bg="#f0fdfa"
-                border="#99f6e4"
-                value={String(activeCases)}
-                label="Active cases"
-              />
-              <StatItem
-                icon="people"
-                tint="#7c3aed"
-                bg="#f5f3ff"
-                border="#ddd6fe"
-                value={String(totalCases)}
-                label="Cases coordinated"
-              />
-              <StatItem
-                icon="calendar"
-                tint="#b45309"
-                bg="#fffbeb"
-                border="#fde68a"
-                value={memberSince}
-                label="Coordinating since"
-              />
-            </View>
           </View>
         </View>
 
@@ -514,6 +436,9 @@ export default function CoordinatorProfileScreen() {
 
         <SectionLabel title="Coordination" />
         <Section items={work} />
+
+        <SectionLabel title="Security" />
+        <Section items={security} />
 
         <SectionLabel title="Preferences" />
         <Section items={preferences} />

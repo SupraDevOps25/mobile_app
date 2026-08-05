@@ -95,13 +95,13 @@ export default function CoordinatorEarningsScreen() {
     if (available <= 0) {
       Alert.alert(
         "Nothing to withdraw yet",
-        "Payouts unlock at the end of each subscription month, once the family has paid. Nothing is available to withdraw right now.",
+        "Payouts unlock once the family has paid for the subscription month. Nothing is available to withdraw right now.",
       );
       return;
     }
     Alert.alert(
       "Request payout",
-      `Request a payout of GH₵ ${available.toLocaleString()} for your completed months?`,
+      `Request a payout of GH₵ ${available.toLocaleString()}? This covers every available month, including any earlier ones you haven't withdrawn.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -180,26 +180,27 @@ export default function CoordinatorEarningsScreen() {
           />
         </View>
 
-        {/* Request payout */}
-        <Pressable
-          onPress={handleRequestPayout}
-          disabled={requestPayout.isPending}
-          className="flex-row items-center justify-center rounded-2xl py-3.5 mt-4"
-          style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.3)" }}
-        >
-          {requestPayout.isPending ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <>
-              <Ionicons name="card-outline" size={17} color="#ffffff" />
-              <Text className="text-white font-semibold" style={{ fontSize: 14, marginLeft: 8 }}>
-                {available > 0
-                  ? `Request payout · GH₵ ${available.toLocaleString()}`
-                  : "Request payout"}
-              </Text>
-            </>
-          )}
-        </Pressable>
+        {/* Request payout — only appears once earnings are available, i.e. the
+            family has paid for a subscription month (admins reconcile payment). */}
+        {available > 0 && (
+          <Pressable
+            onPress={handleRequestPayout}
+            disabled={requestPayout.isPending}
+            className="flex-row items-center justify-center rounded-2xl py-3.5 mt-4"
+            style={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.3)" }}
+          >
+            {requestPayout.isPending ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="card-outline" size={17} color="#ffffff" />
+                <Text className="text-white font-semibold" style={{ fontSize: 14, marginLeft: 8 }}>
+                  Request payout · GH₵ {available.toLocaleString()}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        )}
       </View>
 
       {/* White sheet */}

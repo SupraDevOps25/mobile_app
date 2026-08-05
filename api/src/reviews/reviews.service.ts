@@ -56,13 +56,13 @@ export class ReviewsService {
   };
 
   /**
-   * Every nurse who delivered care on a subscription (lead + any assistant) and
-   * is still awaiting the family's end-of-cycle review. "Pending" means all of
-   * this cycle's care visits are done and that nurse hasn't been rated yet.
+   * A subscription's review state: whether all of this cycle's care visits are
+   * done (`visitsComplete`) and which nurses (lead + any assistant) still need
+   * to be rated (`caregivers`, regardless of whether visits are done yet).
    */
-  private async pendingCaregivers(
+  private async reviewSnapshot(
     subscriptionId: string,
-  ): Promise<PendingCaregiver[]> {
+  ): Promise<{ visitsComplete: boolean; caregivers: PendingCaregiver[] }> {
     const nurses = await this.prisma.assignment.findMany({
       where: {
         subscriptionId,
@@ -74,7 +74,7 @@ export class ReviewsService {
         },
       },
     });
-    if (nurses.length === 0) return [];
+    if (nurses.length === 0) return { visitsComplete: false, caregivers: [] };
 
     const [total, remaining, reviews] = await Promise.all([
       this.prisma.visit.count({
@@ -93,11 +93,9 @@ export class ReviewsService {
       }),
     ]);
 
-    // Nothing to review until the month's visits are all done.
-    if (total === 0 || remaining > 0) return [];
-
+    const visitsComplete = total > 0 && remaining === 0;
     const reviewed = new Set(reviews.map((r) => r.caregiverId));
-    return nurses
+    const caregivers = nurses
       .filter((n) => !reviewed.has(n.caregiverId))
       .sort(
         (a, b) =>
@@ -115,11 +113,50 @@ export class ReviewsService {
           photoUrl: n.caregiver.photoUrl,
         };
       });
+    return { visitsComplete, caregivers };
+  }
+
+  /**
+   * Nurses awaiting the family's review on a subscription — only once all of
+   * this cycle's care visits are done. Used by the mandatory end-of-cycle flow.
+   */
+  private async pendingCaregivers(
+    subscriptionId: string,
+  ): Promise<PendingCaregiver[]> {
+    const snap = await this.reviewSnapshot(subscriptionId);
+    return snap.visitsComplete ? snap.caregivers : [];
   }
 
   /** Used by the renewal flow to make the review mandatory. */
   async isPending(subscriptionId: string): Promise<boolean> {
     return (await this.pendingCaregivers(subscriptionId)).length > 0;
+  }
+
+  /**
+   * The review state of one of the family's own subscriptions (active or past).
+   * Lets the app show a "Rate your nurse" button that's disabled until the care
+   * visits are done, and lets families rate a plan they forgot to review even
+   * after it becomes previous care.
+   */
+  async statusForFamily(userId: string, subscriptionId: string) {
+    const familyId = await this.familyIdFor(userId);
+    const sub = await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+    });
+    if (!sub || sub.familyId !== familyId) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    const [snap, pkg] = await Promise.all([
+      this.reviewSnapshot(subscriptionId),
+      this.prisma.package.findUnique({ where: { type: sub.packageType } }),
+    ]);
+    return {
+      subscriptionId,
+      packageName: pkg?.name ?? null,
+      visitsComplete: snap.visitsComplete,
+      caregivers: snap.caregivers,
+    };
   }
 
   /** The nurse(s) the family must rate before continuing. */
@@ -168,7 +205,7 @@ export class ReviewsService {
 
     const caregiver = await this.prisma.caregiverProfile.findUnique({
       where: { id: dto.caregiverId },
-      select: { rating: true, totalReviews: true, userId: true },
+      select: { userId: true },
     });
     if (!caregiver) throw new NotFoundException('Nurse not found');
 
@@ -185,29 +222,17 @@ export class ReviewsService {
     }
 
     const comment = dto.comment?.trim() || null;
-    const review = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.review.create({
-        data: {
-          subscriptionId: dto.subscriptionId,
-          caregiverId: dto.caregiverId,
-          familyId,
-          rating: dto.rating,
-          comment,
-        },
-      });
-      // Fold the new rating into the caregiver's running average.
-      const total = caregiver.totalReviews;
-      const newTotal = total + 1;
-      const newAvg =
-        (caregiver.rating.toNumber() * total + dto.rating) / newTotal;
-      await tx.caregiverProfile.update({
-        where: { id: dto.caregiverId },
-        data: {
-          rating: Math.round(newAvg * 100) / 100,
-          totalReviews: newTotal,
-        },
-      });
-      return created;
+    // The Review row is the single source of truth for a nurse's rating; the
+    // average + count are derived from it on read (see common/review-stats),
+    // so there's no denormalized profile field to keep in sync here.
+    const review = await this.prisma.review.create({
+      data: {
+        subscriptionId: dto.subscriptionId,
+        caregiverId: dto.caregiverId,
+        familyId,
+        rating: dto.rating,
+        comment,
+      },
     });
 
     await this.notifications.notify({

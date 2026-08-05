@@ -1,9 +1,11 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { CommonActions } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Alert,
@@ -41,21 +43,38 @@ function toE164(raw: string): string {
   return `+233${digits}`;
 }
 
+// "Remember me" persists only the identifier the user typed (never the
+// password) so it can be pre-filled on the next visit.
+const REMEMBERED_IDENTIFIER = "remembered_identifier";
+
 export default function SignInScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { top, bottom } = useSafeAreaInsets();
   const { saveSession } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: { emailOrPhone: "", password: "" },
   });
+
+  // Pre-fill the saved identifier (and tick the box) if we remembered one.
+  useEffect(() => {
+    void (async () => {
+      const saved = await AsyncStorage.getItem(REMEMBERED_IDENTIFIER);
+      if (saved) {
+        setValue("emailOrPhone", saved);
+        setRememberMe(true);
+      }
+    })();
+  }, [setValue]);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (values: SignInFormValues) => {
@@ -65,7 +84,13 @@ export default function SignInScreen() {
         : toE164(values.emailOrPhone);
       return authService.login({ emailOrPhone, password: values.password });
     },
-    onSuccess: async ({ accessToken }) => {
+    onSuccess: async ({ accessToken }, values) => {
+      // Remember (or forget) the identifier exactly as typed, per the checkbox.
+      if (rememberMe) {
+        await AsyncStorage.setItem(REMEMBERED_IDENTIFIER, values.emailOrPhone);
+      } else {
+        await AsyncStorage.removeItem(REMEMBERED_IDENTIFIER);
+      }
       const user = await saveSession(accessToken);
       // Family / caregiver / coordinator each land on their own tab group
       const home = homeGroupForRole(user.role);
@@ -159,14 +184,26 @@ export default function SignInScreen() {
 
         {/* Remember me + Forgot password */}
         <View className="flex-row items-center justify-between mb-6 -mt-1">
-          <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => setRememberMe((v) => !v)}
+            hitSlop={8}
+            className="flex-row items-center gap-2"
+          >
             <View
-              className="w-5 h-5 rounded border-gray-300"
-              style={{ borderWidth: 1.5 }}
-            />
+              className="w-5 h-5 rounded items-center justify-center"
+              style={{
+                borderWidth: 1.5,
+                borderColor: rememberMe ? "#1e3a8a" : "#cbd5e1",
+                backgroundColor: rememberMe ? "#1e3a8a" : "transparent",
+              }}
+            >
+              {rememberMe && (
+                <Ionicons name="checkmark" size={14} color="#ffffff" />
+              )}
+            </View>
             <Text className="text-muted text-sm">Remember me</Text>
-          </View>
-          <Pressable onPress={() => Alert.alert("Coming soon")}>
+          </Pressable>
+          <Pressable onPress={() => router.push("/forgot-password" as any)}>
             <Text className="text-brand-btn text-sm">Forgot password?</Text>
           </Pressable>
         </View>

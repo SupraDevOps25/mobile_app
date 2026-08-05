@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import type {
   ApiCarePlanVisit,
   ApiVisitKind,
@@ -39,7 +40,7 @@ export function VisitRow({ visit }: { visit: ApiCarePlanVisit }) {
   return (
     <View
       className="flex-row items-center bg-card rounded-2xl p-3 mb-3"
-      style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+      style={CARD_SURFACE}
     >
       <View
         className="rounded-xl items-center justify-center"

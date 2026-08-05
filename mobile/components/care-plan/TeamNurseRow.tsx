@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image, Pressable, Text, View } from "react-native";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
 import { avatarColor } from "@/lib/avatar";
 import type { ApiTeamNurse } from "@/services/subscription.service";
@@ -16,10 +17,7 @@ export function TeamNurseRow({ nurse, onPress }: Props) {
     <Pressable
       onPress={() => onPress(nurse)}
       className="flex-row items-center bg-card rounded-2xl p-3 mb-3"
-      style={{
-        borderWidth: 1,
-        borderColor: isLead ? "#bbf7d0" : "#f3f4f6",
-      }}
+      style={{ ...CARD_SURFACE, borderColor: isLead ? "#86efac" : CARD_SURFACE.borderColor }}
     >
       {nurse.photoUrl ? (
         <Image

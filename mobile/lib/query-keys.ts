@@ -1,3 +1,8 @@
+// Poll interval for "live-ish" data (review status, offers, cases) so screens
+// update without a pull-to-refresh even when push isn't available (e.g. Expo
+// Go). Push still refreshes instantly in EAS/prod builds; this is the fallback.
+export const LIVE_REFETCH_MS = 20_000;
+
 // Centralized React Query cache keys so screens that read and screens that
 // mutate the same data stay in sync (invalidate by the same key).
 export const qk = {
@@ -9,6 +14,7 @@ export const qk = {
   pastCare: (id: string) => ["subscription", "history", id] as const,
 
   pendingReview: ["reviews", "pending"] as const,
+  reviewStatus: (id: string) => ["reviews", "status", id] as const,
 
   conversations: ["messages", "conversations"] as const,
   familyThread: ["messages", "family"] as const,
@@ -27,6 +33,7 @@ export const qk = {
   caregiverProfile: ["caregivers", "me"] as const,
   caregiverDocuments: ["caregivers", "documents"] as const,
   caregiverEarnings: ["caregivers", "earnings"] as const,
+  caregiverReviews: ["caregivers", "reviews"] as const,
 
   invoices: ["billing", "invoices"] as const,
 

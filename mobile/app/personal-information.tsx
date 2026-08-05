@@ -2,18 +2,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,7 +20,7 @@ import {
   ServiceAreaField,
 } from "@/components/caregiver/profile-fields";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useFamilyProfile,
@@ -57,7 +54,6 @@ export default function PersonalInformationScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { updateUser } = useAuth();
-  const scrollRef = useRef<ScrollView>(null);
 
   const { data: profile, isLoading } = useFamilyProfile();
   const update = useUpdateFamilyProfile();
@@ -71,8 +67,6 @@ export default function PersonalInformationScreen() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     null,
   );
-  const [addressFieldY, setAddressFieldY] = useState(0);
-  const [keyboardSpacer, setKeyboardSpacer] = useState(0);
 
   useEffect(() => {
     if (!profile) return;
@@ -83,43 +77,6 @@ export default function PersonalInformationScreen() {
       setCoords({ lat: profile.lat, lng: profile.lng });
     }
   }, [profile]);
-
-  useEffect(() => {
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent =
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const showSub = Keyboard.addListener(showEvent, (event) => {
-      const keyboardHeight = event.endCoordinates.height;
-      setKeyboardSpacer(
-        Platform.OS === "android"
-          ? Math.min(220, Math.max(140, keyboardHeight - bottom))
-          : 0,
-      );
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardSpacer(0));
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [bottom]);
-
-  function scrollToAddressField() {
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        y: Math.max(addressFieldY - 100, 0),
-        animated: true,
-      });
-    }, Platform.OS === "android" ? 260 : 160);
-  }
-
-  function scrollToLowerFields() {
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, Platform.OS === "android" ? 260 : 160);
-  }
 
   const {
     control,
@@ -219,11 +176,7 @@ export default function PersonalInformationScreen() {
   const dirty = isDirty || (localBaseline != null && localCurrent !== localBaseline);
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
         <StatusBar style="dark" />
 
         {/* Header */}
@@ -250,15 +203,11 @@ export default function PersonalInformationScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
-              ref={scrollRef}
-              showsVerticalScrollIndicator={false}
+            <KeyboardAwareForm
               contentContainerStyle={{
                 paddingHorizontal: 20,
-                paddingBottom: bottom + 96 + keyboardSpacer,
+                paddingBottom: bottom + 120,
               }}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
             >
               {/* Profile photo */}
               <View className="items-center mt-2 mb-4">
@@ -303,53 +252,122 @@ export default function PersonalInformationScreen() {
                 </Text>
               </View>
 
-              {/* Editable details */}
-              <FieldLabel>First name</FieldLabel>
-              <Controller
-                control={control}
-                name="firstName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="First name"
-                    autoCapitalize="words"
-                    error={errors.firstName?.message}
-                  />
-                )}
-              />
+              {/* Name — first & last side by side */}
+              <FieldLabel>Name</FieldLabel>
+              <View className="flex-row" style={{ gap: 12 }}>
+                <Controller
+                  control={control}
+                  name="firstName"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <View
+                      className="flex-1 flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.firstName ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="person-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="First name"
+                        placeholderTextColor="#9ca3af"
+                        autoCapitalize="words"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="lastName"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <View
+                      className="flex-1 flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.lastName ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="person-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="Last name"
+                        placeholderTextColor="#9ca3af"
+                        autoCapitalize="words"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                  )}
+                />
+              </View>
+              {(errors.firstName || errors.lastName) && (
+                <Text style={{ color: "#ef4444", fontSize: 12, marginTop: 6, marginLeft: 8 }}>
+                  {errors.firstName?.message ?? errors.lastName?.message}
+                </Text>
+              )}
 
-              <FieldLabel>Last name</FieldLabel>
-              <Controller
-                control={control}
-                name="lastName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="Last name"
-                    autoCapitalize="words"
-                    error={errors.lastName?.message}
-                  />
-                )}
-              />
-
+              {/* Phone */}
               <FieldLabel>Phone number</FieldLabel>
               <Controller
                 control={control}
                 name="phone"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="0244123456"
-                    keyboardType="phone-pad"
-                    onFocus={scrollToLowerFields}
-                    error={errors.phone?.message}
-                  />
+                  <>
+                    <View
+                      className="flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.phone ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="call-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="0244123456"
+                        placeholderTextColor="#9ca3af"
+                        keyboardType="phone-pad"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                    {errors.phone && (
+                      <Text style={{ color: "#ef4444", fontSize: 12, marginTop: 6, marginLeft: 8 }}>
+                        {errors.phone.message}
+                      </Text>
+                    )}
+                  </>
                 )}
               />
 
@@ -365,14 +383,11 @@ export default function PersonalInformationScreen() {
               </Text>
 
               {/* Home location */}
-              <View
-                onLayout={(event) => setAddressFieldY(event.nativeEvent.layout.y)}
-              >
+              <View>
                 <FieldLabel>Home area</FieldLabel>
                 <ServiceAreaField
                   value={address}
                   onChangeText={setAddress}
-                  onFocus={scrollToAddressField}
                   onLocated={(loc) => {
                     setAddress(
                       [loc.area, loc.city].filter(Boolean).join(", ") ||
@@ -381,6 +396,10 @@ export default function PersonalInformationScreen() {
                     setCoords({ lat: loc.lat, lng: loc.lng });
                   }}
                 />
+                <Text className="text-muted ml-1" style={{ fontSize: 12, marginTop: 6, lineHeight: 17 }}>
+                  Helps your coordinator know where you&apos;re based. The location
+                  we match nurses on is the one you enter when you book care.
+                </Text>
               </View>
 
               {/* Read-only email */}
@@ -407,7 +426,7 @@ export default function PersonalInformationScreen() {
                   ? "Your email is verified. Contact support to change it."
                   : "Your email isn't verified yet. Contact support to change it."}
               </Text>
-            </ScrollView>
+            </KeyboardAwareForm>
 
             {/* Sticky footer */}
             <View
@@ -429,6 +448,5 @@ export default function PersonalInformationScreen() {
           </>
         )}
       </View>
-    </KeyboardAvoidingView>
   );
 }

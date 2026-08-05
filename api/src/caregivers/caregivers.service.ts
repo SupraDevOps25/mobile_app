@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -9,12 +10,17 @@ import {
   CaregiverDocumentType,
   CaregiverProfile,
   PaymentStatus,
+  PayoutMethod,
   PayoutStatus,
   VerificationStatus,
 } from '@prisma/client';
+import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '../common/uploads';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../storage/cloudinary.service';
 import { UpdateCaregiverProfileDto } from './dto/update-caregiver-profile.dto';
+import { UpdatePayoutMethodDto } from './dto/update-payout-method.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 
 // Minimal shape of a multer-uploaded file (avoids depending on @types/multer).
@@ -25,7 +31,6 @@ export interface UploadedFile {
   size: number;
 }
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_DOC = [...ALLOWED_IMAGE, 'application/pdf'];
 
@@ -49,8 +54,8 @@ type EarningsPeriodId = 'month' | 'all';
 // One month of earnings from a subscription the nurse serves. Supracarer bills
 // families a monthly subscription; the nurse earns their agreed monthly payout
 // (Assignment.payoutGhs) for each billing period. Lifecycle of one month:
-//   pending   → family hasn't paid yet, or the billing month hasn't ended
-//   available → paid + month ended → the nurse can now request this payout
+//   pending   → the family hasn't paid this month's invoice yet
+//   available → the family has paid → the nurse can now request this payout
 //   requested → nurse requested it; awaiting admin disbursement
 //   paid      → admin marked it disbursed
 type EarningStatus = 'pending' | 'available' | 'requested' | 'paid';
@@ -68,9 +73,12 @@ type ProfileWithDocs = CaregiverProfile & { documents?: CaregiverDocument[] };
 
 @Injectable()
 export class CaregiversService {
+  private readonly logger = new Logger(CaregiversService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: CloudinaryService,
+    private readonly mail: MailService,
   ) {}
 
   private async requireProfile(userId: string): Promise<CaregiverProfile> {
@@ -87,7 +95,7 @@ export class CaregiversService {
       include: { documents: true },
     });
     if (!profile) throw new NotFoundException('Caregiver profile not found');
-    return this.toResponse(profile, profile.documents);
+    return this.profileResponse(profile, profile.documents);
   }
 
   /**
@@ -96,9 +104,49 @@ export class CaregiversService {
    * agreed monthly payout (Assignment.payoutGhs). See EarningStatus for the
    * per-month lifecycle.
    */
+  /** The nurse's own ratings + individual reviews, newest first. */
+  async myReviews(userId: string) {
+    const profile = await this.requireProfile(userId);
+    const reviews = await this.prisma.review.findMany({
+      where: { caregiverId: profile.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        subscription: {
+          select: {
+            packageType: true,
+            careRecipient: { select: { name: true } },
+          },
+        },
+      },
+    });
+    const totalReviews = reviews.length;
+    const rating =
+      totalReviews > 0
+        ? Math.round(
+            (reviews.reduce((s, r) => s + r.rating, 0) / totalReviews) * 100,
+          ) / 100
+        : 0;
+    return {
+      rating,
+      totalReviews,
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        recipientName: r.subscription.careRecipient.name,
+        packageType: r.subscription.packageType,
+      })),
+    };
+  }
+
   async earnings(userId: string) {
     const profile = await this.requireProfile(userId);
     const earningsList = await this.collectEarnings(profile.id);
+    const { rating } = reviewStatsFor(
+      await caregiverReviewStats(this.prisma, [profile.id]),
+      profile.id,
+    );
 
     const now = new Date();
     const periods = (['month', 'all'] as EarningsPeriodId[]).map((id) =>
@@ -113,7 +161,7 @@ export class CaregiversService {
       );
 
     return {
-      rating: Number(profile.rating),
+      rating,
       availableGhs: sumBy('available'), // withdrawable now
       requestedGhs: sumBy('requested'), // awaiting admin disbursement
       paidOutGhs: sumBy('paid'), // disbursed all-time
@@ -130,10 +178,10 @@ export class CaregiversService {
   }
 
   /**
-   * Request payout for every completed subscription month that is now available
-   * (billing period ended + family paid + not already requested). One payout
-   * record is created per month, so an admin can disburse and mark them
-   * individually.
+   * Request payout for every subscription month that is now available (the
+   * family has paid and it hasn't been requested yet), including earlier months
+   * the nurse never withdrew. One payout record is created per month so an admin
+   * can disburse and mark them individually.
    */
   async requestPayout(userId: string) {
     const profile = await this.requireProfile(userId);
@@ -142,13 +190,25 @@ export class CaregiversService {
 
     if (available.length === 0) {
       throw new BadRequestException(
-        'No completed months are available to withdraw yet. Payouts unlock at ' +
-          'the end of each subscription month, once the family has paid.',
+        'No earnings are available to withdraw yet. Payouts unlock once the ' +
+          'family has paid for the subscription month.',
+      );
+    }
+
+    // Security guard: only ever create a payout for a month the family has
+    // actually paid. Re-verify each payment is SUCCESS at write time, so a
+    // stale read can never turn into a payout against an unpaid invoice. The
+    // request carries no client-supplied amount or payment id — the server
+    // derives everything from this nurse's own paid subscriptions.
+    const eligible = await this.eligiblePaidEarnings(available);
+    if (eligible.length === 0) {
+      throw new BadRequestException(
+        'These earnings are no longer eligible for payout.',
       );
     }
 
     await this.prisma.payoutRequest.createMany({
-      data: available.map((e) => ({
+      data: eligible.map((e) => ({
         caregiverId: profile.id,
         paymentId: e.id,
         amountGhs: e.amountGhs,
@@ -157,9 +217,23 @@ export class CaregiversService {
     });
 
     return {
-      count: available.length,
-      totalGhs: Math.round(available.reduce((s, e) => s + e.amountGhs, 0)),
+      count: eligible.length,
+      totalGhs: Math.round(eligible.reduce((s, e) => s + e.amountGhs, 0)),
     };
+  }
+
+  /** Keep only earnings whose payment is confirmed SUCCESS (family paid). */
+  private async eligiblePaidEarnings(earnings: Earning[]): Promise<Earning[]> {
+    if (earnings.length === 0) return [];
+    const paid = await this.prisma.payment.findMany({
+      where: {
+        id: { in: earnings.map((e) => e.id) },
+        status: PaymentStatus.SUCCESS,
+      },
+      select: { id: true },
+    });
+    const paidIds = new Set(paid.map((p) => p.id));
+    return earnings.filter((e) => paidIds.has(e.id));
   }
 
   /** Build the nurse's monthly earnings list from their subscriptions' payments. */
@@ -199,18 +273,17 @@ export class CaregiversService {
     const payoutByPayment = new Map(
       payouts.map((r) => [r.paymentId, r.status]),
     );
-    const now = new Date();
-
     return payments.map((p) => {
       const a = bySub.get(p.subscriptionId)!;
       const payout = payoutByPayment.get(p.id);
-      const monthEnded = p.billingPeriodEnd <= now;
 
+      // An earning becomes withdrawable the moment the family has paid this
+      // month's invoice (Payment SUCCESS). The nurse never sees the family's
+      // payment state — the payout simply unlocks; only admins reconcile it.
       let status: EarningStatus;
       if (payout === PayoutStatus.PAID) status = 'paid';
       else if (payout === PayoutStatus.PENDING) status = 'requested';
-      else if (p.status === PaymentStatus.SUCCESS && monthEnded)
-        status = 'available';
+      else if (p.status === PaymentStatus.SUCCESS) status = 'available';
       else status = 'pending';
 
       return {
@@ -307,7 +380,53 @@ export class CaregiversService {
       },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
+  }
+
+  async updatePayoutMethod(userId: string, dto: UpdatePayoutMethodDto) {
+    await this.requireProfile(userId);
+
+    // Require the fields for the chosen channel; clear the other channel so we
+    // never keep stale details for a method the nurse isn't using.
+    const data =
+      dto.method === PayoutMethod.MOMO
+        ? {
+            payoutMethod: PayoutMethod.MOMO,
+            momoNetwork: this.required(dto.momoNetwork, 'mobile money network'),
+            momoNumber: this.required(dto.momoNumber, 'mobile money number'),
+            momoName: this.required(dto.momoName, 'mobile money account name'),
+            bankName: null,
+            bankAccountNumber: null,
+            bankAccountName: null,
+          }
+        : {
+            payoutMethod: PayoutMethod.BANK,
+            bankName: this.required(dto.bankName, 'bank name'),
+            bankAccountNumber: this.required(
+              dto.bankAccountNumber,
+              'bank account number',
+            ),
+            bankAccountName: this.required(
+              dto.bankAccountName,
+              'account holder name',
+            ),
+            momoNetwork: null,
+            momoNumber: null,
+            momoName: null,
+          };
+
+    const updated = await this.prisma.caregiverProfile.update({
+      where: { userId },
+      data,
+      include: { documents: true },
+    });
+    return this.profileResponse(updated, updated.documents);
+  }
+
+  private required(value: string | undefined, label: string): string {
+    const trimmed = value?.trim();
+    if (!trimmed) throw new BadRequestException(`Please enter your ${label}.`);
+    return trimmed;
   }
 
   async setAvailability(userId: string, isAvailable: boolean) {
@@ -317,7 +436,7 @@ export class CaregiversService {
       data: { isAvailable },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
   }
 
   async setSchedule(userId: string, schedule: UpdateScheduleDto) {
@@ -333,7 +452,7 @@ export class CaregiversService {
       },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
   }
 
   // ── Profile photo ──────────────────────────────────────────────────────────
@@ -353,7 +472,7 @@ export class CaregiversService {
       data: { photoUrl: stored.url, photoPublicId: stored.publicId },
       include: { documents: true },
     });
-    return this.toResponse(updated, updated.documents);
+    return this.profileResponse(updated, updated.documents);
   }
 
   // ── Credentials (documents) ─────────────────────────────────────────────────
@@ -413,7 +532,41 @@ export class CaregiversService {
       });
     }
 
+    // Best-effort: alert the admin team so they can review and verify. Never
+    // let an email hiccup fail the upload itself.
+    void this.notifyAdminOfSubmission(userId, type);
+
     return this.toDocument(document);
+  }
+
+  /** Email the admin team that a nurse submitted a credential for review. */
+  private async notifyAdminOfSubmission(
+    userId: string,
+    type: CaregiverDocumentType,
+  ): Promise<void> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+      if (!user) return;
+      await this.mail.sendCaregiverDocumentSubmittedEmail({
+        nurseName: `${user.firstName} ${user.lastName}`.trim() || user.email,
+        nurseEmail: user.email,
+        documentLabel: this.documentLabel(type),
+      });
+    } catch (err) {
+      this.logger.error('Failed to email admin of credential submission', err);
+    }
+  }
+
+  /** "GHANA_CARD" → "Ghana Card" for human-readable emails. */
+  private documentLabel(type: CaregiverDocumentType): string {
+    return type
+      .toLowerCase()
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -424,8 +577,10 @@ export class CaregiversService {
     typeMessage: string,
   ) {
     if (!file) throw new BadRequestException('No file was uploaded.');
-    if (file.size > MAX_FILE_BYTES) {
-      throw new BadRequestException('File is too large (max 5 MB).');
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException(
+        `File is too large. Please choose a file under ${MAX_UPLOAD_LABEL}.`,
+      );
     }
     if (!allowed.includes(file.mimetype)) {
       throw new BadRequestException(typeMessage);
@@ -444,6 +599,19 @@ export class CaregiversService {
       reviewedAt: d.reviewedAt,
       createdAt: d.createdAt,
     };
+  }
+
+  /** Profile response with rating + review count taken live from the Review
+   * table (single source of truth), not the denormalized profile columns. */
+  private async profileResponse(
+    p: ProfileWithDocs,
+    documents?: CaregiverDocument[],
+  ) {
+    const stats = reviewStatsFor(
+      await caregiverReviewStats(this.prisma, [p.id]),
+      p.id,
+    );
+    return { ...this.toResponse(p, documents), ...stats };
   }
 
   private toResponse(p: ProfileWithDocs, documents?: CaregiverDocument[]) {
@@ -472,6 +640,15 @@ export class CaregiversService {
       rating: p.rating.toNumber(),
       reliabilityScore: p.reliabilityScore,
       totalReviews: p.totalReviews,
+      payout: {
+        method: p.payoutMethod,
+        momoNetwork: p.momoNetwork,
+        momoNumber: p.momoNumber,
+        momoName: p.momoName,
+        bankName: p.bankName,
+        bankAccountNumber: p.bankAccountNumber,
+        bankAccountName: p.bankAccountName,
+      },
       documents: (documents ?? []).map((d) => this.toDocument(d)),
     };
   }

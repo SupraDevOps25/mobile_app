@@ -15,6 +15,15 @@ export interface ApiCoordinator {
   phone: string;
 }
 
+// A review the family sees on a nurse's profile — privacy-safe (no reviewer).
+export interface ApiNurseReview {
+  id: string;
+  rating: number; // 1..5
+  comment: string | null;
+  createdAt: string;
+  packageType: ApiPackageType;
+}
+
 export interface ApiTeamNurse {
   assignmentId: string;
   role: ApiAssignmentRole;
@@ -32,6 +41,7 @@ export interface ApiTeamNurse {
   languages: string[];
   hasHomecareExp: boolean;
   totalReviews: number;
+  reviews: ApiNurseReview[];
   photoUrl: string | null;
   licenseVerified: boolean;
 }

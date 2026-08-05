@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   Prisma,
   SubscriptionStatus,
+  VisitStatus,
 } from '@prisma/client';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -87,6 +88,22 @@ export class BillingService {
     if (open) {
       throw new BadRequestException(
         'There is already an unpaid invoice for this subscription',
+      );
+    }
+
+    // All of this cycle's care visits must be delivered before billing. While a
+    // subscription is ACTIVE the only visits present are the current month's
+    // (the next batch is generated on renewal), so any SCHEDULED/IN_PROGRESS
+    // visit means care isn't finished yet. (MISSED/COMPLETED are terminal.)
+    const pendingVisits = await this.prisma.visit.count({
+      where: {
+        subscriptionId,
+        status: { in: [VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS] },
+      },
+    });
+    if (pendingVisits > 0) {
+      throw new BadRequestException(
+        `All care visits must be completed before issuing an invoice — ${pendingVisits} still outstanding.`,
       );
     }
 

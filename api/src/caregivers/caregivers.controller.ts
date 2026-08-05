@@ -19,12 +19,14 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { uploadLimits } from '../common/uploads';
 import {
   CaregiversService,
   type UploadedFile as MulterFile,
 } from './caregivers.service';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateCaregiverProfileDto } from './dto/update-caregiver-profile.dto';
+import { UpdatePayoutMethodDto } from './dto/update-payout-method.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 
@@ -54,7 +56,7 @@ export class CaregiversController {
   @ApiOperation({ summary: 'Nurse: upload / replace my profile photo' })
   @ApiConsumes('multipart/form-data')
   @Post('me/photo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', uploadLimits))
   uploadPhoto(
     @Request() req: { user: { id: string } },
     @UploadedFile() file: MulterFile,
@@ -66,6 +68,12 @@ export class CaregiversController {
   @Get('me/earnings')
   earnings(@Request() req: { user: { id: string } }) {
     return this.caregiversService.earnings(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Nurse: my ratings & individual reviews' })
+  @Get('me/reviews')
+  reviews(@Request() req: { user: { id: string } }) {
+    return this.caregiversService.myReviews(req.user.id);
   }
 
   @ApiOperation({ summary: 'Nurse: request a payout of my available balance' })
@@ -85,7 +93,7 @@ export class CaregiversController {
   })
   @ApiConsumes('multipart/form-data')
   @Post('me/documents')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', uploadLimits))
   uploadDocument(
     @Request() req: { user: { id: string } },
     @Body() dto: UploadDocumentDto,
@@ -97,6 +105,15 @@ export class CaregiversController {
       dto.idNumber,
       file,
     );
+  }
+
+  @ApiOperation({ summary: 'Nurse: set my payout method (MoMo or bank)' })
+  @Patch('me/payout-method')
+  setPayoutMethod(
+    @Request() req: { user: { id: string } },
+    @Body() dto: UpdatePayoutMethodDto,
+  ) {
+    return this.caregiversService.updatePayoutMethod(req.user.id, dto);
   }
 
   @ApiOperation({ summary: 'Nurse: set my availability' })

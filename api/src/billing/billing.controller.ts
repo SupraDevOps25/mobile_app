@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -68,6 +69,7 @@ export class BillingController {
   }
 
   @ApiOperation({ summary: 'Paystack webhook (HMAC verified)' })
+  @SkipThrottle() // Paystack calls this server-to-server — never rate limit it.
   @Post('webhook')
   webhook(
     @Headers('x-paystack-signature') signature: string,

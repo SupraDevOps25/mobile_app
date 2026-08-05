@@ -50,6 +50,17 @@ export const authService = {
   login: (payload: LoginPayload) =>
     api.post<AuthResponse>("/auth/login", payload),
 
+  /** Request a password-reset code (emailed). Always resolves generically. */
+  forgotPassword: (emailOrPhone: string) =>
+    api.post<{ message: string }>("/auth/forgot-password", { emailOrPhone }),
+
+  /** Set a new password using the emailed code. */
+  resetPassword: (payload: {
+    emailOrPhone: string;
+    code: string;
+    newPassword: string;
+  }) => api.post<{ reset: boolean }>("/auth/reset-password", payload),
+
   /** The logged-in user's account (any role). */
   profile: () => api.get<ApiAuthProfile>("/auth/profile"),
 

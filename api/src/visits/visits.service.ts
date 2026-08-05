@@ -2,8 +2,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { cronsEnabled } from '../common/crons';
 import {
   AssignmentStatus,
   NotificationType,
@@ -45,10 +48,128 @@ function initialsOf(name: string): string {
 
 @Injectable()
 export class VisitsService {
+  private readonly logger = new Logger(VisitsService.name);
+
+  // How long after a visit's window (scheduledFor + durationHrs) closes before
+  // we give up on it. The window itself scales with the package — Wellness 2h,
+  // Live-In 24h — since we key off each visit's own durationHrs, so these are
+  // just the buffer on top. A no-show (still SCHEDULED) is flagged quickly; a
+  // visit the nurse started but never logged (IN_PROGRESS) gets a longer grace,
+  // a full extra day, to let them submit before we mark it missed.
+  private static readonly MISSED_GRACE_HOURS = 6;
+  private static readonly IN_PROGRESS_GRACE_HOURS = 24;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
   ) {}
+
+  /**
+   * Auto-resolve stale visits. A care visit whose whole window (scheduledFor +
+   * durationHrs) plus a grace buffer has passed but that never reached a log is
+   * flagged MISSED: either the nurse never showed (still SCHEDULED) or they
+   * started but never submitted the log (IN_PROGRESS, given a longer grace).
+   * Runs hourly; MISSED is terminal so billing can proceed. The coordinator is
+   * always told; the nurse is told when their started visit lapsed. (The initial
+   * assessment is coordinator-managed, so it's left out.)
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async flagMissedVisits(): Promise<void> {
+    if (!cronsEnabled()) return;
+    const now = Date.now();
+    const hour = 60 * 60 * 1000;
+
+    const open = await this.prisma.visit.findMany({
+      where: {
+        status: { in: [VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS] },
+        kind: VisitKind.CARE_VISIT,
+      },
+      include: {
+        subscription: {
+          select: {
+            coordinatorId: true,
+            careRecipient: { select: { name: true } },
+          },
+        },
+        caregiver: {
+          select: {
+            userId: true,
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+
+    const missed = open.filter((v) => {
+      const graceHrs =
+        v.status === VisitStatus.IN_PROGRESS
+          ? VisitsService.IN_PROGRESS_GRACE_HOURS
+          : VisitsService.MISSED_GRACE_HOURS;
+      const windowEnd =
+        v.scheduledFor.getTime() + (v.durationHrs + graceHrs) * hour;
+      return windowEnd < now;
+    });
+    if (missed.length === 0) return;
+
+    await this.prisma.visit.updateMany({
+      where: { id: { in: missed.map((v) => v.id) } },
+      data: { status: VisitStatus.MISSED },
+    });
+    this.logger.log(`Flagged ${missed.length} missed visit(s)`);
+
+    for (const v of missed) {
+      const nurse =
+        `${v.caregiver.user.firstName} ${v.caregiver.user.lastName}`.trim();
+      const recipient = v.subscription.careRecipient.name;
+      const dateLabel = v.scheduledFor.toLocaleDateString();
+      // IN_PROGRESS = the nurse started the visit but never submitted a log.
+      const startedNotLogged = v.status === VisitStatus.IN_PROGRESS;
+
+      if (v.subscription.coordinatorId) {
+        await this.notifications.notify({
+          userId: v.subscription.coordinatorId,
+          type: NotificationType.GENERAL,
+          title: startedNotLogged ? 'Visit not logged' : 'Visit missed',
+          body: startedNotLogged
+            ? `${nurse} started but never logged the ${dateLabel} visit for ${recipient}. It's been marked missed — please follow up.`
+            : `${nurse} missed the ${dateLabel} visit for ${recipient}. Please follow up.`,
+        });
+      }
+
+      // Nudge the nurse when their own started visit lapsed unlogged, so they
+      // know and can ask the coordinator/admin to correct it if care happened.
+      if (startedNotLogged) {
+        await this.notifications.notify({
+          userId: v.caregiver.userId,
+          type: NotificationType.GENERAL,
+          title: 'Visit marked missed',
+          body: `Your ${dateLabel} visit for ${recipient} was never logged and has been marked missed. Contact your coordinator if this is a mistake.`,
+        });
+      }
+    }
+  }
+
+  /**
+   * Admin-only manual override of a visit's status — the safety valve for
+   * correcting an auto-flagged miss, or recording one the cron hasn't caught
+   * yet. Only admins may change a visit's status directly.
+   */
+  async adminSetStatus(visitId: string, status: VisitStatus) {
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+    if (!visit) throw new NotFoundException('Visit not found');
+
+    const updated = await this.prisma.visit.update({
+      where: { id: visitId },
+      data: {
+        status,
+        // Keep endedAt consistent with the new status.
+        endedAt: status === VisitStatus.COMPLETED ? new Date() : null,
+      },
+    });
+    return { id: updated.id, status: updated.status };
+  }
 
   private async caregiverIdFor(userId: string): Promise<string> {
     const profile = await this.prisma.caregiverProfile.findUnique({
@@ -196,6 +317,24 @@ export class VisitsService {
 
     const packages = await this.prisma.package.findMany();
     const nameByType = new Map(packages.map((p) => [p.type, p.name]));
+    const inclusionsByType = new Map(
+      packages.map((p) => [p.type, p.inclusions]),
+    );
+
+    // The family's star rating + comment for this nurse, per subscription.
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        caregiverId,
+        subscriptionId: { in: assignments.map((a) => a.subscriptionId) },
+      },
+      select: {
+        subscriptionId: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+      },
+    });
+    const reviewBySub = new Map(reviews.map((r) => [r.subscriptionId, r]));
 
     return assignments.map((a) => {
       const sub = a.subscription;
@@ -240,6 +379,14 @@ export class VisitsService {
         active: sub.status !== SubscriptionStatus.CANCELLED,
         packageType: sub.packageType,
         packageName: nameByType.get(sub.packageType) ?? null,
+        inclusions: inclusionsByType.get(sub.packageType) ?? [],
+        review: reviewBySub.get(sub.id)
+          ? {
+              rating: reviewBySub.get(sub.id)!.rating,
+              comment: reviewBySub.get(sub.id)!.comment,
+              createdAt: reviewBySub.get(sub.id)!.createdAt,
+            }
+          : null,
         coordinatorName: sub.coordinator
           ? `${sub.coordinator.firstName} ${sub.coordinator.lastName}`
           : null,

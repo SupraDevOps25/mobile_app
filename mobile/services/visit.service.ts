@@ -68,6 +68,8 @@ export interface ApiCaregiverAssignment {
   active: boolean;
   packageType: ApiPackageType;
   packageName: string | null;
+  inclusions: string[];
+  review: { rating: number; comment: string | null; createdAt: string } | null;
   coordinatorName: string | null;
   client: {
     name: string;
@@ -155,5 +157,4 @@ export const visitService = {
     api.post<ApiVisitLog>(`/visits/${id}/log`, payload),
   editLog: (id: string, payload: SubmitLogPayload) =>
     api.patch<ApiVisitLog>(`/visits/${id}/log`, payload),
-  carePlan: () => api.get<ApiCarePlanVisit[]>("/visits/care-plan"),
 };

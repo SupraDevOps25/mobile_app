@@ -5,13 +5,13 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/ui/Avatar";
@@ -36,6 +36,10 @@ const KIND_LABEL: Record<ApiVisitKind, string> = {
   INITIAL_ASSESSMENT: "Initial assessment",
   CARE_VISIT: "Care visit",
 };
+
+function getPillWidth(label: string, maxWidth: number) {
+  return Math.min(Math.ceil(label.length * 7) + 42, maxWidth);
+}
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -65,6 +69,8 @@ export default function CoordinatorLogScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const pillMaxWidth = Math.max(windowWidth - 64, 220);
 
   const { data: logs, isLoading, refetch } = useCoordinatorLogs();
   const { refreshing, onRefresh } = useRefresh(refetch);
@@ -102,15 +108,36 @@ export default function CoordinatorLogScreen() {
   }[];
 
   function onReview() {
-    reviewLog.mutate(log!.visitId, {
-      onSuccess: () => Alert.alert("Reviewed", "This log is marked as reviewed."),
-      onError: (err: Error) => Alert.alert("Couldn't review", err.message),
-    });
+    Alert.alert(
+      "Mark as reviewed?",
+      "Once you mark this log as reviewed, the nurse can no longer edit it. Make sure the report is complete and accurate.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark reviewed",
+          onPress: () =>
+            reviewLog.mutate(log!.visitId, {
+              onSuccess: () =>
+                Alert.alert("Reviewed", "This log is marked as reviewed."),
+              onError: (err: Error) =>
+                Alert.alert("Couldn't review", err.message),
+            }),
+        },
+      ],
+    );
   }
 
   function onRequestChanges() {
+    const trimmed = note.trim();
+    if (trimmed.length < 3) {
+      Alert.alert(
+        "Add a note",
+        "Tell the nurse what needs fixing before requesting changes.",
+      );
+      return;
+    }
     requestChanges.mutate(
-      { visitId: log!.visitId, note: note.trim() || undefined },
+      { visitId: log!.visitId, note: trimmed },
       {
         onSuccess: () => {
           setRequesting(false);
@@ -128,7 +155,7 @@ export default function CoordinatorLogScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior="padding"
     >
       {/* Header */}
       <View className="flex-row items-center px-5 pb-3" style={{ paddingTop: top + 8 }}>
@@ -242,11 +269,32 @@ export default function CoordinatorLogScreen() {
         {log.medicationsGiven.length > 0 && (
           <>
             <SectionLabel title="Medications administered" />
-            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-              {log.medicationsGiven.map((m) => (
-                <View key={m} className="flex-row items-center rounded-full px-3 py-1.5" style={{ backgroundColor: "#eff6ff" }}>
-                  <Ionicons name="medkit-outline" size={13} color="#2563eb" />
-                  <Text style={{ color: "#1d4ed8", fontSize: 12, marginLeft: 5 }}>{m}</Text>
+            <View style={{ gap: 8, width: "100%" }}>
+              {log.medicationsGiven.map((medication) => (
+                <View
+                  key={medication}
+                  className="flex-row rounded-full px-3 py-2"
+                  style={{
+                    backgroundColor: "#eff6ff",
+                    width: getPillWidth(medication, pillMaxWidth),
+                    alignSelf: "flex-start",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <Ionicons name="medkit-outline" size={13} color="#2563eb" style={{ marginTop: 2 }} />
+                  <Text
+                    style={{
+                      color: "#1d4ed8",
+                      fontSize: 12,
+                      marginLeft: 5,
+                      flex: 1,
+                      flexShrink: 1,
+                      minWidth: 0,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {medication}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -258,10 +306,31 @@ export default function CoordinatorLogScreen() {
           <>
             <SectionLabel title="Quick log" />
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-              {log.quickLog.map((q) => (
-                <View key={q} className="flex-row items-center rounded-full px-3 py-1.5" style={{ backgroundColor: "#f0fdf4" }}>
-                  <Ionicons name="checkmark-circle" size={13} color="#16a34a" />
-                  <Text style={{ color: "#15803d", fontSize: 12, marginLeft: 5 }}>{q}</Text>
+              {log.quickLog.map((quickLogItem) => (
+                <View
+                  key={quickLogItem}
+                  className="flex-row rounded-full px-3 py-2"
+                  style={{
+                    backgroundColor: "#f0fdf4",
+                    width: getPillWidth(quickLogItem, pillMaxWidth),
+                    alignSelf: "flex-start",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={13} color="#16a34a" style={{ marginTop: 2 }} />
+                  <Text
+                    style={{
+                      color: "#15803d",
+                      fontSize: 12,
+                      marginLeft: 5,
+                      flex: 1,
+                      flexShrink: 1,
+                      minWidth: 0,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {quickLogItem}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -320,7 +389,7 @@ export default function CoordinatorLogScreen() {
             <TextInput
               value={note}
               onChangeText={setNote}
-              placeholder="What should the nurse fix? (optional)"
+              placeholder="What should the nurse fix? (required)"
               placeholderTextColor="#9ca3af"
               multiline
               maxFontSizeMultiplier={1.2}
@@ -351,9 +420,16 @@ export default function CoordinatorLogScreen() {
               </Pressable>
               <Pressable
                 onPress={onRequestChanges}
-                disabled={requestChanges.isPending}
+                disabled={requestChanges.isPending || note.trim().length < 3}
                 className="flex-1 rounded-2xl items-center justify-center flex-row"
-                style={{ paddingVertical: 14, backgroundColor: requestChanges.isPending ? "#9ca3af" : "#dc2626", gap: 8 }}
+                style={{
+                  paddingVertical: 14,
+                  backgroundColor:
+                    requestChanges.isPending || note.trim().length < 3
+                      ? "#f3b4b4"
+                      : "#dc2626",
+                  gap: 8,
+                }}
               >
                 {requestChanges.isPending && <ActivityIndicator color="#fff" size="small" />}
                 <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>

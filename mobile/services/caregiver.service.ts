@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { fileForm, type PickedFile } from "@/lib/pick";
+import type { ApiPackageType } from "@/services/package.service";
 import type { ApiGender } from "@/services/subscription.service";
 
 // Clinical competency enum values from the backend.
@@ -68,7 +69,31 @@ export interface ApiCaregiverProfile {
   rating: number;
   reliabilityScore: number;
   totalReviews: number;
+  payout: ApiPayoutMethod;
   documents: ApiCaregiverDocument[];
+}
+
+export type ApiPayoutChannel = "MOMO" | "BANK";
+
+// The nurse's saved payout destination. `method` is null until they set one up.
+export interface ApiPayoutMethod {
+  method: ApiPayoutChannel | null;
+  momoNetwork: string | null;
+  momoNumber: string | null;
+  momoName: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankAccountName: string | null;
+}
+
+export interface UpdatePayoutMethodPayload {
+  method: ApiPayoutChannel;
+  momoNetwork?: string;
+  momoNumber?: string;
+  momoName?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
 }
 
 export interface UpdateCaregiverProfilePayload {
@@ -129,6 +154,22 @@ export interface ApiPayoutResult {
   totalGhs: number;
 }
 
+// One review a family left for this nurse.
+export interface ApiCaregiverReview {
+  id: string;
+  rating: number; // 1..5
+  comment: string | null;
+  createdAt: string;
+  recipientName: string;
+  packageType: ApiPackageType;
+}
+
+export interface ApiCaregiverReviews {
+  rating: number; // running average
+  totalReviews: number;
+  reviews: ApiCaregiverReview[];
+}
+
 export const caregiverService = {
   me: () => api.get<ApiCaregiverProfile>("/caregivers/me"),
   setAvailability: (isAvailable: boolean) =>
@@ -141,11 +182,17 @@ export const caregiverService = {
   updateProfile: (payload: UpdateCaregiverProfilePayload) =>
     api.patch<ApiCaregiverProfile>("/caregivers/me/profile", payload),
 
+  updatePayoutMethod: (payload: UpdatePayoutMethodPayload) =>
+    api.patch<ApiCaregiverProfile>("/caregivers/me/payout-method", payload),
+
   uploadPhoto: (file: PickedFile) =>
     api.upload<ApiCaregiverProfile>("/caregivers/me/photo", fileForm(file)),
 
   earnings: () =>
     api.get<ApiCaregiverEarnings>("/caregivers/me/earnings"),
+
+  reviews: () =>
+    api.get<ApiCaregiverReviews>("/caregivers/me/reviews"),
 
   requestPayout: () =>
     api.post<ApiPayoutResult>("/caregivers/me/payouts"),

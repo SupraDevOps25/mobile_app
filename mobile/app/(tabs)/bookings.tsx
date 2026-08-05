@@ -56,6 +56,34 @@ function ReviewDueBanner({
   );
 }
 
+// Shown when a plan is awaiting the family's renewal decision and there's no
+// nurse review still due. Taps through to the plan detail's renew/end options.
+function RenewalDueBanner({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-center rounded-2xl p-4 mb-2"
+      style={{ backgroundColor: "#eff6ff", borderWidth: 1, borderColor: "#bfdbfe" }}
+    >
+      <View
+        className="w-10 h-10 rounded-full items-center justify-center"
+        style={{ backgroundColor: "#dbeafe" }}
+      >
+        <Ionicons name="refresh" size={18} color="#1d4ed8" />
+      </View>
+      <View className="flex-1 ml-3">
+        <Text style={{ color: "#1e3a8a", fontSize: 14, fontWeight: "700" }}>
+          Your care is up for renewal
+        </Text>
+        <Text style={{ color: "#1d4ed8", fontSize: 12, marginTop: 1 }}>
+          Continue for another month, or end care
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#1d4ed8" />
+    </Pressable>
+  );
+}
+
 function PreviousCareSection({
   items,
   onOpen,
@@ -236,15 +264,20 @@ export default function CarePlanScreen() {
         }
       >
         <View className="px-5">
-          {/* Mandatory nurse review, if a cycle just wrapped up */}
-          {pendingReview && (
+          {/* Action needed: rate the nurse first (mandatory), else — if the
+              plan is awaiting renewal — prompt the renewal decision. */}
+          {pendingReview ? (
             <ReviewDueBanner
               pending={pendingReview}
               onPress={() =>
                 router.push(`/past-care/${pendingReview.subscriptionId}` as any)
               }
             />
-          )}
+          ) : subscription.status === "RENEWING" ? (
+            <RenewalDueBanner
+              onPress={() => router.push(`/past-care/${subscription.id}` as any)}
+            />
+          ) : null}
 
           {/* Active care — tap to open the full plan and its visits */}
           <SectionLabel title="Active care" />

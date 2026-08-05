@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Supracarer Admin — design tokens (from the Figma foundation).
+   One light theme. Navy sidebar, royal-blue primary, teal brand accent.
+   Tokens below generate Tailwind utilities: bg-brand, text-muted, border-line,
+   bg-sidebar, rounded-card, etc.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Primary action (buttons, links, active accents) */
+  --color-brand: #2743c7;
+  --color-brand-hover: #1f37a6;
+  --color-brand-soft: #eef1fd;
+
+  /* Teal used in the logo / positive accents */
+  --color-teal: #0d9488;
+
+  /* Sidebar (dark navy) */
+  --color-sidebar: #16203f;
+  --color-sidebar-active: #24314f;
+  --color-sidebar-muted: #94a0bd;
+
+  /* Surfaces & text */
+  --color-page: #f6f7f9;
+  --color-ink: #0f172a;
+  --color-muted: #6b7280;
+  --color-faint: #9aa3b2;
+  --color-line: #ececf0;
+  --color-field: #f1f3f6;
+
+  /* Rounding */
+  --radius-card: 16px;
+  --radius-field: 10px;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Thin, unobtrusive scrollbars for the dashboard shell */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cdd3dc transparent;
+}

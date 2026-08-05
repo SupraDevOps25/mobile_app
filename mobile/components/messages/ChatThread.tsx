@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -89,16 +90,37 @@ export function ChatThread({
   messages,
   accent = "#0d9488",
   keyboardOffset = 0,
+  bottomInset,
 }: {
   subscriptionId: string;
   messages: ApiMessage[];
   accent?: string;
   keyboardOffset?: number;
+  // Override the resting bottom padding under the composer. Pass 0 when the
+  // thread renders inside a tab navigator (the tab bar already covers the
+  // device's bottom inset, so adding it again leaves a gap above the tabs).
+  bottomInset?: number;
 }) {
   const send = useSendMessage(subscriptionId);
   const [text, setText] = useState("");
   const scrollRef = useRef<ScrollView>(null);
-  const { bottom } = useSafeAreaInsets();
+  const { bottom: safeBottom } = useSafeAreaInsets();
+  const bottom = bottomInset ?? safeBottom;
+
+  // Once the keyboard is up it already covers the home-indicator area, so the
+  // composer shouldn't also reserve the bottom safe-area inset — that leftover
+  // padding is the gap between the input and the keyboard on iOS.
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvt, () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(hideEvt, () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   function onSend() {
     const body = text.trim();
@@ -115,7 +137,7 @@ export function ChatThread({
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior="padding"
       keyboardVerticalOffset={keyboardOffset}
     >
       <ScrollView
@@ -148,7 +170,7 @@ export function ChatThread({
       <View
         className="flex-row items-end px-3 pt-2 bg-white"
         style={{
-          paddingBottom: bottom + 8,
+          paddingBottom: keyboardUp ? 5 : bottom + 8,
           borderTopWidth: 1,
           borderTopColor: "#f3f4f6",
           gap: 8,

@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { isOnboardingSeen } from "@/lib/onboarding";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -104,14 +104,14 @@ export default function CaregiverHomeScreen() {
   // afterwards they finish from the profile tab's verification nudge.
   const redirected = useRef(false);
   useEffect(() => {
-    if (!profile || redirected.current) return;
+    if (!profile || !user || redirected.current) return;
     if (profile.verificationStatus !== "UNVERIFIED") return;
     redirected.current = true;
     void (async () => {
-      const seen = await AsyncStorage.getItem("cg_onboarding_seen");
+      const seen = await isOnboardingSeen("cg", user.id);
       if (!seen) router.replace("/caregiver-onboarding" as any);
     })();
-  }, [profile, router]);
+  }, [profile, user, router]);
 
   return (
     <View className="flex-1 bg-background">
@@ -163,6 +163,16 @@ export default function CaregiverHomeScreen() {
           />
         }
       >
+      {/* Quick search */}
+      <View className="px-5 mb-4">
+        <SearchInput
+          value={query}
+          onChangeText={setQuery}
+          accent="#16a34a"
+          placeholder="Search visits by patient or area"
+        />
+      </View>
+
       {/* Greeting card */}
       <View className="px-5 mb-4">
         <GreetingCard
@@ -172,16 +182,6 @@ export default function CaregiverHomeScreen() {
           dateLabel={getDateLabel()}
           offerCount={offerCount}
           photoUrl={profile?.photoUrl}
-        />
-      </View>
-
-      {/* Quick search */}
-      <View className="px-5 mb-4">
-        <SearchInput
-          value={query}
-          onChangeText={setQuery}
-          accent="#16a34a"
-          placeholder="Search visits by patient or area"
         />
       </View>
 
@@ -307,7 +307,6 @@ export default function CaregiverHomeScreen() {
           icon="calendar-outline"
           tint="#1d4ed8"
           bg="#eff6ff"
-          border="#bfdbfe"
         />
         <StatCard
           value={String(completedCount)}
@@ -316,7 +315,6 @@ export default function CaregiverHomeScreen() {
           icon="checkmark-done-outline"
           tint="#15803d"
           bg="#f0fdf4"
-          border="#bbf7d0"
         />
         <StatCard
           value={ratingLabel}
@@ -325,7 +323,7 @@ export default function CaregiverHomeScreen() {
           icon="star"
           tint="#b45309"
           bg="#fffbeb"
-          border="#fde68a"
+          onPress={() => router.push("/caregiver-reviews" as any)}
         />
       </View>
 

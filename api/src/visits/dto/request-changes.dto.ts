@@ -1,12 +1,17 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, MaxLength, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class RequestChangesDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 'Please add the patient’s blood pressure reading.',
   })
-  @IsOptional()
+  @Transform(({ value }) => {
+    const v: unknown = value;
+    return typeof v === 'string' ? v.trim() : v;
+  })
   @IsString()
+  @MinLength(3)
   @MaxLength(500)
-  note?: string;
+  note!: string;
 }

@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,7 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CareRecipientCard } from "@/components/care-plan/CareRecipientCard";
 import { CoordinatorCard } from "@/components/care-plan/CoordinatorCard";
-import { NurseReviewCard } from "@/components/care-plan/NurseReviewCard";
+import { ReviewSheet } from "@/components/care-plan/ReviewSheet";
 import { RenewalCard } from "@/components/care-plan/RenewalCard";
 import { TeamNurseRow } from "@/components/care-plan/TeamNurseRow";
 import { VisitRow } from "@/components/care-plan/VisitRow";
@@ -23,7 +24,7 @@ import {
 } from "@/constants/subscription-presentation";
 import { useFamilyProfile } from "@/hooks/useFamily";
 import { useRefresh } from "@/hooks/useRefresh";
-import { usePendingReview } from "@/hooks/useReviews";
+import { useReviewStatus } from "@/hooks/useReviews";
 import { usePastCareDetail } from "@/hooks/useSubscription";
 import type {
   ApiPastCareDetail,
@@ -104,7 +105,10 @@ function LoadedDetail({
 }) {
   const router = useRouter();
   const { data: family, refetch: refetchFamily } = useFamilyProfile();
-  const { data: pendingReview, refetch: refetchReview } = usePendingReview();
+  const { data: reviewStatus, refetch: refetchReview } = useReviewStatus(
+    detail.id,
+  );
+  const [reviewOpen, setReviewOpen] = useState(false);
   const { refreshing, onRefresh } = useRefresh([
     refetchDetail,
     refetchFamily,
@@ -113,9 +117,11 @@ function LoadedDetail({
   const ended = detail.status === "CANCELLED";
   const chip = statusChip(detail.status);
   const visits = sortVisits(detail.visits);
-  // A mandatory nurse review is due when this engagement's cycle is complete.
-  const reviewDue =
-    !!pendingReview && pendingReview.subscriptionId === detail.id;
+  // Nurses still awaiting a rating on this plan. A mandatory review is "due"
+  // once the care visits are complete; before that the button is disabled.
+  const toReview = reviewStatus?.caregivers ?? [];
+  const canReview = !!reviewStatus?.visitsComplete && toReview.length > 0;
+  const reviewDue = canReview;
 
   return (
     <ScrollView
@@ -161,17 +167,56 @@ function LoadedDetail({
         </View>
       </View>
 
-      {/* Mandatory nurse review(s) once the cycle is complete — lead + assistant */}
-      {reviewDue &&
-        pendingReview &&
-        pendingReview.caregivers.map((cg) => (
-          <NurseReviewCard
-            key={cg.caregiverId}
-            subscriptionId={pendingReview.subscriptionId}
-            packageName={pendingReview.packageName}
-            caregiver={cg}
-          />
-        ))}
+      {/* Rate your nurse — always reachable, but disabled until every care
+          visit is done. Also lets a family rate a plan they forgot, even once
+          it has become previous care. */}
+      {toReview.length > 0 && (
+        <View style={{ marginTop: 16 }}>
+          <Pressable
+            onPress={() => canReview && setReviewOpen(true)}
+            disabled={!canReview}
+            className="flex-row items-center justify-center rounded-2xl"
+            style={{
+              backgroundColor: canReview ? "#1e3a8a" : "#eef2f6",
+              paddingVertical: 15,
+              gap: 8,
+            }}
+          >
+            <Ionicons
+              name="star"
+              size={17}
+              color={canReview ? "#ffffff" : "#9ca3af"}
+            />
+            <Text
+              style={{
+                color: canReview ? "#ffffff" : "#9ca3af",
+                fontSize: 15,
+                fontWeight: "700",
+              }}
+            >
+              {toReview.length > 1 ? "Rate your care team" : "Rate your nurse"}
+            </Text>
+          </Pressable>
+          {!canReview && (
+            <Text
+              className="text-muted"
+              style={{ fontSize: 12, marginTop: 6, textAlign: "center", lineHeight: 17 }}
+            >
+              Available once all care visits are complete.
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Already rated — a quiet confirmation once the cycle is complete */}
+      {reviewStatus?.visitsComplete && toReview.length === 0 && (
+        <View className="flex-row items-center justify-center" style={{ gap: 6, marginTop: 16 }}>
+          <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+          <Text style={{ color: "#16a34a", fontSize: 13, fontWeight: "600" }}>
+            You&apos;ve rated your care team
+          </Text>
+        </View>
+      )}
 
       {/* Renewal decision — unlocked only after the nurse has been rated */}
       {detail.status === "RENEWING" && !reviewDue && (
@@ -224,6 +269,15 @@ function LoadedDetail({
             ))}
           </ScrollView>
         </>
+      )}
+
+      {/* Rating sheet — slides up from below with a form per un-rated nurse */}
+      {reviewStatus && (
+        <ReviewSheet
+          visible={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+          status={reviewStatus}
+        />
       )}
     </ScrollView>
   );

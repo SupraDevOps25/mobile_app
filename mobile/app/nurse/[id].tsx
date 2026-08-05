@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PACKAGE_LABELS } from "@/constants/package-presentation";
 import { ASSIGNMENT_ROLE_LABELS } from "@/constants/subscription-presentation";
 import { useRefresh } from "@/hooks/useRefresh";
 import {
@@ -17,6 +18,56 @@ import {
   usePastCareDetail,
 } from "@/hooks/useSubscription";
 import { avatarColor } from "@/lib/avatar";
+import type { ApiNurseReview } from "@/services/subscription.service";
+
+const REVIEW_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function reviewDate(iso: string): string {
+  const d = new Date(iso);
+  return `${REVIEW_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function Stars({ rating }: { rating: number }) {
+  return (
+    <View className="flex-row" style={{ gap: 2 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Ionicons
+          key={n}
+          name={n <= rating ? "star" : "star-outline"}
+          size={13}
+          color={n <= rating ? "#f59e0b" : "#d1d5db"}
+        />
+      ))}
+    </View>
+  );
+}
+
+function ReviewRow({ review }: { review: ApiNurseReview }) {
+  return (
+    <View
+      className="bg-card rounded-2xl p-4 mb-3"
+      style={{ borderWidth: 1, borderColor: "#f3f4f6" }}
+    >
+      <View className="flex-row items-center justify-between">
+        <Stars rating={review.rating} />
+        <Text className="text-muted" style={{ fontSize: 12 }}>
+          {reviewDate(review.createdAt)}
+        </Text>
+      </View>
+      {review.comment ? (
+        <Text className="text-foreground" style={{ fontSize: 13.5, lineHeight: 20, marginTop: 8 }}>
+          &ldquo;{review.comment}&rdquo;
+        </Text>
+      ) : null}
+      <Text className="text-muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+        {PACKAGE_LABELS[review.packageType]}
+      </Text>
+    </View>
+  );
+}
 
 function Stat({
   value,
@@ -130,7 +181,12 @@ export default function NurseProfileScreen() {
     pastDetail?.careTeam.nurses.find((n) => n.assignmentId === id);
   const isLead = nurse?.role === "PRIMARY";
 
-  if (isLoading || (!!sub && pastLoading)) {
+  // Only wait on the source we actually navigated from — a past engagement's
+  // nurse comes from the (already-cached) pastDetail, so we must not block on
+  // the unrelated active-subscription query. And if the nurse already resolved
+  // from cache, show them immediately instead of flashing a spinner.
+  const sourceLoading = sub ? pastLoading : isLoading;
+  if (!nurse && sourceLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator color="#1e3a8a" />
@@ -275,6 +331,33 @@ export default function NurseProfileScreen() {
                 {nurse.bio}
               </Text>
             </View>
+          </>
+        )}
+
+        {/* Reviews from families — real ratings the nurse has received */}
+        {nurse.reviews.length > 0 && (
+          <>
+            <View
+              className="flex-row items-center justify-between"
+              style={{ marginTop: 24, marginBottom: 12 }}
+            >
+              <Text
+                className="text-muted font-semibold"
+                style={{ fontSize: 11, letterSpacing: 1 }}
+              >
+                REVIEWS
+              </Text>
+              <View className="flex-row items-center" style={{ gap: 6 }}>
+                <Ionicons name="star" size={13} color="#f59e0b" />
+                <Text className="text-foreground font-semibold" style={{ fontSize: 12.5 }}>
+                  {nurse.rating.toFixed(1)} · {nurse.totalReviews}{" "}
+                  {nurse.totalReviews === 1 ? "review" : "reviews"}
+                </Text>
+              </View>
+            </View>
+            {nurse.reviews.map((r) => (
+              <ReviewRow key={r.id} review={r} />
+            ))}
           </>
         )}
 

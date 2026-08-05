@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CustomPackageRequestSheet } from "@/components/packages/CustomPackageRequestSheet";
 import { PackageCard } from "@/components/packages/PackageCard";
 import { toPackageView } from "@/constants/package-presentation";
 import { usePackages } from "@/hooks/usePackages";
@@ -19,6 +21,7 @@ export default function PackagesScreen() {
   const { top } = useSafeAreaInsets();
   const { data: packages, isLoading, isError, refetch } = usePackages();
   const { refreshing, onRefresh } = useRefresh(refetch);
+  const [requestOpen, setRequestOpen] = useState(false);
 
   return (
     <View className="flex-1 bg-background">
@@ -82,9 +85,36 @@ export default function PackagesScreen() {
           })
         )}
 
+        {/* No package fits? — describe custom needs; emailed to the admin team */}
+        <View
+          className="rounded-2xl p-4 mt-4"
+          style={{ backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#e5e7eb" }}
+        >
+          <View className="flex-row items-center" style={{ gap: 8 }}>
+            <Ionicons name="sparkles-outline" size={18} color="#1e3a8a" />
+            <Text className="text-foreground font-bold" style={{ fontSize: 15, flex: 1 }}>
+              No package fits your situation?
+            </Text>
+          </View>
+          <Text className="text-muted" style={{ fontSize: 13, lineHeight: 19, marginTop: 6 }}>
+            Tell us what you need and our team will tailor the right care plan for
+            your loved one.
+          </Text>
+          <Pressable
+            onPress={() => setRequestOpen(true)}
+            className="rounded-2xl items-center justify-center mt-3 flex-row"
+            style={{ backgroundColor: "#1e3a8a", paddingVertical: 13, gap: 8 }}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color="#ffffff" />
+            <Text className="text-white font-bold" style={{ fontSize: 14 }}>
+              Tell us what you need
+            </Text>
+          </Pressable>
+        </View>
+
         {/* How it works note */}
         <View
-          className="flex-row rounded-2xl p-4 mt-2"
+          className="flex-row rounded-2xl p-4 mt-3"
           style={{ backgroundColor: "#eff6ff" }}
         >
           <Ionicons name="information-circle-outline" size={18} color="#2563eb" />
@@ -96,6 +126,11 @@ export default function PackagesScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <CustomPackageRequestSheet
+        visible={requestOpen}
+        onClose={() => setRequestOpen(false)}
+      />
     </View>
   );
 }

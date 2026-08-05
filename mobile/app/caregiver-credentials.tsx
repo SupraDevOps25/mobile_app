@@ -125,7 +125,7 @@ export default function CaregiverCredentialsScreen() {
       >
         <Text className="text-muted" style={{ fontSize: 13, lineHeight: 19, marginTop: 4 }}>
           Upload your Ghana Card and Nursing & Midwifery PIN card. Accepted:
-          JPG, PNG or PDF — max 5 MB each. Your documents are stored securely and
+          JPG, PNG or PDF — max 2 MB each. Your documents are stored securely and
           reviewed by our team.
         </Text>
 

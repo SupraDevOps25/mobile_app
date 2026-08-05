@@ -1,57 +1,52 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 
 type Props = {
   value: string;
   label: string;
   trend: string;
   icon: keyof typeof Ionicons.glyphMap;
-  /** Accent colour for the icon, value, label and trend. */
+  /** Accent colour for the icon chip and trend marker. */
   tint: string;
-  /** Pastel card background. */
+  /** Pastel background for the icon chip. */
   bg: string;
-  /** Tinted card border. */
-  border: string;
+  /** When set, the card is tappable (shows a chevron) and calls this on press. */
+  onPress?: () => void;
 };
 
-export function StatCard({ value, label, trend, icon, tint, bg, border }: Props) {
+// A dashboard stat on a white card (shared border + shadow), with a small
+// tinted icon chip for identity. Matches the family dashboard's stat cards.
+export function StatCard({ value, label, trend, icon, tint, bg, onPress }: Props) {
+  const Container = onPress ? Pressable : View;
   return (
-    <View
-      className="flex-1"
-      style={{
-        backgroundColor: bg,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: border,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-        shadowColor: "#0f172a",
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 1,
-      }}
+    <Container
+      onPress={onPress}
+      className="flex-1 bg-card"
+      style={{ ...CARD_SURFACE, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12 }}
     >
-      <View
-        className="items-center justify-center"
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 11,
-          backgroundColor: "rgba(255,255,255,0.7)",
-        }}
-      >
-        <Ionicons name={icon} size={17} color={tint} />
+      <View className="flex-row items-start justify-between">
+        <View
+          className="items-center justify-center"
+          style={{ width: 32, height: 32, borderRadius: 11, backgroundColor: bg }}
+        >
+          <Ionicons name={icon} size={17} color={tint} />
+        </View>
+        {onPress && (
+          <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
+        )}
       </View>
       <Text
-        style={{ color: tint, fontSize: 22, fontWeight: "800", marginTop: 8 }}
+        className="text-foreground"
+        style={{ fontSize: 22, fontWeight: "800", marginTop: 8 }}
         numberOfLines={1}
         adjustsFontSizeToFit
       >
         {value}
       </Text>
       <Text
-        style={{ color: tint, fontSize: 11, fontWeight: "700", opacity: 0.85, marginTop: 1 }}
+        className="text-muted"
+        style={{ fontSize: 11, fontWeight: "700", marginTop: 1 }}
         numberOfLines={1}
       >
         {label}
@@ -60,17 +55,18 @@ export function StatCard({ value, label, trend, icon, tint, bg, border }: Props)
       {/* Trend sub-metric */}
       <View
         className="flex-row items-center"
-        style={{ marginTop: 9, paddingTop: 8, borderTopWidth: 1, borderTopColor: border }}
+        style={{ marginTop: 9, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#eef0f3" }}
       >
-        <Ionicons name="trending-up" size={11} color={tint} style={{ opacity: 0.9 }} />
+        <Ionicons name="trending-up" size={11} color={tint} />
         <Text
-          style={{ color: tint, fontSize: 9.5, fontWeight: "700", marginLeft: 4, opacity: 0.9 }}
+          className="text-muted"
+          style={{ fontSize: 9.5, fontWeight: "700", marginLeft: 4 }}
           numberOfLines={1}
           adjustsFontSizeToFit
         >
           {trend}
         </Text>
       </View>
-    </View>
+    </Container>
   );
 }

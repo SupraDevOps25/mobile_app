@@ -15,6 +15,11 @@ enum Role {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -136,6 +141,12 @@ enum PayoutStatus {
   PAID // disbursed to the nurse
 }
 
+// How a nurse chooses to receive their payouts.
+enum PayoutMethod {
+  MOMO // mobile money
+  BANK // bank transfer
+}
+
 enum NotificationType {
   SUBSCRIPTION_CREATED
   TEAM_ASSIGNED
@@ -161,6 +172,14 @@ model User {
   lastName      String
   role          Role
   emailVerified Boolean  @default(false)
+  // Account standing. BANNED accounts can't log in and are rejected on every
+  // authenticated request.
+  status        UserStatus @default(ACTIVE)
+  banReason     String?
+  bannedAt      DateTime?
+  // Last successful login — captured for admin oversight/security.
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
   // Outbound notification channels (the in-app inbox is always on).
   notifyPush    Boolean  @default(true)
   notifySms     Boolean  @default(true)
@@ -178,6 +197,7 @@ model User {
   coordinatorProfile CoordinatorProfile?
   notifications      Notification[]
   emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
   messages           Message[]
 
   // Coordinator-side relations (role = CARE_COORDINATOR)
@@ -198,6 +218,23 @@ model EmailVerification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("email_verifications")
+}
+
+// Short-lived one-time code emailed to a user who forgot their password. The
+// code is scoped to the user (looked up by their identifier) so a 6-digit code
+// is safe; issuing a new one clears any previous codes for that user.
+model PasswordReset {
+  id        String   @id @default(uuid())
+  code      String
+  userId    String
+  attempts  Int      @default(0) // wrong-code tries; the code is burned past a cap
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
 }
 
 // ─── Nurse (Caregiver) Profile ────────────────────────────────────────────────
@@ -229,6 +266,15 @@ model CaregiverProfile {
   rating             Decimal            @default(0) @db.Decimal(3, 2)
   reliabilityScore   Int                @default(0) // 0–100
   totalReviews       Int                @default(0)
+  // Payout destination (how the nurse gets paid). One channel is used at a
+  // time (payoutMethod); the other channel's fields may sit unused.
+  payoutMethod       PayoutMethod?
+  momoNetwork        String? // MTN, Telecel, AirtelTigo
+  momoNumber         String?
+  momoName           String? // registered mobile-money account name
+  bankName           String?
+  bankAccountNumber  String?
+  bankAccountName    String?
   lat                Float?
   lng                Float?
   fcmToken           String?
@@ -308,6 +354,15 @@ model CoordinatorProfile {
   yearsExperience Int       @default(0) // years in care coordination / nursing
   bio             String? // "about me" blurb
   workplace       String? // where they work (hospital / organisation)
+  // Payout destination (how the coordinator's 8% fee is paid). One channel is
+  // used at a time (payoutMethod); the other channel's fields may sit unused.
+  payoutMethod      PayoutMethod?
+  momoNetwork       String? // MTN, Telecel, AirtelTigo
+  momoNumber        String?
+  momoName          String? // registered mobile-money account name
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

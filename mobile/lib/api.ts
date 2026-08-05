@@ -1,13 +1,35 @@
 import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "@/constants/config";
 
-async function parse<T>(res: Response): Promise<T> {
+// A global "you've been signed out" hook. The AuthContext registers this so the
+// api layer can force a sign-out when an authenticated request is rejected with
+// 401 — e.g. the account was banned or deleted mid-session, or the token
+// expired. Kept module-level so plain service calls (not just hooks) trigger it.
+type UnauthorizedHandler = (message: string) => void;
+let onUnauthorized: UnauthorizedHandler | null = null;
+let unauthorizedInFlight = false;
+
+export function setUnauthorizedHandler(fn: UnauthorizedHandler | null): void {
+  onUnauthorized = fn;
+}
+
+async function parse<T>(res: Response, hadToken: boolean): Promise<T> {
+  // A successful authenticated response means the session is healthy again.
+  if (res.ok) unauthorizedInFlight = false;
+
   const data = (await res.json()) as Record<string, unknown>;
   if (!res.ok) {
     // NestJS returns message as string | string[]
     const raw = data.message;
     const message =
       Array.isArray(raw) ? raw[0] : (raw as string) ?? "Something went wrong";
+
+    // Only for requests we made *while signed in* — a 401 here means the
+    // session is no longer valid (banned/deleted/expired). Fire once.
+    if (res.status === 401 && hadToken && onUnauthorized && !unauthorizedInFlight) {
+      unauthorizedInFlight = true;
+      onUnauthorized(message);
+    }
     throw new Error(message);
   }
   return data as T;
@@ -25,7 +47,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
 
-  return parse<T>(res);
+  return parse<T>(res, Boolean(token));
 }
 
 // Multipart upload. Deliberately does NOT set Content-Type so fetch can add the
@@ -45,7 +67,7 @@ async function upload<T>(
     },
   });
 
-  return parse<T>(res);
+  return parse<T>(res, Boolean(token));
 }
 
 export const api = {

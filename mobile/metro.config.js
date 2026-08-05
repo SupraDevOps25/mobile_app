@@ -16,4 +16,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, "node_modules"),
 ];
 
+// Silence a harmless Metro config-validation warning: @expo/metro-config sets
+// `watcher.unstable_workerThreads`, but the bundled Metro version doesn't list
+// that key in its schema, so it logs "Unknown option" on every build. Deleting
+// it reverts to Metro's own default (the feature was already disabled anyway).
+if (config.watcher && "unstable_workerThreads" in config.watcher) {
+  delete config.watcher.unstable_workerThreads;
+}
+
 module.exports = withNativewind(config);

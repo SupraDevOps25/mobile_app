@@ -7,11 +7,21 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '../common/uploads';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../storage/cloudinary.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { CheckAvailabilityDto } from './dto/check-availability.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { JwtPayload } from './strategies/jwt.strategy';
 
 // Minimal shape of a multer-uploaded file (avoids depending on @types/multer).
 export interface UploadedFile {
@@ -21,18 +31,13 @@ export interface UploadedFile {
   size: number;
 }
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
-import { CheckAvailabilityDto } from './dto/check-availability.dto';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
 export class AuthService {
+  // Wrong password-reset code guesses allowed before the code is invalidated.
+  private static readonly MAX_RESET_ATTEMPTS = 5;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -170,7 +175,108 @@ export class AuthService {
     return { message: 'Verification email resent.' };
   }
 
-  async login(dto: LoginDto) {
+  /** Look up a user by email or +233 phone (same rule as login). */
+  private findByIdentifier(emailOrPhone: string) {
+    return this.prisma.user.findFirst({
+      where: emailOrPhone.includes('@')
+        ? { email: emailOrPhone }
+        : { phone: emailOrPhone },
+    });
+  }
+
+  /** Step 1 of reset: email a short-lived code. Always returns a generic
+   * message so the endpoint never reveals whether an account exists. */
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const generic = {
+      message:
+        'If an account matches that email or phone, a reset code has been sent.',
+    };
+
+    const user = await this.findByIdentifier(dto.emailOrPhone.trim());
+    if (!user) return generic;
+
+    // Fresh code each time — drop any previous ones for this user.
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await this.prisma.$transaction([
+      this.prisma.passwordReset.deleteMany({ where: { userId: user.id } }),
+      this.prisma.passwordReset.create({
+        data: {
+          userId: user.id,
+          code,
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        },
+      }),
+    ]);
+
+    await this.mail.sendPasswordResetEmail(user.email, code, {
+      firstName: user.firstName,
+    });
+
+    return generic;
+  }
+
+  /** Step 2 of reset: verify the code and set a new password. */
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.findByIdentifier(dto.emailOrPhone.trim());
+
+    // Fetch the user's active code (not scoped by the submitted code) so a wrong
+    // guess can be counted against it — a 6-digit code is otherwise brute-
+    // forceable within the 15-minute window even with IP rate limiting.
+    const record = user
+      ? await this.prisma.passwordReset.findFirst({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null;
+
+    // Same generic error whether the identifier, code, or nothing matched.
+    if (!user || !record) {
+      throw new BadRequestException('Invalid or expired reset code');
+    }
+
+    // Expired, or already burned through too many wrong tries — force a re-request.
+    if (
+      record.expiresAt < new Date() ||
+      record.attempts >= AuthService.MAX_RESET_ATTEMPTS
+    ) {
+      await this.prisma.passwordReset.deleteMany({
+        where: { userId: user.id },
+      });
+      throw new BadRequestException(
+        'This reset code is no longer valid. Please request a new one.',
+      );
+    }
+
+    // Wrong code — count the attempt, and burn the code once the cap is reached.
+    if (record.code !== dto.code.trim()) {
+      const attempts = record.attempts + 1;
+      if (attempts >= AuthService.MAX_RESET_ATTEMPTS) {
+        await this.prisma.passwordReset.deleteMany({
+          where: { userId: user.id },
+        });
+      } else {
+        await this.prisma.passwordReset.update({
+          where: { id: record.id },
+          data: { attempts },
+        });
+      }
+      throw new BadRequestException('Invalid or expired reset code');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      }),
+      // Consume every code for this user so it can't be reused.
+      this.prisma.passwordReset.deleteMany({ where: { userId: user.id } }),
+    ]);
+
+    return { reset: true };
+  }
+
+  async login(dto: LoginDto, ip?: string) {
     const isEmail = dto.emailOrPhone.includes('@');
 
     const user = await this.prisma.user.findFirst({
@@ -184,11 +290,25 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.status === UserStatus.BANNED) {
+      throw new ForbiddenException(
+        'Your account has been suspended. Please contact support.',
+      );
+    }
+
     if (!user.emailVerified) {
       throw new ForbiddenException(
         'Please verify your email address before signing in',
       );
     }
+
+    // Record the successful login for admin oversight (best-effort).
+    await this.prisma.user
+      .update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date(), lastLoginIp: ip ?? null },
+      })
+      .catch(() => undefined);
 
     return this.signToken(user.id, user.email, user.role, user.firstName);
   }
@@ -236,8 +356,10 @@ export class AuthService {
 
   private assertImage(file: UploadedFile | undefined) {
     if (!file) throw new BadRequestException('No file was uploaded.');
-    if (file.size > MAX_PHOTO_BYTES) {
-      throw new BadRequestException('Image is too large (max 5 MB).');
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException(
+        `Image is too large. Please choose an image under ${MAX_UPLOAD_LABEL}.`,
+      );
     }
     if (!ALLOWED_IMAGE.includes(file.mimetype)) {
       throw new BadRequestException('Upload a JPG, PNG or WebP image.');

@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { cronsEnabled } from '../common/crons';
 import {
   AssignmentRole,
   AssignmentStatus,
@@ -18,6 +19,8 @@ import {
   SubscriptionStatus,
 } from '@prisma/client';
 import { PACKAGE_SCHEDULE } from '../common/package-schedule';
+import { caregiverVisitCounts } from '../common/reliability';
+import { caregiverReviewStats, reviewStatsFor } from '../common/review-stats';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { rankCaregivers } from './matching';
@@ -176,13 +179,28 @@ export class AssignmentsService {
       priorAssignments.map((a) => a.caregiverId),
     );
 
+    // Reliability inputs (completed vs missed visits) + rating inputs (live from
+    // the Review table) per eligible nurse — the source of truth for both.
+    const eligibleIds = eligible.map((c) => c.id);
+    const [visitCounts, reviewStats] = await Promise.all([
+      caregiverVisitCounts(this.prisma, eligibleIds),
+      caregiverReviewStats(this.prisma, eligibleIds),
+    ]);
+
     const ranked = rankCaregivers(
-      eligible.map((c) => ({
-        id: c.id,
-        yearsExperience: c.yearsExperience,
-        reliabilityScore: c.reliabilityScore,
-        serviceAreas: c.serviceAreas,
-      })),
+      eligible.map((c) => {
+        const counts = visitCounts.get(c.id);
+        const stats = reviewStatsFor(reviewStats, c.id);
+        return {
+          id: c.id,
+          yearsExperience: c.yearsExperience,
+          completedVisits: counts?.completed ?? 0,
+          missedVisits: counts?.missed ?? 0,
+          rating: stats.rating,
+          totalReviews: stats.totalReviews,
+          serviceAreas: c.serviceAreas,
+        };
+      }),
       { recipientArea: subscription.careRecipient.area, priorCaregiverIds },
     );
     const byId = new Map(eligible.map((c) => [c.id, c]));
@@ -340,8 +358,9 @@ export class AssignmentsService {
 
   // ── Escalation cron — runs every minute ───────────────────────────────────
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   async escalateExpiredOffers() {
+    if (!cronsEnabled()) return;
     const now = new Date();
     // expiresAt: { lt: now } only matches live offers (nulls excluded).
     const expired = await this.prisma.assignment.findMany({

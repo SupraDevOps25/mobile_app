@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { qk } from "@/lib/query-keys";
+import { LIVE_REFETCH_MS, qk } from "@/lib/query-keys";
 import { billingService } from "@/services/billing.service";
 
 export function useInvoices() {
   return useQuery({
     queryKey: qk.invoices,
     queryFn: () => billingService.invoices(),
+    // Poll so a coordinator's newly issued invoice surfaces on the family's
+    // dashboard (the "invoice ready" banner) without a manual refresh.
+    refetchInterval: LIVE_REFETCH_MS,
   });
 }
 

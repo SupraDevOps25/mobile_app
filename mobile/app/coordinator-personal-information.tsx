@@ -9,10 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -25,6 +22,7 @@ import {
 } from "@/components/caregiver/profile-fields";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCoordinatorProfile,
@@ -175,6 +173,12 @@ export default function CoordinatorPersonalInformationScreen() {
     ? `${profile.firstName} ${profile.lastName}`.trim()
     : "";
   const photoUrl = profile?.photoUrl ?? null;
+  const memberSince = profile?.memberSince
+    ? new Date(profile.memberSince).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   // The profile-only fields live outside react-hook-form, so compare them to
   // the loaded values; combined with the form's isDirty this keeps "Save" off
@@ -205,11 +209,7 @@ export default function CoordinatorPersonalInformationScreen() {
   const dirty = isDirty || (localBaseline != null && localCurrent !== localBaseline);
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
         <StatusBar style="dark" />
 
         {/* Header */}
@@ -236,12 +236,8 @@ export default function CoordinatorPersonalInformationScreen() {
           </View>
         ) : (
           <>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
+            <KeyboardAwareForm
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 220 }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              automaticallyAdjustKeyboardInsets
             >
               {/* Profile photo */}
               <View className="items-center mt-2 mb-4">
@@ -284,54 +280,132 @@ export default function CoordinatorPersonalInformationScreen() {
                 <Text className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
                   Tap to {photoUrl ? "change" : "add a"} profile photo
                 </Text>
+                {memberSince && (
+                  <View className="flex-row items-center" style={{ marginTop: 4, gap: 4 }}>
+                    <Ionicons name="ribbon-outline" size={13} color="#9ca3af" />
+                    <Text className="text-muted" style={{ fontSize: 12 }}>
+                      Coordinating since {memberSince}
+                    </Text>
+                  </View>
+                )}
               </View>
 
-              {/* Editable details */}
-              <FieldLabel>First name</FieldLabel>
-              <Controller
-                control={control}
-                name="firstName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="First name"
-                    autoCapitalize="words"
-                    error={errors.firstName?.message}
-                  />
-                )}
-              />
+              {/* Name — first & last side by side */}
+              <FieldLabel>Name</FieldLabel>
+              <View className="flex-row" style={{ gap: 12 }}>
+                <Controller
+                  control={control}
+                  name="firstName"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <View
+                      className="flex-1 flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.firstName ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="person-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="First name"
+                        placeholderTextColor="#9ca3af"
+                        autoCapitalize="words"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="lastName"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <View
+                      className="flex-1 flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.lastName ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="person-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="Last name"
+                        placeholderTextColor="#9ca3af"
+                        autoCapitalize="words"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                  )}
+                />
+              </View>
+              {(errors.firstName || errors.lastName) && (
+                <Text style={{ color: "#ef4444", fontSize: 12, marginTop: 6, marginLeft: 8 }}>
+                  {errors.firstName?.message ?? errors.lastName?.message}
+                </Text>
+              )}
 
-              <FieldLabel>Last name</FieldLabel>
-              <Controller
-                control={control}
-                name="lastName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="Last name"
-                    autoCapitalize="words"
-                    error={errors.lastName?.message}
-                  />
-                )}
-              />
-
+              {/* Phone */}
               <FieldLabel>Phone number</FieldLabel>
               <Controller
                 control={control}
                 name="phone"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    placeholder="0244123456"
-                    keyboardType="phone-pad"
-                    error={errors.phone?.message}
-                  />
+                  <>
+                    <View
+                      className="flex-row items-center rounded-full px-4"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: errors.phone ? "#ef4444" : "#e5e7eb",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <Ionicons name="call-outline" size={18} color="#6b7280" />
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        placeholder="0244123456"
+                        placeholderTextColor="#9ca3af"
+                        keyboardType="phone-pad"
+                        maxFontSizeMultiplier={1.2}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 14,
+                          marginLeft: 8,
+                          fontSize: 15,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      />
+                    </View>
+                    {errors.phone && (
+                      <Text style={{ color: "#ef4444", fontSize: 12, marginTop: 6, marginLeft: 8 }}>
+                        {errors.phone.message}
+                      </Text>
+                    )}
+                  </>
                 )}
               />
 
@@ -422,7 +496,7 @@ export default function CoordinatorPersonalInformationScreen() {
                   ? "Your email is verified. Contact support to change it."
                   : "Your email isn't verified yet. Contact support to change it."}
               </Text>
-            </ScrollView>
+            </KeyboardAwareForm>
 
             {/* Sticky footer */}
             <View
@@ -444,6 +518,5 @@ export default function CoordinatorPersonalInformationScreen() {
           </>
         )}
       </View>
-    </KeyboardAvoidingView>
   );
 }

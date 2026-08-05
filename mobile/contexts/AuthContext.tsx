@@ -1,3 +1,5 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import {
   createContext,
@@ -6,6 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Alert } from "react-native";
+import { setUnauthorizedHandler } from "@/lib/api";
 import { registerForPushToken } from "@/lib/push";
 import { notificationService } from "@/services/notification.service";
 import type { Role, User } from "@/types/auth";
@@ -32,6 +36,7 @@ export interface AuthContextValue {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,19 +58,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void hydrate();
   }, []);
 
-  const saveSession = useCallback(async (accessToken: string) => {
-    const decoded = decodeToken(accessToken);
-    const newUser: User = {
-      id: decoded.sub,
-      email: decoded.email,
-      role: decoded.role as Role,
-      firstName: decoded.firstName ?? "",
-    };
-    await SecureStore.setItemAsync("auth_token", accessToken);
-    setToken(accessToken);
-    setUser(newUser);
-    return newUser;
-  }, []);
+  const saveSession = useCallback(
+    async (accessToken: string) => {
+      const decoded = decodeToken(accessToken);
+      const newUser: User = {
+        id: decoded.sub,
+        email: decoded.email,
+        role: decoded.role as Role,
+        firstName: decoded.firstName ?? "",
+      };
+      // Drop any cached data from a previously signed-in account so a new login
+      // never shows the old user's dashboard/cases before its own data loads.
+      queryClient.clear();
+      await SecureStore.setItemAsync("auth_token", accessToken);
+      setToken(accessToken);
+      setUser(newUser);
+      return newUser;
+    },
+    [queryClient],
+  );
 
   // Patch the in-memory user (e.g. after editing personal info) so the UI
   // reflects the change immediately without needing a re-login.
@@ -86,7 +97,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.deleteItemAsync("auth_token");
     setToken(null);
     setUser(null);
-  }, []);
+    // Wipe the query cache so the next account starts clean (no stale
+    // dashboard/cases from the account that just signed out).
+    queryClient.clear();
+  }, [queryClient]);
+
+  // Force a sign-out when an authenticated request comes back 401 — the account
+  // was banned/deleted mid-session, or the token expired. The api layer fires
+  // this once; we clear the session, explain, and send them to sign-in.
+  useEffect(() => {
+    setUnauthorizedHandler((message) => {
+      void (async () => {
+        await logout();
+        const suspended = message?.toLowerCase().includes("suspend");
+        Alert.alert(
+          suspended ? "Account suspended" : "Signed out",
+          suspended
+            ? "Your account has been suspended. Please contact support."
+            : "Your session has ended. Please sign in again.",
+        );
+        router.replace("/sign-in");
+      })();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
 
   const value = useMemo(
     () => ({ user, token, isLoading, saveSession, updateUser, logout }),

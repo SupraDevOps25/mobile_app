@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CARD_SURFACE } from "@/components/ui/AppCard";
 import { useAuth } from "@/hooks/useAuth";
 import { usePayInvoice, useInvoices, useVerifyPayment } from "@/hooks/useBilling";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
@@ -219,8 +220,8 @@ function InvoiceCard({
     <View
       className="bg-card rounded-2xl p-4 mb-3"
       style={{
-        borderWidth: 1,
-        borderColor: highlighted && payable ? "#c7d2fe" : "#f3f4f6",
+        ...CARD_SURFACE,
+        borderColor: highlighted && payable ? "#c7d2fe" : CARD_SURFACE.borderColor,
       }}
     >
       <View className="flex-row items-start justify-between">
