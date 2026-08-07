@@ -24,3 +24,6 @@ Thumbs.db
 # Local DB dump from Neon — contains production data, never commit
 neon-dump.sql
 *.dump
+
+# Personal / non-code working docs (cost tracker, notes) — keep out of the repo
+Supracarer-Infrastructure-and-Costs.md
