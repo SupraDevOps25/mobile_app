@@ -1,0 +1,30 @@
+# EAS Build archive excludes — MONOREPO ROOT.
+# In a monorepo, EAS resolves ignore rules from the git root (here), so this is
+# the file that actually controls what gets uploaded for `eas build`.
+# EAS reinstalls deps and generates native/build output in the cloud, so none of
+# this is needed in the tarball; shipping it just bloats and slows the upload.
+
+# Dependencies (every workspace)
+node_modules/
+**/node_modules/
+
+# Build / export output
+dist/
+**/dist/
+build/
+**/build/
+web-build/
+**/web-build/
+
+# Expo local cache
+.expo/
+**/.expo/
+
+# Sibling workspaces the mobile build does not need
+api/
+admin/
+
+# Misc local cruft
+*.log
+.DS_Store
+Thumbs.db
