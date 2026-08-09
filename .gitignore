@@ -25,5 +25,6 @@ Thumbs.db
 neon-dump.sql
 *.dump
 
-# Personal / non-code working docs (cost tracker, notes) — keep out of the repo
+# Personal / non-code working docs (cost tracker, QA plan, notes) — keep out of the repo
 Supracarer-Infrastructure-and-Costs.md
+Supracarer-QA-Test-Plan.md
