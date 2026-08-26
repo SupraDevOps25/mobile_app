@@ -94,8 +94,10 @@ export function useRequestCoordinatorPayout() {
 
 function useCaseMutation<TArgs>(
   fn: (args: TArgs) => Promise<unknown>,
-  // Optional optimistic patch of the cached case list, applied the moment the
-  // server confirms so the case screen updates without waiting for the refetch.
+  // Optional optimistic patch of the cached case list. Applied in onMutate —
+  // *before* the request — so the case screen (e.g. the assessment / care-start
+  // date field) updates the instant the coordinator picks a value, instead of
+  // waiting for the network round-trip. Rolled back if the request fails.
   optimisticPatch?: (
     args: TArgs,
     cases: ApiCoordinatorCase[],
@@ -104,12 +106,29 @@ function useCaseMutation<TArgs>(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: (_data, args) => {
-      if (optimisticPatch) {
-        qc.setQueryData<ApiCoordinatorCase[]>(qk.coordinatorCases, (prev) =>
-          prev ? optimisticPatch(args, prev) : prev,
+    onMutate: async (args) => {
+      if (!optimisticPatch) return undefined;
+      // Stop any in-flight refetch from clobbering our optimistic value.
+      await qc.cancelQueries({ queryKey: qk.coordinatorCases });
+      const previous = qc.getQueryData<ApiCoordinatorCase[]>(
+        qk.coordinatorCases,
+      );
+      if (previous) {
+        qc.setQueryData<ApiCoordinatorCase[]>(
+          qk.coordinatorCases,
+          optimisticPatch(args, previous),
         );
       }
+      // Hand the snapshot to onError for rollback.
+      return { previous };
+    },
+    onError: (_err, _args, context) => {
+      const previous = (context as { previous?: ApiCoordinatorCase[] })
+        ?.previous;
+      if (previous) qc.setQueryData(qk.coordinatorCases, previous);
+    },
+    // Reconcile with the server once settled (success or rolled-back error).
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: qk.coordinatorCases });
     },
   });

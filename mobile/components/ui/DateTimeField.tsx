@@ -138,12 +138,20 @@ export function DateTimeField({
                   </Text>
                 </Pressable>
               </View>
+              {/* The sheet is always white, so force the picker to the light
+                  appearance too — otherwise a device in dark mode renders the
+                  spinner in light/white text, which is invisible on white.
+                  textColor keeps the wheels dark; accentColor tints selection. */}
               <DateTimePicker
                 value={draft}
                 mode="datetime"
                 display="spinner"
+                themeVariant="light"
+                textColor="#111827"
+                accentColor={GREEN}
                 minimumDate={minimumDate}
                 onChange={(_, d) => d && setDraft(d)}
+                style={{ backgroundColor: "#ffffff" }}
               />
             </Pressable>
           </Pressable>
